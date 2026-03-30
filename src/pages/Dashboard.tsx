@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText } from 'lucide-react';
+import CreateEventDialog from '@/components/CreateEventDialog';
 
 interface Event {
   id: string;
@@ -22,6 +23,7 @@ const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,19 +32,20 @@ const Dashboard = () => {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
+  const fetchEvents = useCallback(async () => {
     if (!user) return;
-    const fetchEvents = async () => {
-      const { data } = await supabase
-        .from('events')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-      setEvents(data ?? []);
-      setLoading(false);
-    };
-    fetchEvents();
+    const { data } = await supabase
+      .from('events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+    setEvents(data ?? []);
+    setLoading(false);
   }, [user]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const publishedCount = events.filter((e) => e.status === 'published').length;
   const draftCount = events.filter((e) => e.status === 'draft').length;
@@ -92,7 +95,7 @@ const Dashboard = () => {
             <h1 className="text-2xl font-display font-bold">Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-1">Manage your event maps</p>
           </div>
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             New Event
           </Button>
@@ -126,7 +129,7 @@ const Dashboard = () => {
                 <p className="text-muted-foreground text-sm mb-4">
                   Create your first event to start mapping routes and points of interest.
                 </p>
-                <Button>
+                <Button onClick={() => setCreateOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Event
                 </Button>
@@ -179,6 +182,15 @@ const Dashboard = () => {
           )}
         </div>
       </main>
+
+      {user && (
+        <CreateEventDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          userId={user.id}
+          onCreated={fetchEvents}
+        />
+      )}
     </div>
   );
 };
