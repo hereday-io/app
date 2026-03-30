@@ -207,8 +207,8 @@ const Dashboard = () => {
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" onCloseAutoFocus={() => { menuActionRef.current = true; }}>
-                          <DropdownMenuItem onClick={() => toggleStatus(event)}>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { menuActionRef.current = true; toggleStatus(event); }}>
                             {event.status === 'published' ? (
                               <><EyeOff className="h-4 w-4 mr-2" /> Unpublish</>
                             ) : (
@@ -217,6 +217,7 @@ const Dashboard = () => {
                           </DropdownMenuItem>
                           {event.status === 'published' && event.slug && (
                             <DropdownMenuItem onClick={() => {
+                              menuActionRef.current = true;
                               navigator.clipboard.writeText(`${window.location.origin}/event/${event.slug}`);
                               toast({ title: 'Share link copied!' });
                             }}>
@@ -224,12 +225,12 @@ const Dashboard = () => {
                               Copy share link
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => setEditEvent(event)}>
+                          <DropdownMenuItem onClick={() => { menuActionRef.current = true; setEditEvent(event); }}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => setDeleteEvent(event)}
+                            onClick={() => { menuActionRef.current = true; setDeleteEvent(event); }}
                             className="text-destructive focus:text-destructive"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />

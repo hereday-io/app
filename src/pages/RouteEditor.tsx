@@ -129,7 +129,9 @@ const RouteEditor = () => {
     const map = mapRef.current;
     if (!map) return;
     const style = BASEMAP_OPTIONS.find((b) => b.id === selectedBasemap)?.style;
-    if (style) map.setStyle(style);
+    if (style && map.getStyle()?.sprite !== style) {
+      map.setStyle(style);
+    }
   }, [selectedBasemap]);
 
   useEffect(() => {
@@ -209,6 +211,7 @@ const RouteEditor = () => {
     if (!map) return;
 
     const render = () => {
+      // Clean up existing route layers/sources
       routes.forEach((route) => {
         const srcId = `route-${route.id}`;
         if (map.getLayer(srcId)) map.removeLayer(srcId);
@@ -264,7 +267,13 @@ const RouteEditor = () => {
     } else {
       map.once('style.load', render);
     }
-  }, [routes, pois, activeRouteId]);
+
+    // Also re-render when style changes (basemap switch)
+    map.on('style.load', render);
+    return () => {
+      map.off('style.load', render);
+    };
+  }, [routes, pois, activeRouteId, selectedBasemap]);
 
   const handleSave = useCallback(async () => {
     if (!eventId) return;
