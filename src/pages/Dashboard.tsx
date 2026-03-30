@@ -5,8 +5,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import CreateEventDialog from '@/components/CreateEventDialog';
+import EditEventDialog from '@/components/EditEventDialog';
+import DeleteEventDialog from '@/components/DeleteEventDialog';
 
 interface Event {
   id: string;
@@ -24,6 +32,8 @@ const Dashboard = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editEvent, setEditEvent] = useState<Event | null>(null);
+  const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -155,7 +165,7 @@ const Dashboard = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div className="hidden sm:flex items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Route className="h-3.5 w-3.5" /> {event.route_count}
@@ -174,6 +184,26 @@ const Dashboard = () => {
                       >
                         {event.status}
                       </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setEditEvent(event)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeleteEvent(event)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardContent>
                 </Card>
@@ -191,6 +221,21 @@ const Dashboard = () => {
           onCreated={fetchEvents}
         />
       )}
+
+      <EditEventDialog
+        open={!!editEvent}
+        onOpenChange={(open) => !open && setEditEvent(null)}
+        event={editEvent}
+        onUpdated={fetchEvents}
+      />
+
+      <DeleteEventDialog
+        open={!!deleteEvent}
+        onOpenChange={(open) => !open && setDeleteEvent(null)}
+        eventId={deleteEvent?.id ?? null}
+        eventName={deleteEvent?.name ?? ''}
+        onDeleted={fetchEvents}
+      />
     </div>
   );
 };
