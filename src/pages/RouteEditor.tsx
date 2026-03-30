@@ -11,6 +11,8 @@ import { poiTone, POI_TYPES } from '@/lib/pois';
 import EditorSidebar from '@/components/editor/EditorSidebar';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import ElevationProfile from '@/components/editor/ElevationProfile';
+import EditorWelcomeModal from '@/components/editor/EditorWelcomeModal';
+import EditorTour from '@/components/editor/EditorTour';
 
 // Mapbox token fetched from backend at runtime
 const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
@@ -54,6 +56,7 @@ const RouteEditor = () => {
   const [selectedBasemap, setSelectedBasemap] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
+  const [tourActive, setTourActive] = useState(false);
 
   // Fetch Mapbox token from backend
   useEffect(() => {
@@ -422,6 +425,9 @@ const RouteEditor = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      <EditorWelcomeModal onStartTour={() => setTourActive(true)} />
+      <EditorTour active={tourActive} onEnd={() => setTourActive(false)} />
+
       <EditorTopBar
         eventName={eventName}
         city={city}
@@ -466,7 +472,7 @@ const RouteEditor = () => {
           />
         )}
 
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" data-tour="map-area">
           <div ref={mapContainerRef} className="w-full h-full" />
 
           <button

@@ -68,7 +68,7 @@ const EditorSidebar = ({
         </section>
 
         {/* Routes */}
-        <section className="space-y-3">
+        <section className="space-y-3" data-tour="sidebar-routes">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold text-sm">Routes</h2>
             <Button variant="ghost" size="sm" onClick={onAddRoute} className="h-7 text-xs">
@@ -144,7 +144,7 @@ const EditorSidebar = ({
         </section>
 
         {/* Snap toggle */}
-        <section className="space-y-2">
+        <section className="space-y-2" data-tour="snap-toggle">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSnapToRoads(!snapToRoads)}
@@ -160,7 +160,7 @@ const EditorSidebar = ({
         </section>
 
         {/* POIs */}
-        <section className="space-y-3">
+        <section className="space-y-3" data-tour="poi-section">
           <h2 className="font-display font-bold text-sm">Points of Interest</h2>
           <div className="flex flex-wrap gap-1.5">
             {POI_TYPES.map((type) => {
