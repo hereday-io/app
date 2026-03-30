@@ -208,6 +208,15 @@ const Dashboard = () => {
                               <><Globe className="h-4 w-4 mr-2" /> Publish</>
                             )}
                           </DropdownMenuItem>
+                          {event.status === 'published' && event.slug && (
+                            <DropdownMenuItem onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/event/${event.slug}`);
+                              toast({ title: 'Share link copied!' });
+                            }}>
+                              <Link className="h-4 w-4 mr-2" />
+                              Copy share link
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => setEditEvent(event)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
