@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { Globe } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -58,6 +60,7 @@ const RouteEditor = () => {
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
   const [tourActive, setTourActive] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
+  const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
 
   // Fetch Mapbox token from backend
@@ -110,6 +113,7 @@ const RouteEditor = () => {
         initialBoundsRef.current = { coords: allCoords, city: data.city ?? '' };
 
         setEventStatus(data.status ?? 'draft');
+        setEventSlug(data.slug ?? null);
         setStatusText('Event loaded.');
         setIsLoading(false);
       });
@@ -382,10 +386,15 @@ const RouteEditor = () => {
       toast({ title: 'Publish failed', description: error.message, variant: 'destructive' });
     } else {
       setEventStatus(newStatus);
+      // Fetch the slug if we don't have it yet
+      if (newStatus === 'published' && !eventSlug) {
+        const { data: updated } = await supabase.from('events').select('slug').eq('id', eventId).single();
+        if (updated?.slug) setEventSlug(updated.slug);
+      }
       toast({ title: newStatus === 'published' ? 'Event published!' : 'Event unpublished' });
     }
     setIsPublishing(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, toast]);
+  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, eventSlug, toast]);
 
   const addRoute = () => {
     const color = ROUTE_COLORS[routes.length % ROUTE_COLORS.length];
@@ -478,6 +487,34 @@ const RouteEditor = () => {
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
       />
+
+      {eventStatus === 'published' && eventSlug && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-1.5 flex items-center justify-between text-xs shrink-0">
+          <span className="text-primary font-medium flex items-center gap-1.5">
+            <Globe className="h-3 w-3" />
+            Published at{' '}
+            <a
+              href={`/event/${eventSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-primary/80"
+            >
+              {window.location.origin}/event/{eventSlug}
+            </a>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs px-2"
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/event/${eventSlug}`);
+              toast({ title: 'Link copied!' });
+            }}
+          >
+            Copy link
+          </Button>
+        </div>
+      )}
 
       <div className="flex flex-1 min-h-0">
         {sidebarOpen && (
