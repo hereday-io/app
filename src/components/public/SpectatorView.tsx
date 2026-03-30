@@ -205,7 +205,16 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
         </div>
 
         {/* Map */}
-        <div ref={mapContainerRef} className="flex-1" />
+        <div className="flex-1 relative">
+          <div ref={mapContainerRef} className="w-full h-full" />
+          {token && (
+            <ElevationProfile
+              route={event.routes[0]}
+              mapboxToken={token}
+              routeColor={event.routes[0]?.color ?? '#2563eb'}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
