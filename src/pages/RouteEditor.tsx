@@ -468,8 +468,11 @@ const RouteEditor = () => {
 
       <EditorTopBar
         eventName={eventName}
+        setEventName={setEventName}
         city={city}
+        setCity={setCity}
         eventDate={eventDate}
+        setEventDate={setEventDate}
         statusText={statusText}
         isSaving={isSaving}
         isSnapping={isSnapping}
