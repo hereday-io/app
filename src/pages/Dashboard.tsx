@@ -38,6 +38,7 @@ const Dashboard = () => {
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const navigate = useNavigate();
+  const menuActionRef = useRef(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
