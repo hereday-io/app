@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +38,7 @@ const Dashboard = () => {
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const navigate = useNavigate();
+  const menuActionRef = useRef(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -160,7 +161,13 @@ const Dashboard = () => {
                 <Card
                   key={event.id}
                   className="border-border/60 hover:border-primary/30 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/editor?id=${event.id}`)}
+                  onClick={() => {
+                    if (menuActionRef.current) {
+                      menuActionRef.current = false;
+                      return;
+                    }
+                    navigate(`/editor?id=${event.id}`);
+                  }}
                 >
                   <CardContent className="py-4 px-5 flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -200,7 +207,7 @@ const Dashboard = () => {
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" onCloseAutoFocus={() => { menuActionRef.current = true; }}>
                           <DropdownMenuItem onClick={() => toggleStatus(event)}>
                             {event.status === 'published' ? (
                               <><EyeOff className="h-4 w-4 mr-2" /> Unpublish</>
