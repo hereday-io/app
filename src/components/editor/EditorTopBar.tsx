@@ -28,12 +28,16 @@ const EditorTopBar = ({
   statusText,
   isSaving,
   isSnapping,
+  isPublishing,
+  isPublished,
   mapboxToken,
   onSave,
   onBack,
   onUndo,
   onClearRoute,
   onLocationSelect,
+  onHelp,
+  onPublish,
 }: EditorTopBarProps) => {
   const meta = [city, eventDate].filter(Boolean).join(' · ');
 
