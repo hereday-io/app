@@ -211,6 +211,7 @@ const RouteEditor = () => {
     if (!map) return;
 
     const render = () => {
+      // Clean up existing route layers/sources
       routes.forEach((route) => {
         const srcId = `route-${route.id}`;
         if (map.getLayer(srcId)) map.removeLayer(srcId);
@@ -266,7 +267,13 @@ const RouteEditor = () => {
     } else {
       map.once('style.load', render);
     }
-  }, [routes, pois, activeRouteId]);
+
+    // Also re-render when style changes (basemap switch)
+    map.on('style.load', render);
+    return () => {
+      map.off('style.load', render);
+    };
+  }, [routes, pois, activeRouteId, selectedBasemap]);
 
   const handleSave = useCallback(async () => {
     if (!eventId) return;
