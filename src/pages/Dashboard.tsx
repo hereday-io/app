@@ -95,7 +95,7 @@ const Dashboard = () => {
             <h1 className="text-2xl font-display font-bold">Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-1">Manage your event maps</p>
           </div>
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             New Event
           </Button>
