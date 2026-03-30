@@ -55,7 +55,7 @@ const RouteEditor = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBasemap, setSelectedBasemap] = useState('light');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // sidebarOpen removed - using floating panels now
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
   const [tourActive, setTourActive] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
