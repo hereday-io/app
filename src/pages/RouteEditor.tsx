@@ -387,7 +387,7 @@ const RouteEditor = () => {
     setIsPublishing(false);
   }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, toast]);
 
-
+  const addRoute = () => {
     const color = ROUTE_COLORS[routes.length % ROUTE_COLORS.length];
     const r = makeRoute(`Route ${routes.length + 1}`, color);
     setRoutes((prev) => [...prev, r]);
