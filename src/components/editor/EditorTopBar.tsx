@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Undo2, Trash2, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
 
 interface EditorTopBarProps {
@@ -9,12 +9,16 @@ interface EditorTopBarProps {
   statusText: string;
   isSaving: boolean;
   isSnapping: boolean;
+  isPublishing?: boolean;
+  isPublished?: boolean;
   mapboxToken: string;
   onSave: () => void;
   onBack: () => void;
   onUndo: () => void;
   onClearRoute: () => void;
   onLocationSelect: (center: [number, number], name: string) => void;
+  onHelp?: () => void;
+  onPublish?: () => void;
 }
 
 const EditorTopBar = ({
@@ -24,12 +28,16 @@ const EditorTopBar = ({
   statusText,
   isSaving,
   isSnapping,
+  isPublishing,
+  isPublished,
   mapboxToken,
   onSave,
   onBack,
   onUndo,
   onClearRoute,
   onLocationSelect,
+  onHelp,
+  onPublish,
 }: EditorTopBarProps) => {
   const meta = [city, eventDate].filter(Boolean).join(' · ');
 
@@ -63,10 +71,21 @@ const EditorTopBar = ({
         <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear active route">
           <Trash2 className="h-4 w-4" />
         </Button>
+        {onHelp && (
+          <Button variant="ghost" size="sm" onClick={onHelp} title="Show editor tour">
+            <HelpCircle className="h-4 w-4" />
+          </Button>
+        )}
         <Button size="sm" onClick={onSave} disabled={isSaving} data-tour="save-button">
           <Save className="h-4 w-4 mr-1" />
           {isSaving ? 'Saving…' : 'Save'}
         </Button>
+        {onPublish && (
+          <Button size="sm" variant={isPublished ? 'secondary' : 'default'} onClick={onPublish} disabled={isPublishing}>
+            <Globe className="h-4 w-4 mr-1" />
+            {isPublishing ? 'Publishing…' : isPublished ? 'Published' : 'Publish'}
+          </Button>
+        )}
       </div>
     </header>
   );

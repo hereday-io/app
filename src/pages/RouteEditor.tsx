@@ -57,6 +57,8 @@ const RouteEditor = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
   const [tourActive, setTourActive] = useState(false);
+  const [eventStatus, setEventStatus] = useState('draft');
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Fetch Mapbox token from backend
   useEffect(() => {
@@ -107,6 +109,7 @@ const RouteEditor = () => {
         const allCoords = loadedRoutes.flatMap((r) => r.routeCoords ?? []);
         initialBoundsRef.current = { coords: allCoords, city: data.city ?? '' };
 
+        setEventStatus(data.status ?? 'draft');
         setStatusText('Event loaded.');
         setIsLoading(false);
       });
@@ -356,6 +359,33 @@ const RouteEditor = () => {
     }
     setIsSaving(false);
   }, [eventId, eventName, city, eventDate, routes, pois, toast]);
+  const handlePublish = useCallback(async () => {
+    if (!eventId) return;
+    setIsPublishing(true);
+    // Save first, then publish
+    const newStatus = eventStatus === 'published' ? 'draft' : 'published';
+    const { error } = await supabase
+      .from('events')
+      .update({
+        name: eventName,
+        city: city || null,
+        event_date: eventDate || null,
+        routes: JSON.parse(JSON.stringify(routes)),
+        pois: JSON.parse(JSON.stringify(pois)),
+        route_count: routes.length,
+        poi_count: pois.length,
+        status: newStatus,
+      })
+      .eq('id', eventId);
+
+    if (error) {
+      toast({ title: 'Publish failed', description: error.message, variant: 'destructive' });
+    } else {
+      setEventStatus(newStatus);
+      toast({ title: newStatus === 'published' ? 'Event published!' : 'Event unpublished' });
+    }
+    setIsPublishing(false);
+  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, toast]);
 
   const addRoute = () => {
     const color = ROUTE_COLORS[routes.length % ROUTE_COLORS.length];
@@ -443,6 +473,10 @@ const RouteEditor = () => {
         onLocationSelect={(center) => {
           mapRef.current?.flyTo({ center, zoom: 14, duration: 1500 });
         }}
+        onHelp={() => setTourActive(true)}
+        onPublish={handlePublish}
+        isPublishing={isPublishing}
+        isPublished={eventStatus === 'published'}
       />
 
       <div className="flex flex-1 min-h-0">
