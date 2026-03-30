@@ -32,19 +32,20 @@ const Dashboard = () => {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
+  const fetchEvents = useCallback(async () => {
     if (!user) return;
-    const fetchEvents = async () => {
-      const { data } = await supabase
-        .from('events')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-      setEvents(data ?? []);
-      setLoading(false);
-    };
-    fetchEvents();
+    const { data } = await supabase
+      .from('events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+    setEvents(data ?? []);
+    setLoading(false);
   }, [user]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const publishedCount = events.filter((e) => e.status === 'published').length;
   const draftCount = events.filter((e) => e.status === 'draft').length;
