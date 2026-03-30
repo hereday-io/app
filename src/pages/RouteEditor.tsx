@@ -473,6 +473,10 @@ const RouteEditor = () => {
         onLocationSelect={(center) => {
           mapRef.current?.flyTo({ center, zoom: 14, duration: 1500 });
         }}
+        onHelp={() => setTourActive(true)}
+        onPublish={handlePublish}
+        isPublishing={isPublishing}
+        isPublished={eventStatus === 'published'}
       />
 
       <div className="flex flex-1 min-h-0">
