@@ -11,8 +11,7 @@ import { poiTone, POI_TYPES } from '@/lib/pois';
 import EditorSidebar from '@/components/editor/EditorSidebar';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 
-// Mapbox public token — set VITE_MAPBOX_TOKEN in your environment
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
+// Mapbox token fetched from backend at runtime
 
 function makeRoute(name: string, color: string): EventRoute {
   return {
