@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
-import { totalDistanceMiles, BASEMAP_OPTIONS } from '@/lib/geo';
+import { totalDistanceMiles, getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import { ArrowLeft, Route, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import ElevationProfile from '@/components/editor/ElevationProfile';
 
 interface RunnerViewProps {
   event: {
@@ -23,8 +24,13 @@ interface RunnerViewProps {
 const RunnerView = ({ event, onBack }: RunnerViewProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const mileMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const { token } = useMapboxToken();
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+
+  const activeRouteForProfile = selectedRoute
+    ? event.routes.find((r) => r.id === selectedRoute)
+    : event.routes[0];
 
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
@@ -91,6 +97,27 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
             )
           )
           .addTo(map);
+      });
+
+      // Mile markers
+      mileMarkersRef.current.forEach((m) => m.remove());
+      mileMarkersRef.current = [];
+      event.routes.forEach((route) => {
+        if (route.routeCoords.length < 2) return;
+        const miles = getMileMarkers(route.routeCoords);
+        miles.forEach(({ mile, coord }) => {
+          const el = document.createElement('div');
+          el.style.cssText = `
+            width: 22px; height: 22px; border-radius: 50%;
+            background: ${route.color}; color: white;
+            border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700; line-height: 1;
+          `;
+          el.textContent = String(mile);
+          const marker = new mapboxgl.Marker(el).setLngLat(coord).addTo(map);
+          mileMarkersRef.current.push(marker);
+        });
       });
 
       // Fit bounds
@@ -208,7 +235,16 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
         </div>
 
         {/* Map */}
-        <div ref={mapContainerRef} className="flex-1" />
+        <div className="flex-1 relative">
+          <div ref={mapContainerRef} className="w-full h-full" />
+          {token && (
+            <ElevationProfile
+              route={activeRouteForProfile}
+              mapboxToken={token}
+              routeColor={activeRouteForProfile?.color ?? '#2563eb'}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
