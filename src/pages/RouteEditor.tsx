@@ -57,6 +57,8 @@ const RouteEditor = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
   const [tourActive, setTourActive] = useState(false);
+  const [eventStatus, setEventStatus] = useState('draft');
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Fetch Mapbox token from backend
   useEffect(() => {
