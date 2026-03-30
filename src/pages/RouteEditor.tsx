@@ -109,6 +109,7 @@ const RouteEditor = () => {
         const allCoords = loadedRoutes.flatMap((r) => r.routeCoords ?? []);
         initialBoundsRef.current = { coords: allCoords, city: data.city ?? '' };
 
+        setEventStatus(data.status ?? 'draft');
         setStatusText('Event loaded.');
         setIsLoading(false);
       });
