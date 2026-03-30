@@ -359,8 +359,35 @@ const RouteEditor = () => {
     }
     setIsSaving(false);
   }, [eventId, eventName, city, eventDate, routes, pois, toast]);
+  const handlePublish = useCallback(async () => {
+    if (!eventId) return;
+    setIsPublishing(true);
+    // Save first, then publish
+    const newStatus = eventStatus === 'published' ? 'draft' : 'published';
+    const { error } = await supabase
+      .from('events')
+      .update({
+        name: eventName,
+        city: city || null,
+        event_date: eventDate || null,
+        routes: JSON.parse(JSON.stringify(routes)),
+        pois: JSON.parse(JSON.stringify(pois)),
+        route_count: routes.length,
+        poi_count: pois.length,
+        status: newStatus,
+      })
+      .eq('id', eventId);
 
-  const addRoute = () => {
+    if (error) {
+      toast({ title: 'Publish failed', description: error.message, variant: 'destructive' });
+    } else {
+      setEventStatus(newStatus);
+      toast({ title: newStatus === 'published' ? 'Event published!' : 'Event unpublished' });
+    }
+    setIsPublishing(false);
+  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, toast]);
+
+
     const color = ROUTE_COLORS[routes.length % ROUTE_COLORS.length];
     const r = makeRoute(`Route ${routes.length + 1}`, color);
     setRoutes((prev) => [...prev, r]);
