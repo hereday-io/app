@@ -263,8 +263,8 @@ const RouteEditor = () => {
         name: eventName,
         city: city || null,
         event_date: eventDate || null,
-        routes: routes as unknown as Record<string, unknown>[],
-        pois: pois as unknown as Record<string, unknown>[],
+        routes: JSON.parse(JSON.stringify(routes)),
+        pois: JSON.parse(JSON.stringify(pois)),
         route_count: routes.length,
         poi_count: pois.length,
       })
