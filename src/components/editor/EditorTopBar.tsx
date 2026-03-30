@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Undo2, Trash2, Save, Loader2 } from 'lucide-react';
+import LocationSearch from '@/components/editor/LocationSearch';
 
 interface EditorTopBarProps {
   eventName: string;
@@ -8,10 +9,12 @@ interface EditorTopBarProps {
   statusText: string;
   isSaving: boolean;
   isSnapping: boolean;
+  mapboxToken: string;
   onSave: () => void;
   onBack: () => void;
   onUndo: () => void;
   onClearRoute: () => void;
+  onLocationSelect: (center: [number, number], name: string) => void;
 }
 
 const EditorTopBar = ({
@@ -21,10 +24,12 @@ const EditorTopBar = ({
   statusText,
   isSaving,
   isSnapping,
+  mapboxToken,
   onSave,
   onBack,
   onUndo,
   onClearRoute,
+  onLocationSelect,
 }: EditorTopBarProps) => {
   const meta = [city, eventDate].filter(Boolean).join(' · ');
 
@@ -49,6 +54,9 @@ const EditorTopBar = ({
         <span className="text-xs text-muted-foreground hidden sm:inline max-w-48 truncate">
           {statusText}
         </span>
+        {mapboxToken && (
+          <LocationSearch token={mapboxToken} onSelect={onLocationSelect} />
+        )}
         <Button variant="ghost" size="sm" onClick={onUndo} title="Undo last point">
           <Undo2 className="h-4 w-4" />
         </Button>

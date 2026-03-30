@@ -365,10 +365,14 @@ const RouteEditor = () => {
         statusText={statusText}
         isSaving={isSaving}
         isSnapping={isSnapping}
+        mapboxToken={mapboxToken}
         onSave={handleSave}
         onBack={() => navigate('/dashboard')}
         onUndo={undoLastWaypoint}
         onClearRoute={clearActiveRoute}
+        onLocationSelect={(center) => {
+          mapRef.current?.flyTo({ center, zoom: 14, duration: 1500 });
+        }}
       />
 
       <div className="flex flex-1 min-h-0">
