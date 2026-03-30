@@ -23,6 +23,7 @@ interface Event {
   city: string | null;
   event_date: string | null;
   status: string;
+  slug: string | null;
   route_count: number;
   poi_count: number;
   created_at: string;
