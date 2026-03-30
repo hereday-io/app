@@ -2,11 +2,12 @@ import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
-import { BASEMAP_OPTIONS } from '@/lib/geo';
+import { getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Car, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import ElevationProfile from '@/components/editor/ElevationProfile';
 
 interface SpectatorViewProps {
   event: {
@@ -71,6 +72,24 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
             'line-dasharray': [2, 2],
           },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
+        });
+      });
+
+      // Mile markers
+      event.routes.forEach((route) => {
+        if (route.routeCoords.length < 2) return;
+        const miles = getMileMarkers(route.routeCoords);
+        miles.forEach(({ mile, coord }) => {
+          const el = document.createElement('div');
+          el.style.cssText = `
+            width: 22px; height: 22px; border-radius: 50%;
+            background: ${route.color}; color: white;
+            border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700; line-height: 1;
+          `;
+          el.textContent = String(mile);
+          new mapboxgl.Marker(el).setLngLat(coord).addTo(map);
         });
       });
 
@@ -186,7 +205,16 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
         </div>
 
         {/* Map */}
-        <div ref={mapContainerRef} className="flex-1" />
+        <div className="flex-1 relative">
+          <div ref={mapContainerRef} className="w-full h-full" />
+          {token && (
+            <ElevationProfile
+              route={event.routes[0]}
+              mapboxToken={token}
+              routeColor={event.routes[0]?.color ?? '#2563eb'}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
