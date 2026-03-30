@@ -36,6 +36,7 @@ const RouteEditor = () => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const currentBasemapRef = useRef('light');
+  const initialBoundsRef = useRef<{ coords: Coord[]; city: string } | null>(null);
 
   const [eventName, setEventName] = useState('Untitled Event');
   const [eventDate, setEventDate] = useState('');
