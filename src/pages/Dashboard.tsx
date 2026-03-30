@@ -31,6 +31,7 @@ interface Event {
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
