@@ -95,6 +95,27 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
           .addTo(map);
       });
 
+      // Mile markers
+      mileMarkersRef.current.forEach((m) => m.remove());
+      mileMarkersRef.current = [];
+      event.routes.forEach((route) => {
+        if (route.routeCoords.length < 2) return;
+        const miles = getMileMarkers(route.routeCoords);
+        miles.forEach(({ mile, coord }) => {
+          const el = document.createElement('div');
+          el.style.cssText = `
+            width: 22px; height: 22px; border-radius: 50%;
+            background: ${route.color}; color: white;
+            border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700; line-height: 1;
+          `;
+          el.textContent = String(mile);
+          const marker = new mapboxgl.Marker(el).setLngLat(coord).addTo(map);
+          mileMarkersRef.current.push(marker);
+        });
+      });
+
       // Fit bounds
       if (allCoords.length > 0) {
         const bounds = new mapboxgl.LngLatBounds();
