@@ -177,7 +177,7 @@ const RouteEditor = () => {
         setIsSnapping(true);
         setStatusText('Snapping to roads...');
         try {
-          const snapped = await getSnappedRoute(nextWaypoints, MAPBOX_TOKEN);
+          const snapped = await getSnappedRoute(nextWaypoints, mapboxToken);
           setRoutes((prev) =>
             prev.map((r) =>
               r.id === activeRouteId
