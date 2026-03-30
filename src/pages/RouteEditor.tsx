@@ -11,8 +11,8 @@ import { poiTone, POI_TYPES } from '@/lib/pois';
 import EditorSidebar from '@/components/editor/EditorSidebar';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 
-// Mapbox public token — set VITE_MAPBOX_TOKEN in your environment
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
+// Mapbox token fetched from backend at runtime
+const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
 
 function makeRoute(name: string, color: string): EventRoute {
   return {
@@ -50,6 +50,15 @@ const RouteEditor = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBasemap, setSelectedBasemap] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
+
+  // Fetch Mapbox token from backend
+  useEffect(() => {
+    if (mapboxToken) return; // already have it from env
+    supabase.functions.invoke('get-mapbox-token').then(({ data, error }) => {
+      if (!error && data?.token) setMapboxToken(data.token);
+    });
+  }, [mapboxToken]);
 
   useEffect(() => {
     if (!activeRouteId && routes.length > 0) setActiveRouteId(routes[0].id);
@@ -93,8 +102,8 @@ const RouteEditor = () => {
   }, [eventId, user, toast]);
 
   useEffect(() => {
-    if (!mapContainerRef.current || !MAPBOX_TOKEN) return;
-    mapboxgl.accessToken = MAPBOX_TOKEN;
+    if (!mapContainerRef.current || !mapboxToken) return;
+    mapboxgl.accessToken = mapboxToken;
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
@@ -110,7 +119,7 @@ const RouteEditor = () => {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [mapboxToken]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -168,7 +177,7 @@ const RouteEditor = () => {
         setIsSnapping(true);
         setStatusText('Snapping to roads...');
         try {
-          const snapped = await getSnappedRoute(nextWaypoints, MAPBOX_TOKEN);
+          const snapped = await getSnappedRoute(nextWaypoints, mapboxToken);
           setRoutes((prev) =>
             prev.map((r) =>
               r.id === activeRouteId
@@ -310,7 +319,7 @@ const RouteEditor = () => {
     if (snapToRoads && nextWaypoints.length >= 2) {
       setIsSnapping(true);
       try {
-        const snapped = await getSnappedRoute(nextWaypoints, MAPBOX_TOKEN);
+        const snapped = await getSnappedRoute(nextWaypoints, mapboxToken);
         setRoutes((prev) =>
           prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: nextWaypoints, routeCoords: snapped } : r))
         );
