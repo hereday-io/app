@@ -22,7 +22,9 @@ export type Database = {
           id: string
           name: string
           poi_count: number
+          pois: Json
           route_count: number
+          routes: Json
           slug: string | null
           status: string
           updated_at: string
@@ -35,7 +37,9 @@ export type Database = {
           id?: string
           name: string
           poi_count?: number
+          pois?: Json
           route_count?: number
+          routes?: Json
           slug?: string | null
           status?: string
           updated_at?: string
@@ -48,7 +52,9 @@ export type Database = {
           id?: string
           name?: string
           poi_count?: number
+          pois?: Json
           route_count?: number
+          routes?: Json
           slug?: string | null
           status?: string
           updated_at?: string

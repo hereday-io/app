@@ -157,6 +157,7 @@ const Dashboard = () => {
                 <Card
                   key={event.id}
                   className="border-border/60 hover:border-primary/30 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/editor?id=${event.id}`)}
                 >
                   <CardContent className="py-4 px-5 flex items-center justify-between">
                     <div className="flex items-center gap-4">
