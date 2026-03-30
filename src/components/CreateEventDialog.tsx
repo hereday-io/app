@@ -40,11 +40,14 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
     if (!name.trim()) return;
     setSaving(true);
 
+    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.random().toString(36).slice(2, 7);
+
     const { error } = await supabase.from('events').insert({
       user_id: userId,
       name: name.trim(),
       city: city.trim() || null,
       event_date: date ? format(date, 'yyyy-MM-dd') : null,
+      slug,
     });
 
     if (error) {
