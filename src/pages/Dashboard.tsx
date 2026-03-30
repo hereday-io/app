@@ -53,6 +53,12 @@ const Dashboard = () => {
     setLoading(false);
   }, [user]);
 
+  const toggleStatus = async (event: Event) => {
+    const newStatus = event.status === 'published' ? 'draft' : 'published';
+    await supabase.from('events').update({ status: newStatus }).eq('id', event.id);
+    fetchEvents();
+  };
+
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
