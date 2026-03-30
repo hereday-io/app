@@ -244,7 +244,15 @@ const Dashboard = () => {
           open={createOpen}
           onOpenChange={setCreateOpen}
           userId={user.id}
-          onCreated={fetchEvents}
+          onCreated={(eventId, cityCenter) => {
+            fetchEvents();
+            const params = new URLSearchParams({ id: eventId });
+            if (cityCenter) {
+              params.set('lng', String(cityCenter[0]));
+              params.set('lat', String(cityCenter[1]));
+            }
+            navigate(`/editor?${params.toString()}`);
+          }}
         />
       )}
 

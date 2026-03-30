@@ -105,11 +105,15 @@ const RouteEditor = () => {
     if (!mapContainerRef.current || !mapboxToken) return;
     mapboxgl.accessToken = mapboxToken;
 
+    const lng = parseFloat(searchParams.get('lng') || '') || -98.5;
+    const lat = parseFloat(searchParams.get('lat') || '') || 39.8;
+    const initialZoom = searchParams.get('lng') ? 13 : 4;
+
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: BASEMAP_OPTIONS.find((b) => b.id === selectedBasemap)?.style ?? BASEMAP_OPTIONS[2].style,
-      center: [-98.5, 39.8],
-      zoom: 4,
+      center: [lng, lat],
+      zoom: initialZoom,
     });
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
