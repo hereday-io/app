@@ -50,6 +50,15 @@ const RouteEditor = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBasemap, setSelectedBasemap] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
+
+  // Fetch Mapbox token from backend
+  useEffect(() => {
+    if (mapboxToken) return; // already have it from env
+    supabase.functions.invoke('get-mapbox-token').then(({ data, error }) => {
+      if (!error && data?.token) setMapboxToken(data.token);
+    });
+  }, [mapboxToken]);
 
   useEffect(() => {
     if (!activeRouteId && routes.length > 0) setActiveRouteId(routes[0].id);
