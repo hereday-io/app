@@ -1,0 +1,1 @@
+UPDATE events SET slug = LOWER(REGEXP_REPLACE(name, '[^a-zA-Z0-9]+', '-', 'g')) || '-' || SUBSTR(gen_random_uuid()::text, 1, 5) WHERE slug IS NULL;
