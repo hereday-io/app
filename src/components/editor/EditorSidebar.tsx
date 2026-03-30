@@ -68,7 +68,7 @@ const EditorSidebar = ({
         </section>
 
         {/* Routes */}
-        <section className="space-y-3">
+        <section className="space-y-3" data-tour="sidebar-routes">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold text-sm">Routes</h2>
             <Button variant="ghost" size="sm" onClick={onAddRoute} className="h-7 text-xs">
