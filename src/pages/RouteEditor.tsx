@@ -119,7 +119,7 @@ const RouteEditor = () => {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [mapboxToken]);
 
   useEffect(() => {
     const map = mapRef.current;
