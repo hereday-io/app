@@ -486,6 +486,7 @@ const RouteEditor = () => {
         onPublish={handlePublish}
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
+        publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
       />
 
 
