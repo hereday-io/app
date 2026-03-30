@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Globe } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -486,35 +484,10 @@ const RouteEditor = () => {
         onPublish={handlePublish}
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
+        publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
       />
 
-      {eventStatus === 'published' && eventSlug && (
-        <div className="bg-primary/10 border-b border-primary/20 px-4 py-1.5 flex items-center justify-between text-xs shrink-0">
-          <span className="text-primary font-medium flex items-center gap-1.5">
-            <Globe className="h-3 w-3" />
-            Published at{' '}
-            <a
-              href={`/event/${eventSlug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-primary/80"
-            >
-              {window.location.origin}/event/{eventSlug}
-            </a>
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-xs px-2"
-            onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/event/${eventSlug}`);
-              toast({ title: 'Link copied!' });
-            }}
-          >
-            Copy link
-          </Button>
-        </div>
-      )}
+
 
       <div className="flex flex-1 min-h-0">
         {sidebarOpen && (
