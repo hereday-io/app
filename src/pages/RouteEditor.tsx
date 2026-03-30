@@ -78,12 +78,14 @@ const RouteEditor = () => {
         setEventDate(data.event_date ?? '');
         setCity(data.city ?? '');
 
-        const loadedRoutes = Array.isArray(data.routes) && (data.routes as EventRoute[]).length > 0
-          ? (data.routes as EventRoute[])
+        const rawRoutes = data.routes as unknown;
+        const loadedRoutes = Array.isArray(rawRoutes) && (rawRoutes as EventRoute[]).length > 0
+          ? (rawRoutes as EventRoute[])
           : [makeRoute('5K Route', ROUTE_COLORS[0])];
         setRoutes(loadedRoutes);
         setActiveRouteId(loadedRoutes[0]?.id ?? '');
-        setPois(Array.isArray(data.pois) ? (data.pois as RoutePoi[]) : []);
+        const rawPois = data.pois as unknown;
+        setPois(Array.isArray(rawPois) ? (rawPois as RoutePoi[]) : []);
         setStatusText('Event loaded.');
         setIsLoading(false);
       });
