@@ -61,6 +61,33 @@ export async function getSnappedRoute(
   return allCoords.length > 0 ? allCoords : [...waypoints];
 }
 
+/**
+ * Returns coordinates at each whole-mile mark along a route.
+ */
+export function getMileMarkers(coords: Coord[]): { mile: number; coord: Coord }[] {
+  if (coords.length < 2) return [];
+  const markers: { mile: number; coord: Coord }[] = [];
+  let cumulative = 0;
+  let nextMile = 1;
+
+  for (let i = 1; i < coords.length; i++) {
+    const segDist = haversine(coords[i - 1], coords[i]);
+    const prevCumulative = cumulative;
+    cumulative += segDist;
+
+    while (cumulative >= nextMile) {
+      // Interpolate position along this segment
+      const overshoot = nextMile - prevCumulative;
+      const t = segDist > 0 ? overshoot / segDist : 0;
+      const lng = coords[i - 1][0] + t * (coords[i][0] - coords[i - 1][0]);
+      const lat = coords[i - 1][1] + t * (coords[i][1] - coords[i - 1][1]);
+      markers.push({ mile: nextMile, coord: [lng, lat] });
+      nextMile++;
+    }
+  }
+  return markers;
+}
+
 export const ROUTE_COLORS = [
   '#2563eb', '#dc2626', '#16a34a', '#7c3aed',
   '#ea580c', '#0891b2', '#db2777', '#65a30d',
