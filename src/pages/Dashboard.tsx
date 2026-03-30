@@ -207,7 +207,7 @@ const Dashboard = () => {
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" onCloseAutoFocus={() => { menuActionRef.current = true; }}>
                           <DropdownMenuItem onClick={() => toggleStatus(event)}>
                             {event.status === 'published' ? (
                               <><EyeOff className="h-4 w-4 mr-2" /> Unpublish</>
