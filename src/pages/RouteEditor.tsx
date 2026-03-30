@@ -35,6 +35,7 @@ const RouteEditor = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const currentBasemapRef = useRef('light');
 
   const [eventName, setEventName] = useState('Untitled Event');
   const [eventDate, setEventDate] = useState('');
@@ -128,10 +129,10 @@ const RouteEditor = () => {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    if (selectedBasemap === currentBasemapRef.current) return;
+    currentBasemapRef.current = selectedBasemap;
     const style = BASEMAP_OPTIONS.find((b) => b.id === selectedBasemap)?.style;
-    if (style && map.getStyle()?.sprite !== style) {
-      map.setStyle(style);
-    }
+    if (style) map.setStyle(style);
   }, [selectedBasemap]);
 
   useEffect(() => {
