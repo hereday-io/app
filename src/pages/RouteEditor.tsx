@@ -491,64 +491,48 @@ const RouteEditor = () => {
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
       />
 
+      <div className="flex-1 relative" data-tour="map-area">
+        <div ref={mapContainerRef} className="w-full h-full" />
 
+        <MapToolbar
+          snapToRoads={snapToRoads}
+          setSnapToRoads={setSnapToRoads}
+          pendingPoiType={pendingPoiType}
+          setPendingPoiType={setPendingPoiType}
+        />
 
-      <div className="flex flex-1 min-h-0">
-        {sidebarOpen && (
-          <EditorSidebar
-            eventName={eventName}
-            setEventName={setEventName}
-            eventDate={eventDate}
-            setEventDate={setEventDate}
-            city={city}
-            setCity={setCity}
-            routes={routes}
-            activeRouteId={activeRouteId}
-            setActiveRouteId={setActiveRouteId}
-            setRoutes={setRoutes}
-            onAddRoute={addRoute}
-            onDeleteRoute={deleteRoute}
-            pois={pois}
-            setPois={setPois}
-            pendingPoiType={pendingPoiType}
-            setPendingPoiType={setPendingPoiType}
-            snapToRoads={snapToRoads}
-            setSnapToRoads={setSnapToRoads}
-            activeDistance={activeDistance}
-            selectedBasemap={selectedBasemap}
-            setSelectedBasemap={setSelectedBasemap}
-          />
+        <LayersPanel
+          routes={routes}
+          activeRouteId={activeRouteId}
+          setActiveRouteId={setActiveRouteId}
+          setRoutes={setRoutes}
+          onAddRoute={addRoute}
+          onDeleteRoute={deleteRoute}
+          pois={pois}
+          setPois={setPois}
+          activeDistance={activeDistance}
+          selectedBasemap={selectedBasemap}
+          setSelectedBasemap={setSelectedBasemap}
+        />
+
+        <ElevationProfile
+          route={activeRoute}
+          mapboxToken={mapboxToken}
+          routeColor={activeRoute?.color ?? '#2563eb'}
+        />
+
+        {pendingPoiType && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-card/95 backdrop-blur border border-border rounded-full px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2">
+            <span>{poiTone(pendingPoiType).emoji}</span>
+            Click map to place {poiTone(pendingPoiType).label.toLowerCase()}
+            <button
+              onClick={() => setPendingPoiType(null)}
+              className="ml-2 text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
         )}
-
-        <div className="flex-1 relative" data-tour="map-area">
-          <div ref={mapContainerRef} className="w-full h-full" />
-
-          <button
-            onClick={() => setSidebarOpen((v) => !v)}
-            className="absolute top-4 left-4 z-10 bg-card/95 backdrop-blur border border-border rounded-full px-3 py-2 text-xs font-semibold shadow-lg hover:bg-secondary transition-colors"
-          >
-            {sidebarOpen ? '← Hide panel' : '→ Show panel'}
-          </button>
-
-          <ElevationProfile
-            route={activeRoute}
-            mapboxToken={mapboxToken}
-            routeColor={activeRoute?.color ?? '#2563eb'}
-          />
-
-          {pendingPoiType && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-card/95 backdrop-blur border border-border rounded-full px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2">
-              <span>{poiTone(pendingPoiType).emoji}</span>
-              Click map to place {poiTone(pendingPoiType).label.toLowerCase()}
-              <button
-                onClick={() => setPendingPoiType(null)}
-                className="ml-2 text-muted-foreground hover:text-foreground"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
