@@ -160,7 +160,7 @@ const EditorSidebar = ({
         </section>
 
         {/* POIs */}
-        <section className="space-y-3">
+        <section className="space-y-3" data-tour="poi-section">
           <h2 className="font-display font-bold text-sm">Points of Interest</h2>
           <div className="flex flex-wrap gap-1.5">
             {POI_TYPES.map((type) => {
