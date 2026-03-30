@@ -23,6 +23,7 @@ const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
