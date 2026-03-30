@@ -20,20 +20,24 @@ import {
 } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useMapboxToken } from '@/hooks/useMapboxToken';
+import CitySearch from '@/components/editor/CitySearch';
 
 interface CreateEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId: string;
-  onCreated: () => void;
+  onCreated: (eventId: string, cityCenter: [number, number] | null) => void;
 }
 
 const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEventDialogProps) => {
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
+  const [cityCenter, setCityCenter] = useState<[number, number] | null>(null);
   const [date, setDate] = useState<Date>();
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { token: mapboxToken } = useMapboxToken();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,23 +46,25 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
 
     const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.random().toString(36).slice(2, 7);
 
-    const { error } = await supabase.from('events').insert({
+    const { data, error } = await supabase.from('events').insert({
       user_id: userId,
       name: name.trim(),
       city: city.trim() || null,
       event_date: date ? format(date, 'yyyy-MM-dd') : null,
       slug,
-    });
+    }).select('id').single();
 
-    if (error) {
-      toast({ title: 'Failed to create event', description: error.message, variant: 'destructive' });
+    if (error || !data) {
+      toast({ title: 'Failed to create event', description: error?.message, variant: 'destructive' });
     } else {
       toast({ title: 'Event created' });
+      const center = cityCenter;
       setName('');
       setCity('');
+      setCityCenter(null);
       setDate(undefined);
       onOpenChange(false);
-      onCreated();
+      onCreated(data.id, center);
     }
     setSaving(false);
   };
@@ -82,13 +88,23 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="event-city">City</Label>
-            <Input
-              id="event-city"
-              placeholder="San Francisco"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-            />
+            <Label>City</Label>
+            {mapboxToken ? (
+              <CitySearch
+                value={city}
+                onChange={(val, center) => {
+                  setCity(val);
+                  if (center) setCityCenter(center);
+                }}
+                token={mapboxToken}
+              />
+            ) : (
+              <Input
+                placeholder="San Francisco"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+              />
+            )}
           </div>
           <div className="space-y-2">
             <Label>Event date</Label>
