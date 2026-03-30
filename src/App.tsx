@@ -11,6 +11,7 @@ import ForgotPassword from "./pages/ForgotPassword.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import RouteEditor from "./pages/RouteEditor.tsx";
+import EventPublic from "./pages/EventPublic.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
