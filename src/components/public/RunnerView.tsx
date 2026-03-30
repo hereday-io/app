@@ -231,7 +231,16 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
         </div>
 
         {/* Map */}
-        <div ref={mapContainerRef} className="flex-1" />
+        <div className="flex-1 relative">
+          <div ref={mapContainerRef} className="w-full h-full" />
+          {token && (
+            <ElevationProfile
+              route={activeRouteForProfile}
+              mapboxToken={token}
+              routeColor={activeRouteForProfile?.color ?? '#2563eb'}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
