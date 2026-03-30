@@ -10,6 +10,7 @@ import { totalDistanceMiles, getSnappedRoute, ROUTE_COLORS, BASEMAP_OPTIONS } fr
 import { poiTone, POI_TYPES } from '@/lib/pois';
 import EditorSidebar from '@/components/editor/EditorSidebar';
 import EditorTopBar from '@/components/editor/EditorTopBar';
+import ElevationProfile from '@/components/editor/ElevationProfile';
 
 // Mapbox token fetched from backend at runtime
 const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
