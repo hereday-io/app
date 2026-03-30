@@ -319,7 +319,7 @@ const RouteEditor = () => {
     if (snapToRoads && nextWaypoints.length >= 2) {
       setIsSnapping(true);
       try {
-        const snapped = await getSnappedRoute(nextWaypoints, MAPBOX_TOKEN);
+        const snapped = await getSnappedRoute(nextWaypoints, mapboxToken);
         setRoutes((prev) =>
           prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: nextWaypoints, routeCoords: snapped } : r))
         );
