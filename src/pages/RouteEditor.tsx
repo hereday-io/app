@@ -102,8 +102,8 @@ const RouteEditor = () => {
   }, [eventId, user, toast]);
 
   useEffect(() => {
-    if (!mapContainerRef.current || !MAPBOX_TOKEN) return;
-    mapboxgl.accessToken = MAPBOX_TOKEN;
+    if (!mapContainerRef.current || !mapboxToken) return;
+    mapboxgl.accessToken = mapboxToken;
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
