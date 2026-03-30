@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
-import { totalDistanceMiles, getSnappedRoute, ROUTE_COLORS, BASEMAP_OPTIONS } from '@/lib/geo';
+import { totalDistanceMiles, getSnappedRoute, getMileMarkers, ROUTE_COLORS, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone, POI_TYPES } from '@/lib/pois';
 import EditorSidebar from '@/components/editor/EditorSidebar';
 import EditorTopBar from '@/components/editor/EditorTopBar';
