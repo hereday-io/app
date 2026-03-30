@@ -129,10 +129,10 @@ const RouteEditor = () => {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    if (selectedBasemap === currentBasemapRef.current) return;
+    currentBasemapRef.current = selectedBasemap;
     const style = BASEMAP_OPTIONS.find((b) => b.id === selectedBasemap)?.style;
-    if (style && map.getStyle()?.sprite !== style) {
-      map.setStyle(style);
-    }
+    if (style) map.setStyle(style);
   }, [selectedBasemap]);
 
   useEffect(() => {
