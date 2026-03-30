@@ -11,7 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff } from 'lucide-react';
+import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import EditEventDialog from '@/components/EditEventDialog';
 import DeleteEventDialog from '@/components/DeleteEventDialog';
