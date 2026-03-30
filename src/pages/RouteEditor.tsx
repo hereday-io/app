@@ -56,6 +56,7 @@ const RouteEditor = () => {
   const [selectedBasemap, setSelectedBasemap] = useState('light');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
+  const [tourActive, setTourActive] = useState(false);
 
   // Fetch Mapbox token from backend
   useEffect(() => {
