@@ -384,6 +384,11 @@ const RouteEditor = () => {
       toast({ title: 'Publish failed', description: error.message, variant: 'destructive' });
     } else {
       setEventStatus(newStatus);
+      // Fetch the slug if we don't have it yet
+      if (newStatus === 'published' && !eventSlug) {
+        const { data: updated } = await supabase.from('events').select('slug').eq('id', eventId).single();
+        if (updated?.slug) setEventSlug(updated.slug);
+      }
       toast({ title: newStatus === 'published' ? 'Event published!' : 'Event unpublished' });
     }
     setIsPublishing(false);
