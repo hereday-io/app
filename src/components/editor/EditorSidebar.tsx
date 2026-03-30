@@ -144,7 +144,7 @@ const EditorSidebar = ({
         </section>
 
         {/* Snap toggle */}
-        <section className="space-y-2">
+        <section className="space-y-2" data-tour="snap-toggle">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSnapToRoads(!snapToRoads)}
