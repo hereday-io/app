@@ -124,7 +124,7 @@ const RouteEditor = () => {
       map.remove();
       mapRef.current = null;
     };
-  }, [mapboxToken]);
+  }, [mapboxToken, isLoading]);
 
   useEffect(() => {
     const map = mapRef.current;
