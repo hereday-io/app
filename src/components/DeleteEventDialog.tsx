@@ -53,7 +53,10 @@ const DeleteEventDialog = ({ open, onOpenChange, eventId, eventName, onDeleted }
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={handleDelete}
+            onClick={(e) => {
+              e.preventDefault();
+              handleDelete();
+            }}
             disabled={deleting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
