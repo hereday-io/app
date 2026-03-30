@@ -17,8 +17,10 @@ const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -33,6 +35,7 @@ const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
 
   const search = (value: string) => {
     setQuery(value);
+    setActiveIndex(-1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!value.trim()) {
       setResults([]);
@@ -51,6 +54,7 @@ const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
         }));
         setResults(items);
         setOpen(items.length > 0);
+        setActiveIndex(-1);
       } catch {
         setResults([]);
       }
@@ -61,7 +65,49 @@ const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
     onSelect(result.center, result.place_name);
     setQuery(result.place_name.split(',')[0]);
     setOpen(false);
+    setActiveIndex(-1);
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!open || results.length === 0) {
+      if (e.key === 'Escape') {
+        setExpanded(false);
+        setQuery('');
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (activeIndex >= 0 && activeIndex < results.length) {
+          handleSelect(results[activeIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setOpen(false);
+        setActiveIndex(-1);
+        break;
+    }
+  };
+
+  // Scroll active item into view
+  useEffect(() => {
+    if (activeIndex < 0 || !listRef.current) return;
+    const items = listRef.current.children;
+    if (items[activeIndex]) {
+      (items[activeIndex] as HTMLElement).scrollIntoView({ block: 'nearest' });
+    }
+  }, [activeIndex]);
 
   return (
     <div ref={containerRef} className="relative">
@@ -73,12 +119,13 @@ const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
               autoFocus
               value={query}
               onChange={(e) => search(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Search location…"
               className="h-8 w-48 pl-7 pr-7 text-xs"
             />
             {query && (
               <button
-                onClick={() => { setQuery(''); setResults([]); setOpen(false); }}
+                onClick={() => { setQuery(''); setResults([]); setOpen(false); setActiveIndex(-1); }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-3 w-3" />
@@ -97,12 +144,14 @@ const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
       )}
 
       {open && (
-        <div className="absolute top-full mt-1 right-0 w-72 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+        <div ref={listRef} className="absolute top-full mt-1 right-0 w-72 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
           {results.map((r, i) => (
             <button
               key={i}
               onClick={() => handleSelect(r)}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors border-b border-border last:border-0 truncate"
+              className={`w-full text-left px-3 py-2 text-sm transition-colors border-b border-border last:border-0 truncate ${
+                i === activeIndex ? 'bg-muted text-foreground' : 'hover:bg-muted'
+              }`}
             >
               {r.place_name}
             </button>
