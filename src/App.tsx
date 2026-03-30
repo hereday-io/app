@@ -31,6 +31,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/editor" element={<RouteEditor />} />
+            <Route path="/event/:slug" element={<EventPublic />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
