@@ -197,6 +197,13 @@ const Dashboard = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => toggleStatus(event)}>
+                            {event.status === 'published' ? (
+                              <><EyeOff className="h-4 w-4 mr-2" /> Unpublish</>
+                            ) : (
+                              <><Globe className="h-4 w-4 mr-2" /> Publish</>
+                            )}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setEditEvent(event)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
