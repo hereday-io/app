@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
-import { totalDistanceMiles, BASEMAP_OPTIONS } from '@/lib/geo';
+import { totalDistanceMiles, getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import { ArrowLeft, Route, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import ElevationProfile from '@/components/editor/ElevationProfile';
 
 interface RunnerViewProps {
   event: {
