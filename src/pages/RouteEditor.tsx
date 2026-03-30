@@ -392,7 +392,7 @@ const RouteEditor = () => {
       toast({ title: newStatus === 'published' ? 'Event published!' : 'Event unpublished' });
     }
     setIsPublishing(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, toast]);
+  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, eventSlug, toast]);
 
   const addRoute = () => {
     const color = ROUTE_COLORS[routes.length % ROUTE_COLORS.length];
