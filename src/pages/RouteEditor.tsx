@@ -111,6 +111,7 @@ const RouteEditor = () => {
         initialBoundsRef.current = { coords: allCoords, city: data.city ?? '' };
 
         setEventStatus(data.status ?? 'draft');
+        setEventSlug(data.slug ?? null);
         setStatusText('Event loaded.');
         setIsLoading(false);
       });
