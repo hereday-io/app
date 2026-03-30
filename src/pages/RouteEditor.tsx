@@ -274,6 +274,9 @@ const RouteEditor = () => {
           });
         });
 
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+
       // Mile markers for visible routes
       routes
         .filter((r) => r.visible && r.routeCoords.length > 1)
