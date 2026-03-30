@@ -221,6 +221,21 @@ const Dashboard = () => {
           onCreated={fetchEvents}
         />
       )}
+
+      <EditEventDialog
+        open={!!editEvent}
+        onOpenChange={(open) => !open && setEditEvent(null)}
+        event={editEvent}
+        onUpdated={fetchEvents}
+      />
+
+      <DeleteEventDialog
+        open={!!deleteEvent}
+        onOpenChange={(open) => !open && setDeleteEvent(null)}
+        eventId={deleteEvent?.id ?? null}
+        eventName={deleteEvent?.name ?? ''}
+        onDeleted={fetchEvents}
+      />
     </div>
   );
 };
