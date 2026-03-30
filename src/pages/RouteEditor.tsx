@@ -126,6 +126,27 @@ const RouteEditor = () => {
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     mapRef.current = map;
 
+    // Fit map to existing route data or geocode city
+    const boundsData = initialBoundsRef.current;
+    if (boundsData && boundsData.coords.length >= 2 && !searchParams.get('lng')) {
+      map.once('load', () => {
+        const bounds = new mapboxgl.LngLatBounds();
+        boundsData.coords.forEach((c) => bounds.extend(c as [number, number]));
+        map.fitBounds(bounds, { padding: 80, maxZoom: 16 });
+      });
+    } else if (!searchParams.get('lng') && boundsData?.city) {
+      // Geocode the city to center the map
+      fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(boundsData.city)}.json?access_token=${mapboxToken}&types=place&limit=1`)
+        .then((r) => r.json())
+        .then((data) => {
+          const feature = data?.features?.[0];
+          if (feature?.center) {
+            map.flyTo({ center: feature.center as [number, number], zoom: 13, duration: 1000 });
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => {
       map.remove();
       mapRef.current = null;
