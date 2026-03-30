@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff } from 'lucide-react';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import EditEventDialog from '@/components/EditEventDialog';
 import DeleteEventDialog from '@/components/DeleteEventDialog';
@@ -52,6 +52,12 @@ const Dashboard = () => {
     setEvents(data ?? []);
     setLoading(false);
   }, [user]);
+
+  const toggleStatus = async (event: Event) => {
+    const newStatus = event.status === 'published' ? 'draft' : 'published';
+    await supabase.from('events').update({ status: newStatus }).eq('id', event.id);
+    fetchEvents();
+  };
 
   useEffect(() => {
     fetchEvents();
@@ -191,6 +197,13 @@ const Dashboard = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => toggleStatus(event)}>
+                            {event.status === 'published' ? (
+                              <><EyeOff className="h-4 w-4 mr-2" /> Unpublish</>
+                            ) : (
+                              <><Globe className="h-4 w-4 mr-2" /> Publish</>
+                            )}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setEditEvent(event)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
