@@ -32,6 +32,8 @@ const Dashboard = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editEvent, setEditEvent] = useState<Event | null>(null);
+  const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
