@@ -5,8 +5,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import CreateEventDialog from '@/components/CreateEventDialog';
+import EditEventDialog from '@/components/EditEventDialog';
+import DeleteEventDialog from '@/components/DeleteEventDialog';
 
 interface Event {
   id: string;
