@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
 
 interface EditorTopBarProps {
   eventName: string;
+  setEventName: (v: string) => void;
   city: string;
+  setCity: (v: string) => void;
   eventDate: string;
+  setEventDate: (v: string) => void;
   statusText: string;
   isSaving: boolean;
   isSnapping: boolean;
@@ -24,9 +28,9 @@ interface EditorTopBarProps {
 }
 
 const EditorTopBar = ({
-  eventName,
-  city,
-  eventDate,
+  eventName, setEventName,
+  city, setCity,
+  eventDate, setEventDate,
   statusText,
   isSaving,
   isSnapping,
@@ -42,12 +46,10 @@ const EditorTopBar = ({
   onHelp,
   onPublish,
 }: EditorTopBarProps) => {
-  const meta = [city, eventDate].filter(Boolean).join(' · ');
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Close popover on outside click
   useEffect(() => {
     if (!popoverOpen) return;
     const handler = (e: MouseEvent) => {
@@ -75,41 +77,59 @@ const EditorTopBar = ({
   };
 
   return (
-    <header className="border-b border-border bg-card px-4 py-2 flex items-center justify-between gap-4 shrink-0">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
+    <header className="border-b border-border bg-card px-3 py-1.5 flex items-center justify-between gap-2 shrink-0">
+      {/* Left: back + event details inline */}
+      <div className="flex items-center gap-2 min-w-0">
+        <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="font-display font-bold text-sm leading-tight">{eventName}</h1>
-          {meta && <p className="text-xs text-muted-foreground">{meta}</p>}
-        </div>
+        <input
+          value={eventName}
+          onChange={(e) => setEventName(e.target.value)}
+          className="bg-transparent font-display font-bold text-sm outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors min-w-0 max-w-[180px]"
+          placeholder="Event name"
+        />
+        <span className="text-muted-foreground text-xs hidden md:inline">·</span>
+        <input
+          type="date"
+          value={eventDate}
+          onChange={(e) => setEventDate(e.target.value)}
+          className="bg-transparent text-xs text-muted-foreground outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors w-[110px] hidden md:inline"
+        />
+        <span className="text-muted-foreground text-xs hidden md:inline">·</span>
+        <input
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          className="bg-transparent text-xs text-muted-foreground outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors max-w-[120px] hidden md:inline"
+          placeholder="City"
+        />
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Right: tools + actions */}
+      <div className="flex items-center gap-1.5 shrink-0">
         {isSnapping && (
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Loader2 className="h-3 w-3 animate-spin" /> Snapping…
           </span>
         )}
-        <span className="text-xs text-muted-foreground hidden sm:inline max-w-48 truncate">
+        <span className="text-xs text-muted-foreground hidden lg:inline max-w-36 truncate">
           {statusText}
         </span>
         {mapboxToken && (
           <LocationSearch token={mapboxToken} onSelect={onLocationSelect} />
         )}
-        <Button variant="ghost" size="sm" onClick={onUndo} title="Undo last point">
+        <Button variant="ghost" size="sm" onClick={onUndo} title="Undo last point" className="h-8 w-8 p-0">
           <Undo2 className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear active route">
+        <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear active route" className="h-8 w-8 p-0">
           <Trash2 className="h-4 w-4" />
         </Button>
         {onHelp && (
-          <Button variant="ghost" size="sm" onClick={onHelp} title="Show editor tour">
+          <Button variant="ghost" size="sm" onClick={onHelp} title="Show editor tour" className="h-8 w-8 p-0">
             <HelpCircle className="h-4 w-4" />
           </Button>
         )}
-        <Button size="sm" onClick={onSave} disabled={isSaving} data-tour="save-button">
+        <Button size="sm" onClick={onSave} disabled={isSaving} data-tour="save-button" className="h-8">
           <Save className="h-4 w-4 mr-1" />
           {isSaving ? 'Saving…' : 'Save'}
         </Button>
@@ -120,6 +140,7 @@ const EditorTopBar = ({
               variant={isPublished ? 'secondary' : 'default'}
               onClick={handlePublishClick}
               disabled={isPublishing}
+              className="h-8"
             >
               <Globe className="h-4 w-4 mr-1" />
               {isPublishing ? 'Publishing…' : isPublished ? 'Published' : 'Publish'}
@@ -139,7 +160,6 @@ const EditorTopBar = ({
                     ×
                   </button>
                 </div>
-
                 <div className="px-4 py-3 space-y-3">
                   <div className="flex items-center gap-2">
                     <input
@@ -153,7 +173,6 @@ const EditorTopBar = ({
                       {copied ? 'Copied' : 'Copy'}
                     </Button>
                   </div>
-
                   <div className="flex items-center justify-between">
                     <a
                       href={publicUrl}
