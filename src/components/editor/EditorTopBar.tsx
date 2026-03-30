@@ -71,10 +71,21 @@ const EditorTopBar = ({
         <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear active route">
           <Trash2 className="h-4 w-4" />
         </Button>
+        {onHelp && (
+          <Button variant="ghost" size="sm" onClick={onHelp} title="Show editor tour">
+            <HelpCircle className="h-4 w-4" />
+          </Button>
+        )}
         <Button size="sm" onClick={onSave} disabled={isSaving} data-tour="save-button">
           <Save className="h-4 w-4 mr-1" />
           {isSaving ? 'Saving…' : 'Save'}
         </Button>
+        {onPublish && (
+          <Button size="sm" variant={isPublished ? 'secondary' : 'default'} onClick={onPublish} disabled={isPublishing}>
+            <Globe className="h-4 w-4 mr-1" />
+            {isPublishing ? 'Publishing…' : isPublished ? 'Published' : 'Publish'}
+          </Button>
+        )}
       </div>
     </header>
   );
