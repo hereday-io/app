@@ -129,7 +129,7 @@ const Dashboard = () => {
                 <p className="text-muted-foreground text-sm mb-4">
                   Create your first event to start mapping routes and points of interest.
                 </p>
-                <Button>
+                <Button onClick={() => setCreateOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Event
                 </Button>
