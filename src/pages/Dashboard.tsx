@@ -11,7 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff } from 'lucide-react';
+import { MapPin, Calendar, Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import EditEventDialog from '@/components/EditEventDialog';
 import DeleteEventDialog from '@/components/DeleteEventDialog';
@@ -22,6 +23,7 @@ interface Event {
   city: string | null;
   event_date: string | null;
   status: string;
+  slug: string | null;
   route_count: number;
   poi_count: number;
   created_at: string;
@@ -29,6 +31,7 @@ interface Event {
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -205,6 +208,15 @@ const Dashboard = () => {
                               <><Globe className="h-4 w-4 mr-2" /> Publish</>
                             )}
                           </DropdownMenuItem>
+                          {event.status === 'published' && event.slug && (
+                            <DropdownMenuItem onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/event/${event.slug}`);
+                              toast({ title: 'Share link copied!' });
+                            }}>
+                              <Link className="h-4 w-4 mr-2" />
+                              Copy share link
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => setEditEvent(event)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
