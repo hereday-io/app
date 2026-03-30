@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Eye, EyeOff, Layers, ChevronDown, ChevronRight, X } from 'lucide-react';
-import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
+import { useState, useRef } from 'react';
+import { Plus, Trash2, Eye, EyeOff, Layers, ChevronDown, ChevronRight, X, GripVertical } from 'lucide-react';
+import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import { totalDistanceMiles, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 
@@ -19,6 +18,13 @@ interface LayersPanelProps {
   setSelectedBasemap: (id: string) => void;
 }
 
+function reorder<T>(list: T[], from: number, to: number): T[] {
+  const result = [...list];
+  const [item] = result.splice(from, 1);
+  result.splice(to, 0, item);
+  return result;
+}
+
 const LayersPanel = ({
   routes, activeRouteId, setActiveRouteId, setRoutes,
   onAddRoute, onDeleteRoute,
@@ -29,6 +35,40 @@ const LayersPanel = ({
   const [open, setOpen] = useState(false);
   const [routesOpen, setRoutesOpen] = useState(true);
   const [poisOpen, setPoisOpen] = useState(true);
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragGroup, setDragGroup] = useState<'routes' | 'pois' | null>(null);
+
+  const handleDragStart = (group: 'routes' | 'pois', idx: number) => {
+    dragIdx.current = idx;
+    setDragGroup(group);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = (group: 'routes' | 'pois', idx: number) => {
+    if (dragIdx.current === null || dragGroup !== group) return;
+    const from = dragIdx.current;
+    if (from !== idx) {
+      if (group === 'routes') {
+        setRoutes((prev) => reorder(prev, from, idx));
+      } else {
+        setPois((prev) => reorder(prev, from, idx));
+      }
+    }
+    dragIdx.current = null;
+    setDragOverIdx(null);
+    setDragGroup(null);
+  };
+
+  const handleDragEnd = () => {
+    dragIdx.current = null;
+    setDragOverIdx(null);
+    setDragGroup(null);
+  };
 
   if (!open) {
     return (
@@ -76,17 +116,24 @@ const LayersPanel = ({
 
           {routesOpen && (
             <div className="space-y-0.5">
-              {routes.map((route) => {
+              {routes.map((route, idx) => {
                 const dist = totalDistanceMiles(route.routeCoords);
                 const isActive = route.id === activeRouteId;
+                const isDragOver = dragGroup === 'routes' && dragOverIdx === idx;
                 return (
                   <div
                     key={route.id}
+                    draggable
+                    onDragStart={() => handleDragStart('routes', idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={() => handleDrop('routes', idx)}
+                    onDragEnd={handleDragEnd}
                     onClick={() => setActiveRouteId(route.id)}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-xs transition-colors ${
+                    className={`flex items-center gap-1.5 px-1 py-1.5 rounded-md cursor-pointer text-xs transition-colors ${
                       isActive ? 'bg-primary/10 border border-primary/20' : 'hover:bg-secondary'
-                    }`}
+                    } ${isDragOver ? 'border-t-2 border-t-primary' : ''}`}
                   >
+                    <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
                     <input
                       type="color"
                       value={route.color}
@@ -151,10 +198,22 @@ const LayersPanel = ({
 
             {poisOpen && (
               <div className="space-y-0.5">
-                {pois.map((poi) => {
+                {pois.map((poi, idx) => {
                   const tone = poiTone(poi.type);
+                  const isDragOver = dragGroup === 'pois' && dragOverIdx === idx;
                   return (
-                    <div key={poi.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-secondary">
+                    <div
+                      key={poi.id}
+                      draggable
+                      onDragStart={() => handleDragStart('pois', idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDrop={() => handleDrop('pois', idx)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex items-center gap-1.5 px-1 py-1.5 rounded-md text-xs hover:bg-secondary ${
+                        isDragOver ? 'border-t-2 border-t-primary' : ''
+                      }`}
+                    >
+                      <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
                       <span className="text-sm">{tone.emoji}</span>
                       <input
                         value={poi.title}
