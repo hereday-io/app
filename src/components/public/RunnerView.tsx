@@ -28,6 +28,10 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
   const { token } = useMapboxToken();
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
 
+  const activeRouteForProfile = selectedRoute
+    ? event.routes.find((r) => r.id === selectedRoute)
+    : event.routes[0];
+
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
     mapboxgl.accessToken = token;
