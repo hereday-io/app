@@ -182,6 +182,15 @@ const Dashboard = () => {
           )}
         </div>
       </main>
+
+      {user && (
+        <CreateEventDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          userId={user.id}
+          onCreated={fetchEvents}
+        />
+      )}
     </div>
   );
 };
