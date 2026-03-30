@@ -274,9 +274,28 @@ const RouteEditor = () => {
           });
         });
 
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+      // Mile markers for visible routes
+      routes
+        .filter((r) => r.visible && r.routeCoords.length > 1)
+        .forEach((route) => {
+          const miles = getMileMarkers(route.routeCoords);
+          miles.forEach(({ mile, coord }) => {
+            const el = document.createElement('div');
+            el.style.cssText = `
+              width: 22px; height: 22px; border-radius: 50%;
+              background: ${route.color}; color: white;
+              border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              display: flex; align-items: center; justify-content: center;
+              font-size: 10px; font-weight: 700; line-height: 1;
+              pointer-events: none;
+            `;
+            el.textContent = String(mile);
+            const marker = new mapboxgl.Marker(el).setLngLat(coord).addTo(map);
+            markersRef.current.push(marker);
+          });
+        });
 
+      // POI markers
       pois.forEach((poi) => {
         const tone = poiTone(poi.type);
         const el = document.createElement('div');
