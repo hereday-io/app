@@ -425,6 +425,9 @@ const RouteEditor = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      <EditorWelcomeModal onStartTour={() => setTourActive(true)} />
+      <EditorTour active={tourActive} onEnd={() => setTourActive(false)} />
+
       <EditorTopBar
         eventName={eventName}
         city={city}
@@ -469,7 +472,7 @@ const RouteEditor = () => {
           />
         )}
 
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" data-tour="map-area">
           <div ref={mapContainerRef} className="w-full h-full" />
 
           <button
