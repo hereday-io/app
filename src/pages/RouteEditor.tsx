@@ -98,6 +98,11 @@ const RouteEditor = () => {
         setActiveRouteId(loadedRoutes[0]?.id ?? '');
         const rawPois = data.pois as unknown;
         setPois(Array.isArray(rawPois) ? (rawPois as RoutePoi[]) : []);
+
+        // Collect all route coordinates for initial map bounds
+        const allCoords = loadedRoutes.flatMap((r) => r.routeCoords ?? []);
+        initialBoundsRef.current = { coords: allCoords, city: data.city ?? '' };
+
         setStatusText('Event loaded.');
         setIsLoading(false);
       });
