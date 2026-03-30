@@ -454,6 +454,12 @@ const RouteEditor = () => {
             {sidebarOpen ? '← Hide panel' : '→ Show panel'}
           </button>
 
+          <ElevationProfile
+            route={activeRoute}
+            mapboxToken={mapboxToken}
+            routeColor={activeRoute?.color ?? '#2563eb'}
+          />
+
           {pendingPoiType && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-card/95 backdrop-blur border border-border rounded-full px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2">
               <span>{poiTone(pendingPoiType).emoji}</span>
