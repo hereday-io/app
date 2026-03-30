@@ -12,6 +12,7 @@ import EditorSidebar from '@/components/editor/EditorSidebar';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 
 // Mapbox token fetched from backend at runtime
+const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
 
 function makeRoute(name: string, color: string): EventRoute {
   return {
