@@ -137,6 +137,7 @@ const RouteEditor = () => {
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     mapRef.current = map;
+    map.once('load', () => setMapReady(true));
 
     // Fit map to existing route data or geocode city
     const boundsData = initialBoundsRef.current;
