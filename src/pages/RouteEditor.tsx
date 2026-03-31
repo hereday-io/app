@@ -61,6 +61,46 @@ const RouteEditor = () => {
   const [eventStatus, setEventStatus] = useState('draft');
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // Ctrl/Cmd+S → Save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+      // Ctrl/Cmd+Z → Undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undoLastWaypoint();
+        return;
+      }
+
+      if (isInput) return; // remaining shortcuts only outside inputs
+
+      // S → toggle snap
+      if (e.key === 's' || e.key === 'S') {
+        setSnapToRoads(prev => !prev);
+        return;
+      }
+      // Delete/Backspace → clear route
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        clearActiveRoute();
+        return;
+      }
+      // Escape → cancel pending POI
+      if (e.key === 'Escape') {
+        setPendingPoiType(null);
+        return;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleSave, undoLastWaypoint, clearActiveRoute, setPendingPoiType, setSnapToRoads]);
 
   // Fetch Mapbox token from backend
   useEffect(() => {
