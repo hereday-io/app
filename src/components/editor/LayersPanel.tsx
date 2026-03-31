@@ -28,7 +28,6 @@ const LayersPanel = ({
   onAddRoute, onDeleteRoute,
   pois, setPois,
   activeDistance,
-  selectedBasemap, setSelectedBasemap,
 }: LayersPanelProps) => {
   const [open, setOpen] = useState(false);
   const [routesOpen, setRoutesOpen] = useState(true);
