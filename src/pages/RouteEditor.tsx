@@ -52,6 +52,7 @@ const RouteEditor = () => {
   const [pendingPoiType, setPendingPoiType] = useState<PoiType | null>(null);
   const [snapToRoads, setSnapToRoads] = useState(true);
   const [isSnapping, setIsSnapping] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const [statusText, setStatusText] = useState('Click on the map to start building your route.');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -136,6 +137,7 @@ const RouteEditor = () => {
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     mapRef.current = map;
+    map.once('load', () => setMapReady(true));
 
     // Fit map to existing route data or geocode city
     const boundsData = initialBoundsRef.current;
@@ -161,6 +163,7 @@ const RouteEditor = () => {
     return () => {
       map.remove();
       mapRef.current = null;
+      setMapReady(false);
     };
   }, [mapboxToken, isLoading]);
 
@@ -334,7 +337,7 @@ const RouteEditor = () => {
     return () => {
       map.off('style.load', render);
     };
-  }, [routes, pois, activeRouteId, selectedBasemap]);
+  }, [routes, pois, activeRouteId, selectedBasemap, mapReady]);
 
   const handleSave = useCallback(async () => {
     if (!eventId) return;
