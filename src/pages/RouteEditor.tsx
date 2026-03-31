@@ -14,6 +14,7 @@ import LayersPanel from '@/components/editor/LayersPanel';
 import ElevationProfile from '@/components/editor/ElevationProfile';
 import EditorWelcomeModal from '@/components/editor/EditorWelcomeModal';
 import EditorTour from '@/components/editor/EditorTour';
+import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
 
 // Mapbox token fetched from backend at runtime
 const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
