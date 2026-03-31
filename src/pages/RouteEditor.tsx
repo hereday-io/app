@@ -14,6 +14,7 @@ import LayersPanel from '@/components/editor/LayersPanel';
 import ElevationProfile from '@/components/editor/ElevationProfile';
 import EditorWelcomeModal from '@/components/editor/EditorWelcomeModal';
 import EditorTour from '@/components/editor/EditorTour';
+import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
 
 // Mapbox token fetched from backend at runtime
 const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
@@ -58,6 +59,7 @@ const RouteEditor = () => {
   // sidebarOpen removed - using floating panels now
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
   const [tourActive, setTourActive] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -481,6 +483,10 @@ const RouteEditor = () => {
         setPendingPoiType(null);
         return;
       }
+      if (e.key === '?') {
+        setShortcutsOpen(true);
+        return;
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -500,6 +506,7 @@ const RouteEditor = () => {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       <EditorWelcomeModal onStartTour={() => setTourActive(true)} />
       <EditorTour active={tourActive} onEnd={() => setTourActive(false)} />
+      <KeyboardShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <EditorTopBar
         eventName={eventName}
