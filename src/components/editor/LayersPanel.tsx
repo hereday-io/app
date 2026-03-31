@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Plus, Trash2, Eye, EyeOff, Layers, ChevronDown, ChevronRight, X, GripVertical } from 'lucide-react';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
-import { totalDistanceMiles, BASEMAP_OPTIONS } from '@/lib/geo';
+import { totalDistanceMiles } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 
 interface LayersPanelProps {
@@ -14,8 +14,6 @@ interface LayersPanelProps {
   pois: RoutePoi[];
   setPois: React.Dispatch<React.SetStateAction<RoutePoi[]>>;
   activeDistance: number;
-  selectedBasemap: string;
-  setSelectedBasemap: (id: string) => void;
 }
 
 function reorder<T>(list: T[], from: number, to: number): T[] {
