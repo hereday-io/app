@@ -235,25 +235,6 @@ const LayersPanel = ({
           </div>
         )}
 
-        {/* Basemap */}
-        <div className="pt-1 border-t border-border mt-1">
-          <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Basemap</p>
-          <div className="flex flex-wrap gap-1 px-2 pb-1">
-            {BASEMAP_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => setSelectedBasemap(opt.id)}
-                className={`text-[10px] px-2 py-1 rounded-full border font-medium transition-colors ${
-                  selectedBasemap === opt.id
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-secondary text-secondary-foreground border-border hover:bg-accent'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
