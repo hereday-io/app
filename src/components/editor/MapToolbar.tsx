@@ -5,6 +5,18 @@ import type { PoiType } from '@/types/mapEditor';
 import { poiTone, POI_TYPES } from '@/lib/pois';
 import { BASEMAP_OPTIONS } from '@/lib/geo';
 
+import basemapStreets from '@/assets/basemap-streets.jpg';
+import basemapOutdoors from '@/assets/basemap-outdoors.jpg';
+import basemapLight from '@/assets/basemap-light.jpg';
+import basemapSatellite from '@/assets/basemap-satellite.jpg';
+
+const BASEMAP_THUMBS: Record<string, string> = {
+  streets: basemapStreets,
+  outdoors: basemapOutdoors,
+  light: basemapLight,
+  satellite: basemapSatellite,
+};
+
 interface MapToolbarProps {
   snapToRoads: boolean;
   setSnapToRoads: (v: boolean) => void;
