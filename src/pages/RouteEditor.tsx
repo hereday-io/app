@@ -163,6 +163,7 @@ const RouteEditor = () => {
     return () => {
       map.remove();
       mapRef.current = null;
+      setMapReady(false);
     };
   }, [mapboxToken, isLoading]);
 
