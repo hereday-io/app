@@ -59,6 +59,7 @@ const RouteEditor = () => {
   // sidebarOpen removed - using floating panels now
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
   const [tourActive, setTourActive] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
