@@ -483,6 +483,10 @@ const RouteEditor = () => {
         setPendingPoiType(null);
         return;
       }
+      if (e.key === '?') {
+        setShortcutsOpen(true);
+        return;
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
