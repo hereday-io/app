@@ -61,7 +61,6 @@ const RouteEditor = () => {
   const [eventStatus, setEventStatus] = useState('draft');
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
-
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -450,6 +449,42 @@ const RouteEditor = () => {
     );
     setStatusText('Route cleared.');
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undoLastWaypoint();
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === 's' || e.key === 'S') {
+        setSnapToRoads(prev => !prev);
+        return;
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        clearActiveRoute();
+        return;
+      }
+      if (e.key === 'Escape') {
+        setPendingPoiType(null);
+        return;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleSave, undoLastWaypoint, clearActiveRoute]);
 
   const activeDistance = activeRoute ? totalDistanceMiles(activeRoute.routeCoords) : 0;
 
