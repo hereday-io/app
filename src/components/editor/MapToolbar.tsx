@@ -5,6 +5,18 @@ import type { PoiType } from '@/types/mapEditor';
 import { poiTone, POI_TYPES } from '@/lib/pois';
 import { BASEMAP_OPTIONS } from '@/lib/geo';
 
+import basemapStreets from '@/assets/basemap-streets.jpg';
+import basemapOutdoors from '@/assets/basemap-outdoors.jpg';
+import basemapLight from '@/assets/basemap-light.jpg';
+import basemapSatellite from '@/assets/basemap-satellite.jpg';
+
+const BASEMAP_THUMBS: Record<string, string> = {
+  streets: basemapStreets,
+  outdoors: basemapOutdoors,
+  light: basemapLight,
+  satellite: basemapSatellite,
+};
+
 interface MapToolbarProps {
   snapToRoads: boolean;
   setSnapToRoads: (v: boolean) => void;
@@ -101,21 +113,33 @@ const MapToolbar = ({ snapToRoads, setSnapToRoads, pendingPoiType, setPendingPoi
           </Tooltip>
 
           {basemapOpen && (
-            <div className="absolute left-full top-0 ml-2 bg-card/95 backdrop-blur border border-border rounded-lg shadow-lg p-2 w-36">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Basemap</p>
-              {BASEMAP_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => { setSelectedBasemap(opt.id); setBasemapOpen(false); }}
-                  className={`w-full text-left text-sm px-2 py-1.5 rounded-md transition-colors ${
-                    selectedBasemap === opt.id
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'hover:bg-secondary text-foreground'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div className="absolute left-full top-0 ml-2 bg-card/95 backdrop-blur border border-border rounded-lg shadow-lg p-2 w-44">
+              <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Basemap</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {BASEMAP_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => { setSelectedBasemap(opt.id); setBasemapOpen(false); }}
+                    className={`rounded-lg overflow-hidden border-2 transition-colors ${
+                      selectedBasemap === opt.id
+                        ? 'border-primary ring-1 ring-primary/30'
+                        : 'border-transparent hover:border-border'
+                    }`}
+                  >
+                    <img
+                      src={BASEMAP_THUMBS[opt.id]}
+                      alt={opt.label}
+                      className="w-full h-14 object-cover"
+                      loading="lazy"
+                    />
+                    <span className={`block text-[10px] py-0.5 text-center ${
+                      selectedBasemap === opt.id ? 'text-primary font-semibold' : 'text-foreground'
+                    }`}>
+                      {opt.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
