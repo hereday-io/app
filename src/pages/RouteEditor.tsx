@@ -506,6 +506,7 @@ const RouteEditor = () => {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       <EditorWelcomeModal onStartTour={() => setTourActive(true)} />
       <EditorTour active={tourActive} onEnd={() => setTourActive(false)} />
+      <KeyboardShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <EditorTopBar
         eventName={eventName}
