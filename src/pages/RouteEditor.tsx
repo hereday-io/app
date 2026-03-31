@@ -544,6 +544,8 @@ const RouteEditor = () => {
           setSnapToRoads={setSnapToRoads}
           pendingPoiType={pendingPoiType}
           setPendingPoiType={setPendingPoiType}
+          selectedBasemap={selectedBasemap}
+          setSelectedBasemap={setSelectedBasemap}
         />
 
         <LayersPanel
@@ -556,8 +558,6 @@ const RouteEditor = () => {
           pois={pois}
           setPois={setPois}
           activeDistance={activeDistance}
-          selectedBasemap={selectedBasemap}
-          setSelectedBasemap={setSelectedBasemap}
         />
 
         <ElevationProfile
