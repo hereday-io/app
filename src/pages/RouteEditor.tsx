@@ -456,6 +456,9 @@ const RouteEditor = () => {
         const escLink = (poi.webLink || '').replace(/"/g, '&quot;');
         const coordStr = `${poi.coordinates[1].toFixed(5)}, ${poi.coordinates[0].toFixed(5)}`;
 
+        const hasWebLink = ['registration', 'sponsor', 'custom'].includes(poi.type);
+        const existingImage = poi.imageDataUrl || poi.imageUrl || '';
+        
         popupContent.innerHTML = `
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
             <div style="width:40px;height:40px;border-radius:50%;background:${tone.dot}15;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:2px solid ${tone.dot}30;">${tone.emoji}</div>
@@ -469,13 +472,24 @@ const RouteEditor = () => {
             <textarea data-field="description" placeholder="Add notes about this marker location…" rows="2" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;resize:none;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;">${escDesc}</textarea>
           </div>
           <div style="margin-top:10px;">
-            <label style="font-size:11px;font-weight:600;color:#64748b;display:flex;align-items:center;gap:4px;margin-bottom:4px;">🖼 Image URL</label>
-            <input data-field="imageUrl" value="${escImg}" placeholder="https://example.com/photo.jpg" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;" />
+            <label style="font-size:11px;font-weight:600;color:#64748b;display:flex;align-items:center;gap:4px;margin-bottom:4px;">📷 Photo</label>
+            <div data-photo-area style="position:relative;">
+              <img data-photo-preview src="${existingImage}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:6px;display:${existingImage ? 'block' : 'none'};" />
+              <div style="display:flex;gap:6px;">
+                <label style="flex:1;padding:8px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;color:#64748b;cursor:pointer;text-align:center;font-family:inherit;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:4px;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  📎 ${existingImage ? 'Change photo' : 'Attach photo'}
+                  <input data-field="photoFile" type="file" accept="image/*" style="display:none;" />
+                </label>
+                <button data-action="removePhoto" style="padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#ef4444;cursor:pointer;background:none;font-family:inherit;display:${existingImage ? 'block' : 'none'};">✕</button>
+              </div>
+            </div>
           </div>
+          ${hasWebLink ? `
           <div style="margin-top:10px;">
             <label style="font-size:11px;font-weight:600;color:#64748b;display:flex;align-items:center;gap:4px;margin-bottom:4px;">🔗 Web Link</label>
-            <input data-field="webLink" value="${escLink}" placeholder="https://sponsor.com" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;" />
+            <input data-field="webLink" value="${escLink}" placeholder="https://example.com" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;" />
           </div>
+          ` : ''}
           <div style="margin-top:10px;padding:6px 10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#94a3b8;font-family:monospace;">${coordStr}</div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
             <button data-action="remove" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove marker</button>
@@ -489,16 +503,44 @@ const RouteEditor = () => {
         popup.on('open', () => {
           const saveBtn = popupContent.querySelector('[data-action="save"]') as HTMLButtonElement;
           const removeBtn = popupContent.querySelector('[data-action="remove"]') as HTMLButtonElement;
+          const fileInput = popupContent.querySelector('[data-field="photoFile"]') as HTMLInputElement;
+          const photoPreview = popupContent.querySelector('[data-photo-preview]') as HTMLImageElement;
+          const removePhotoBtn = popupContent.querySelector('[data-action="removePhoto"]') as HTMLButtonElement;
+          let pendingImageDataUrl: string | undefined = poi.imageDataUrl;
+
+          fileInput?.addEventListener('change', () => {
+            const file = fileInput.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              pendingImageDataUrl = reader.result as string;
+              if (photoPreview) {
+                photoPreview.src = pendingImageDataUrl;
+                photoPreview.style.display = 'block';
+              }
+              if (removePhotoBtn) removePhotoBtn.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+          });
+
+          removePhotoBtn?.addEventListener('click', () => {
+            pendingImageDataUrl = undefined;
+            if (photoPreview) {
+              photoPreview.src = '';
+              photoPreview.style.display = 'none';
+            }
+            removePhotoBtn.style.display = 'none';
+          });
 
           saveBtn?.addEventListener('click', () => {
             const t = (popupContent.querySelector('[data-field="title"]') as HTMLInputElement).value;
             const d = (popupContent.querySelector('[data-field="description"]') as HTMLTextAreaElement).value;
-            const img = (popupContent.querySelector('[data-field="imageUrl"]') as HTMLInputElement).value;
-            const link = (popupContent.querySelector('[data-field="webLink"]') as HTMLInputElement).value;
+            const linkEl = popupContent.querySelector('[data-field="webLink"]') as HTMLInputElement | null;
+            const link = linkEl?.value || '';
             setPois((prev) =>
               prev.map((p) =>
                 p.id === poi.id
-                  ? { ...p, title: t, description: d, imageUrl: img || undefined, webLink: link || undefined }
+                  ? { ...p, title: t, description: d, imageDataUrl: pendingImageDataUrl, imageUrl: undefined, webLink: link || undefined }
                   : p
               )
             );
