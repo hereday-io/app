@@ -632,6 +632,8 @@ const RouteEditor = () => {
         route_count: routes.length,
         poi_count: pois.length,
         status: newStatus,
+        logo_url: logoUrl,
+        branding_style: brandingStyle,
       })
       .eq('id', eventId);
 
