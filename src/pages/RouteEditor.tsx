@@ -782,6 +782,24 @@ const RouteEditor = () => {
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
+        logoUrl={logoUrl}
+        brandingStyle={brandingStyle}
+        onLogoChange={(url) => {
+          setLogoUrl(url);
+          // Auto-save branding to DB
+          if (eventId) {
+            supabase.from('events').update({ logo_url: url }).eq('id', eventId);
+          }
+        }}
+        onBrandingStyleChange={(style) => {
+          setBrandingStyle(style);
+          if (eventId) {
+            supabase.from('events').update({ branding_style: style }).eq('id', eventId);
+          }
+        }}
+        isPaid={isPaid}
+        eventId={eventId || ''}
+        userId={user?.id || ''}
       />
 
       <div className="flex-1 relative" data-tour="map-area">
