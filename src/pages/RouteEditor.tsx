@@ -9,8 +9,7 @@ import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { totalDistanceMiles, getSnappedRoute, getMileMarkers, ROUTE_COLORS, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone, POI_TYPES } from '@/lib/pois';
 import EditorTopBar from '@/components/editor/EditorTopBar';
-import MapToolbar from '@/components/editor/MapToolbar';
-import LayersPanel from '@/components/editor/LayersPanel';
+import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
 import ElevationProfile from '@/components/editor/ElevationProfile';
 import EditorWelcomeModal from '@/components/editor/EditorWelcomeModal';
 import EditorTour from '@/components/editor/EditorTour';
@@ -731,25 +730,21 @@ const RouteEditor = () => {
       <div className="flex-1 relative" data-tour="map-area">
         <div ref={mapContainerRef} className="w-full h-full" />
 
-        <MapToolbar
-          snapToRoads={snapToRoads}
-          setSnapToRoads={setSnapToRoads}
-          pendingPoiType={pendingPoiType}
-          setPendingPoiType={setPendingPoiType}
-          selectedBasemap={selectedBasemap}
-          setSelectedBasemap={setSelectedBasemap}
-        />
-
-        <LayersPanel
+        <RouteBuilderToolbar
           routes={routes}
           activeRouteId={activeRouteId}
           setActiveRouteId={setActiveRouteId}
           setRoutes={setRoutes}
           onAddRoute={addRoute}
           onDeleteRoute={deleteRoute}
+          snapToRoads={snapToRoads}
+          setSnapToRoads={setSnapToRoads}
+          pendingPoiType={pendingPoiType}
+          setPendingPoiType={setPendingPoiType}
           pois={pois}
           setPois={setPois}
-          activeDistance={activeDistance}
+          selectedBasemap={selectedBasemap}
+          setSelectedBasemap={setSelectedBasemap}
         />
 
         <ElevationProfile
