@@ -354,6 +354,7 @@ const RouteEditor = () => {
 
       // Auto-place start & finish POIs
       autoPlaceStartFinish(activeRouteId, route.waypoints);
+      setFinishedRouteIds((prev) => new Set(prev).add(activeRouteId));
       setStatusText(`Route finished · ${totalDistanceMiles(route.routeCoords).toFixed(2)} mi — Start & Finish added`);
     };
 
