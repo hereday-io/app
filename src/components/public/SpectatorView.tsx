@@ -4,7 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
-import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
+import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Car, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ElevationProfile from '@/components/editor/ElevationProfile';
