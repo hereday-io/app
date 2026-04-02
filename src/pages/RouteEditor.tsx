@@ -145,6 +145,8 @@ const RouteEditor = () => {
 
         setEventStatus(data.status ?? 'draft');
         setEventSlug(data.slug ?? null);
+        setLogoUrl(data.logo_url ?? null);
+        setBrandingStyle((data.branding_style as 'none' | 'corner' | 'banner' | 'both') ?? 'none');
         setStatusText('Event loaded.');
         setIsLoading(false);
       });
