@@ -56,6 +56,13 @@ const EditorTopBar = ({
   onLocationSelect,
   onHelp,
   onPublish,
+  logoUrl,
+  brandingStyle,
+  onLogoChange,
+  onBrandingStyleChange,
+  isPaid,
+  eventId,
+  userId,
 }: EditorTopBarProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [copied, setCopied] = useState(false);
