@@ -12,7 +12,7 @@ interface ElevationProfileProps {
   onHoverPoint?: (coord: Coord | null) => void;
 }
 
-const ElevationProfile = ({ route, mapboxToken, routeColor }: ElevationProfileProps) => {
+const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: ElevationProfileProps) => {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<ElevationPoint[]>([]);
