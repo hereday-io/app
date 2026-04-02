@@ -301,7 +301,7 @@ const RouteEditor = () => {
         return;
       }
 
-      if (!activeRouteId) return;
+      if (!activeRouteId || finishedRouteIds.has(activeRouteId)) return;
 
       setRoutes((prev) => {
         const route = prev.find((r) => r.id === activeRouteId);
