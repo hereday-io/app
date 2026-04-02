@@ -365,7 +365,7 @@ const RouteEditor = () => {
       map.off('dblclick', onDblClick);
       map.doubleClickZoom.enable();
     };
-  }, [activeRouteId, pendingPoiType, snapToRoads, routes, autoPlaceStartFinish]);
+  }, [activeRouteId, pendingPoiType, snapToRoads, routes, autoPlaceStartFinish, finishedRouteIds]);
 
   useEffect(() => {
     const map = mapRef.current;
