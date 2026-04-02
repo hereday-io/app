@@ -586,6 +586,7 @@ const RouteEditor = () => {
           route={activeRoute}
           mapboxToken={mapboxToken}
           routeColor={activeRoute?.color ?? '#2563eb'}
+          onHoverPoint={handleElevationHover}
         />
 
         {pendingPoiType && (
