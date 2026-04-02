@@ -88,6 +88,42 @@ export function getMileMarkers(coords: Coord[]): { mile: number; coord: Coord }[
   return markers;
 }
 
+/**
+ * Snaps a coordinate to the nearest point on any visible route.
+ * Returns the snapped coordinate, or the original if no routes or too far (>0.05 miles ≈ 80m).
+ */
+export function snapToNearestRoute(
+  coord: Coord,
+  routes: { routeCoords: Coord[]; visible: boolean }[],
+  maxDistMiles = 0.05
+): Coord {
+  let bestCoord = coord;
+  let bestDist = Infinity;
+
+  for (const route of routes) {
+    if (!route.visible || route.routeCoords.length < 2) continue;
+    for (let i = 1; i < route.routeCoords.length; i++) {
+      const snapped = nearestPointOnSegment(coord, route.routeCoords[i - 1], route.routeCoords[i]);
+      const d = haversine(coord, snapped);
+      if (d < bestDist) {
+        bestDist = d;
+        bestCoord = snapped;
+      }
+    }
+  }
+
+  return bestDist <= maxDistMiles ? bestCoord : coord;
+}
+
+function nearestPointOnSegment(p: Coord, a: Coord, b: Coord): Coord {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  if (dx === 0 && dy === 0) return a;
+  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy);
+  t = Math.max(0, Math.min(1, t));
+  return [a[0] + t * dx, a[1] + t * dy];
+}
+
 export const ROUTE_COLORS = [
   '#2563eb', '#dc2626', '#16a34a', '#7c3aed',
   '#ea580c', '#0891b2', '#db2777', '#65a30d',
