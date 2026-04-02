@@ -31,6 +31,15 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
 
   const spectatorPois = event.pois.filter(p => SPECTATOR_POI_TYPES.includes(p.type));
 
+  const handleElevationHover = useCallback((coord: Coord | null) => {
+    if (elevMarkerRef.current) { elevMarkerRef.current.remove(); elevMarkerRef.current = null; }
+    if (coord && mapRef.current) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:14px;height:14px;border-radius:50%;border:2.5px solid white;box-shadow:0 0 6px rgba(0,0,0,0.4);pointer-events:none;background:' + (event.routes[0]?.color ?? '#2563eb');
+      elevMarkerRef.current = new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(mapRef.current);
+    }
+  }, [event.routes]);
+
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
     mapboxgl.accessToken = token;

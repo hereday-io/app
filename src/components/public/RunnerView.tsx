@@ -33,6 +33,15 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
     ? event.routes.find((r) => r.id === selectedRoute)
     : event.routes[0];
 
+  const handleElevationHover = useCallback((coord: Coord | null) => {
+    if (elevMarkerRef.current) { elevMarkerRef.current.remove(); elevMarkerRef.current = null; }
+    if (coord && mapRef.current) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:14px;height:14px;border-radius:50%;border:2.5px solid white;box-shadow:0 0 6px rgba(0,0,0,0.4);pointer-events:none;background:' + (activeRouteForProfile?.color ?? '#2563eb');
+      elevMarkerRef.current = new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(mapRef.current);
+    }
+  }, [activeRouteForProfile?.color]);
+
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
     mapboxgl.accessToken = token;
