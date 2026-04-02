@@ -3,6 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
+import BrandingPanel from '@/components/editor/BrandingPanel';
+
+type BrandingStyle = 'none' | 'corner' | 'banner' | 'both';
 
 interface EditorTopBarProps {
   eventName: string;
@@ -25,6 +28,14 @@ interface EditorTopBarProps {
   onLocationSelect: (center: [number, number], name: string) => void;
   onHelp?: () => void;
   onPublish?: () => void;
+  // Branding
+  logoUrl: string | null;
+  brandingStyle: BrandingStyle;
+  onLogoChange: (url: string | null) => void;
+  onBrandingStyleChange: (style: BrandingStyle) => void;
+  isPaid: boolean;
+  eventId: string;
+  userId: string;
 }
 
 const EditorTopBar = ({
@@ -45,6 +56,13 @@ const EditorTopBar = ({
   onLocationSelect,
   onHelp,
   onPublish,
+  logoUrl,
+  brandingStyle,
+  onLogoChange,
+  onBrandingStyleChange,
+  isPaid,
+  eventId,
+  userId,
 }: EditorTopBarProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -195,6 +213,16 @@ const EditorTopBar = ({
                     </Button>
                   </div>
                 </div>
+
+                <BrandingPanel
+                  logoUrl={logoUrl}
+                  brandingStyle={brandingStyle}
+                  onLogoChange={onLogoChange}
+                  onStyleChange={onBrandingStyleChange}
+                  isPaid={isPaid}
+                  eventId={eventId}
+                  userId={userId}
+                />
               </div>
             )}
           </div>

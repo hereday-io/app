@@ -17,6 +17,8 @@ interface PublicEvent {
   pois: RoutePoi[];
   route_count: number;
   poi_count: number;
+  logo_url: string | null;
+  branding_style: string;
 }
 
 type ViewMode = 'landing' | 'runner' | 'spectator';
@@ -52,6 +54,8 @@ const EventPublic = () => {
           pois: (data.pois as unknown as RoutePoi[]) || [],
           route_count: data.route_count,
           poi_count: data.poi_count,
+          logo_url: data.logo_url ?? null,
+          branding_style: data.branding_style ?? 'none',
         });
         setLoading(false);
       });

@@ -16,10 +16,12 @@ export type Database = {
     Tables: {
       events: {
         Row: {
+          branding_style: string
           city: string | null
           created_at: string
           event_date: string | null
           id: string
+          logo_url: string | null
           name: string
           poi_count: number
           pois: Json
@@ -31,10 +33,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          branding_style?: string
           city?: string | null
           created_at?: string
           event_date?: string | null
           id?: string
+          logo_url?: string | null
           name: string
           poi_count?: number
           pois?: Json
@@ -46,10 +50,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          branding_style?: string
           city?: string | null
           created_at?: string
           event_date?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
           poi_count?: number
           pois?: Json
@@ -68,6 +74,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          is_paid: boolean
           organization_name: string | null
           updated_at: string
           user_id: string
@@ -77,6 +84,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_paid?: boolean
           organization_name?: string | null
           updated_at?: string
           user_id: string
@@ -86,6 +94,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_paid?: boolean
           organization_name?: string | null
           updated_at?: string
           user_id?: string

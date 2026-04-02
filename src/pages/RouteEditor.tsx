@@ -67,6 +67,9 @@ const RouteEditor = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [finishedRouteIds, setFinishedRouteIds] = useState<Set<string>>(new Set());
   const [highlightedPoiType, setHighlightedPoiType] = useState<PoiType | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [brandingStyle, setBrandingStyle] = useState<'none' | 'corner' | 'banner' | 'both'>('none');
+  const [isPaid, setIsPaid] = useState(false);
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -74,6 +77,14 @@ const RouteEditor = () => {
       if (!error && data?.token) setMapboxToken(data.token);
     });
   }, [mapboxToken]);
+
+  // Fetch paid status from profile
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('is_paid').eq('user_id', user.id).single().then(({ data }) => {
+      if (data) setIsPaid((data as any).is_paid ?? false);
+    });
+  }, [user]);
 
   useEffect(() => {
     if (!activeRouteId && routes.length > 0) setActiveRouteId(routes[0].id);
@@ -142,6 +153,8 @@ const RouteEditor = () => {
 
         setEventStatus(data.status ?? 'draft');
         setEventSlug(data.slug ?? null);
+        setLogoUrl(data.logo_url ?? null);
+        setBrandingStyle((data.branding_style as 'none' | 'corner' | 'banner' | 'both') ?? 'none');
         setStatusText('Event loaded.');
         setIsLoading(false);
       });
@@ -589,6 +602,8 @@ const RouteEditor = () => {
         pois: JSON.parse(JSON.stringify(pois)),
         route_count: routes.length,
         poi_count: pois.length,
+        logo_url: logoUrl,
+        branding_style: brandingStyle,
       })
       .eq('id', eventId);
 
@@ -600,7 +615,7 @@ const RouteEditor = () => {
       setStatusText('Event saved.');
     }
     setIsSaving(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, toast]);
+  }, [eventId, eventName, city, eventDate, routes, pois, logoUrl, brandingStyle, toast]);
   const handlePublish = useCallback(async () => {
     if (!eventId) return;
     setIsPublishing(true);
@@ -617,6 +632,8 @@ const RouteEditor = () => {
         route_count: routes.length,
         poi_count: pois.length,
         status: newStatus,
+        logo_url: logoUrl,
+        branding_style: brandingStyle,
       })
       .eq('id', eventId);
 
@@ -769,6 +786,24 @@ const RouteEditor = () => {
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
+        logoUrl={logoUrl}
+        brandingStyle={brandingStyle}
+        onLogoChange={(url) => {
+          setLogoUrl(url);
+          // Auto-save branding to DB
+          if (eventId) {
+            supabase.from('events').update({ logo_url: url }).eq('id', eventId);
+          }
+        }}
+        onBrandingStyleChange={(style) => {
+          setBrandingStyle(style);
+          if (eventId) {
+            supabase.from('events').update({ branding_style: style }).eq('id', eventId);
+          }
+        }}
+        isPaid={isPaid}
+        eventId={eventId || ''}
+        userId={user?.id || ''}
       />
 
       <div className="flex-1 relative" data-tour="map-area">
