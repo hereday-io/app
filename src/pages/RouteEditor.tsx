@@ -80,7 +80,26 @@ const RouteEditor = () => {
 
   const activeRoute = useMemo(() => routes.find((r) => r.id === activeRouteId), [routes, activeRouteId]);
 
-  useEffect(() => {
+  const handleElevationHover = useCallback((coord: Coord | null) => {
+    if (elevMarkerRef.current) {
+      elevMarkerRef.current.remove();
+      elevMarkerRef.current = null;
+    }
+    if (coord && mapRef.current) {
+      const el = document.createElement('div');
+      el.style.width = '14px';
+      el.style.height = '14px';
+      el.style.borderRadius = '50%';
+      el.style.border = '2.5px solid white';
+      el.style.backgroundColor = activeRoute?.color ?? '#2563eb';
+      el.style.boxShadow = '0 0 6px rgba(0,0,0,0.4)';
+      el.style.pointerEvents = 'none';
+      elevMarkerRef.current = new mapboxgl.Marker({ element: el })
+        .setLngLat(coord)
+        .addTo(mapRef.current);
+    }
+  }, [activeRoute?.color]);
+
     if (!authLoading && !user) navigate('/login');
   }, [user, authLoading, navigate]);
 
