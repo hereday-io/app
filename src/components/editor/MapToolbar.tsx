@@ -71,8 +71,8 @@ const MapToolbar = ({ snapToRoads, setSnapToRoads, pendingPoiType, setPendingPoi
           </Tooltip>
 
           {poiOpen && (
-            <div className="absolute left-full top-0 ml-2 bg-card/95 backdrop-blur border border-border rounded-lg shadow-lg p-2 w-44">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Place a POI</p>
+            <div className="absolute left-full top-0 ml-2 bg-card/95 backdrop-blur border border-border rounded-lg shadow-lg p-1.5 w-56">
+              <p className="text-xs font-medium text-muted-foreground px-2.5 py-1.5">Place a marker</p>
               {POI_TYPES.map((type) => {
                 const tone = poiTone(type);
                 const isActive = pendingPoiType === type;
@@ -83,14 +83,17 @@ const MapToolbar = ({ snapToRoads, setSnapToRoads, pendingPoiType, setPendingPoi
                       setPendingPoiType(isActive ? null : type);
                       setPoiOpen(false);
                     }}
-                    className={`w-full text-left text-sm px-2 py-1.5 rounded-md flex items-center gap-2 transition-colors ${
+                    className={`w-full text-left px-2.5 py-2 rounded-md flex items-center gap-2.5 transition-colors ${
                       isActive
-                        ? 'bg-primary/10 text-primary font-medium'
+                        ? 'bg-primary/10 text-primary'
                         : 'hover:bg-secondary text-foreground'
                     }`}
                   >
-                    <span>{tone.emoji}</span>
-                    {tone.label}
+                    <span className="text-base flex-shrink-0">{tone.emoji}</span>
+                    <div className="min-w-0">
+                      <p className={`text-sm leading-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>{tone.label}</p>
+                      <p className="text-[11px] text-muted-foreground leading-tight mt-0.5 truncate">{tone.description}</p>
+                    </div>
                   </button>
                 );
               })}
