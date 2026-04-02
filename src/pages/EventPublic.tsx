@@ -54,6 +54,8 @@ const EventPublic = () => {
           pois: (data.pois as unknown as RoutePoi[]) || [],
           route_count: data.route_count,
           poi_count: data.poi_count,
+          logo_url: data.logo_url ?? null,
+          branding_style: data.branding_style ?? 'none',
         });
         setLoading(false);
       });
