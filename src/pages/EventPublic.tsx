@@ -98,6 +98,13 @@ const EventPublic = () => {
       <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.08),transparent_60%)]" />
         <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-12 text-center">
+          {event.logo_url && event.branding_style !== 'none' && (
+            <img
+              src={event.logo_url}
+              alt={`${event.name} logo`}
+              className="w-20 h-20 object-contain mx-auto mb-6 rounded-xl border border-border bg-card/80 p-2 shadow-sm"
+            />
+          )}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
             <MapPin className="w-4 h-4" />
             {event.city || 'Event'}
