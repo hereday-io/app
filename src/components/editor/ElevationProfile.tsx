@@ -46,6 +46,16 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: Elev
     }
   }, [expanded, fetchProfile, coordsKey]);
 
+  const handleMouseMove = useCallback((state: any) => {
+    if (state?.activePayload?.[0]?.payload?.coord && onHoverPoint) {
+      onHoverPoint(state.activePayload[0].payload.coord);
+    }
+  }, [onHoverPoint]);
+
+  const handleMouseLeave = useCallback(() => {
+    onHoverPoint?.(null);
+  }, [onHoverPoint]);
+
   const hasRoute = route && route.routeCoords.length >= 2;
   if (!hasRoute) return null;
 
@@ -56,16 +66,6 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: Elev
     elevation: Math.round(p.elevation),
     coord: p.coord,
   }));
-
-  const handleMouseMove = useCallback((state: any) => {
-    if (state?.activePayload?.[0]?.payload?.coord && onHoverPoint) {
-      onHoverPoint(state.activePayload[0].payload.coord);
-    }
-  }, [onHoverPoint]);
-
-  const handleMouseLeave = useCallback(() => {
-    onHoverPoint?.(null);
-  }, [onHoverPoint]);
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
