@@ -182,20 +182,22 @@ const LayersPanel = ({
           )}
         </div>
 
-        {/* POIs section */}
-        {pois.length > 0 && (
+        {/* POIs section — exclude auto start/finish */}
+        {(() => {
+          const manualPois = pois.filter((p) => !p.id.startsWith('auto-start-') && !p.id.startsWith('auto-finish-'));
+          return manualPois.length > 0 ? (
           <div>
             <button
               onClick={() => setPoisOpen((v) => !v)}
               className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              <span>Points of Interest ({pois.length})</span>
+              <span>Points of Interest ({manualPois.length})</span>
               {poisOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </button>
 
             {poisOpen && (
               <div className="space-y-0.5">
-                {pois.map((poi, idx) => {
+                {manualPois.map((poi, idx) => {
                   const tone = poiTone(poi.type);
                   const isDragOver = dragGroup === 'pois' && dragOverIdx === idx;
                   return (
@@ -233,7 +235,8 @@ const LayersPanel = ({
               </div>
             )}
           </div>
-        )}
+          ) : null;
+        })()}
 
       </div>
     </div>

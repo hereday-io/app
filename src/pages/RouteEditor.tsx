@@ -66,6 +66,7 @@ const RouteEditor = () => {
   const [eventStatus, setEventStatus] = useState('draft');
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [finishedRouteIds, setFinishedRouteIds] = useState<Set<string>>(new Set());
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -128,6 +129,10 @@ const RouteEditor = () => {
           : [makeRoute('5K Route', ROUTE_COLORS[0])];
         setRoutes(loadedRoutes);
         setActiveRouteId(loadedRoutes[0]?.id ?? '');
+        // Mark routes with existing waypoints as finished
+        const finished = new Set<string>();
+        loadedRoutes.forEach((r) => { if (r.waypoints.length >= 2) finished.add(r.id); });
+        setFinishedRouteIds(finished);
         const rawPois = data.pois as unknown;
         setPois(Array.isArray(rawPois) ? (rawPois as RoutePoi[]) : []);
 
@@ -216,7 +221,7 @@ const RouteEditor = () => {
       if (pendingPoiType) {
         tooltip.textContent = `Click to place ${poiTone(pendingPoiType).label.toLowerCase()}`;
         tooltip.style.opacity = '1';
-      } else if (activeRouteId) {
+      } else if (activeRouteId && !finishedRouteIds.has(activeRouteId)) {
         const route = routes.find((r) => r.id === activeRouteId);
         const wpCount = route?.waypoints.length ?? 0;
         if (wpCount === 0) {
@@ -242,7 +247,7 @@ const RouteEditor = () => {
       map.getContainer().removeEventListener('mouseleave', onMouseLeave);
       tooltip.remove();
     };
-  }, [activeRouteId, pendingPoiType, routes]);
+  }, [activeRouteId, pendingPoiType, routes, finishedRouteIds]);
 
   // Helper to auto-place start/finish POIs for a route
   const autoPlaceStartFinish = useCallback((routeId: string, waypoints: Coord[]) => {
@@ -300,7 +305,7 @@ const RouteEditor = () => {
         return;
       }
 
-      if (!activeRouteId) return;
+      if (!activeRouteId || finishedRouteIds.has(activeRouteId)) return;
 
       setRoutes((prev) => {
         const route = prev.find((r) => r.id === activeRouteId);
@@ -353,6 +358,7 @@ const RouteEditor = () => {
 
       // Auto-place start & finish POIs
       autoPlaceStartFinish(activeRouteId, route.waypoints);
+      setFinishedRouteIds((prev) => new Set(prev).add(activeRouteId));
       setStatusText(`Route finished · ${totalDistanceMiles(route.routeCoords).toFixed(2)} mi — Start & Finish added`);
     };
 
@@ -363,7 +369,7 @@ const RouteEditor = () => {
       map.off('dblclick', onDblClick);
       map.doubleClickZoom.enable();
     };
-  }, [activeRouteId, pendingPoiType, snapToRoads, routes, autoPlaceStartFinish]);
+  }, [activeRouteId, pendingPoiType, snapToRoads, routes, autoPlaceStartFinish, finishedRouteIds]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -428,8 +434,13 @@ const RouteEditor = () => {
           });
         });
 
-      // POI markers
+      // POI markers — hide auto start/finish if their route is hidden
+      const hiddenRouteIds = new Set(routes.filter((r) => !r.visible).map((r) => r.id));
       pois.forEach((poi) => {
+        // Check if this is an auto start/finish POI for a hidden route
+        const autoMatch = poi.id.match(/^auto-(start|finish)-(.+)$/);
+        if (autoMatch && hiddenRouteIds.has(autoMatch[2])) return;
+
         const tone = poiTone(poi.type);
         const el = document.createElement('div');
         el.style.cssText = `width:28px;height:28px;border-radius:50%;background:${tone.dot};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;`;
