@@ -198,9 +198,89 @@ const RouteEditor = () => {
     if (style) map.setStyle(style);
   }, [selectedBasemap]);
 
+  // Cursor tooltip that follows the mouse
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+
+    const tooltip = document.createElement('div');
+    tooltip.style.cssText =
+      'position:absolute;pointer-events:none;z-index:50;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;background:hsl(var(--card));color:hsl(var(--foreground));border:1px solid hsl(var(--border));box-shadow:0 2px 8px rgba(0,0,0,0.15);opacity:0;transition:opacity 0.15s;';
+    map.getContainer().appendChild(tooltip);
+
+    const onMouseMove = (e: mapboxgl.MapMouseEvent) => {
+      const point = e.point;
+      tooltip.style.left = `${point.x + 16}px`;
+      tooltip.style.top = `${point.y - 12}px`;
+
+      if (pendingPoiType) {
+        tooltip.textContent = `Click to place ${poiTone(pendingPoiType).label.toLowerCase()}`;
+        tooltip.style.opacity = '1';
+      } else if (activeRouteId) {
+        const route = routes.find((r) => r.id === activeRouteId);
+        const wpCount = route?.waypoints.length ?? 0;
+        if (wpCount === 0) {
+          tooltip.textContent = 'Click to start your route';
+        } else {
+          tooltip.textContent = 'Click to add point · Double-click to finish';
+        }
+        tooltip.style.opacity = '1';
+      } else {
+        tooltip.style.opacity = '0';
+      }
+    };
+
+    const onMouseLeave = () => {
+      tooltip.style.opacity = '0';
+    };
+
+    map.on('mousemove', onMouseMove);
+    map.getContainer().addEventListener('mouseleave', onMouseLeave);
+
+    return () => {
+      map.off('mousemove', onMouseMove);
+      map.getContainer().removeEventListener('mouseleave', onMouseLeave);
+      tooltip.remove();
+    };
+  }, [activeRouteId, pendingPoiType, routes]);
+
+  // Helper to auto-place start/finish POIs for a route
+  const autoPlaceStartFinish = useCallback((routeId: string, waypoints: Coord[]) => {
+    if (waypoints.length < 2) return;
+    const startCoord = waypoints[0];
+    const finishCoord = waypoints[waypoints.length - 1];
+
+    setPois((prev) => {
+      // Remove any existing auto-placed start/finish for this route
+      const filtered = prev.filter(
+        (p) => !(p.id.startsWith(`auto-start-${routeId}`) || p.id.startsWith(`auto-finish-${routeId}`))
+      );
+      return [
+        ...filtered,
+        {
+          id: `auto-start-${routeId}`,
+          type: 'start' as PoiType,
+          title: 'Start',
+          description: '',
+          coordinates: startCoord,
+        },
+        {
+          id: `auto-finish-${routeId}`,
+          type: 'finish' as PoiType,
+          title: 'Finish',
+          description: '',
+          coordinates: finishCoord,
+        },
+      ];
+    });
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Disable default double-click zoom so our handler works
+    map.doubleClickZoom.disable();
 
     const onClick = async (e: mapboxgl.MapMouseEvent) => {
       const coord: Coord = [e.lngLat.lng, e.lngLat.lat];
@@ -264,11 +344,26 @@ const RouteEditor = () => {
       }
     };
 
+    const onDblClick = (e: mapboxgl.MapMouseEvent) => {
+      e.preventDefault();
+      if (!activeRouteId) return;
+
+      const route = routes.find((r) => r.id === activeRouteId);
+      if (!route || route.waypoints.length < 2) return;
+
+      // Auto-place start & finish POIs
+      autoPlaceStartFinish(activeRouteId, route.waypoints);
+      setStatusText(`Route finished · ${totalDistanceMiles(route.routeCoords).toFixed(2)} mi — Start & Finish added`);
+    };
+
     map.on('click', onClick);
+    map.on('dblclick', onDblClick);
     return () => {
       map.off('click', onClick);
+      map.off('dblclick', onDblClick);
+      map.doubleClickZoom.enable();
     };
-  }, [activeRouteId, pendingPoiType, snapToRoads, routes]);
+  }, [activeRouteId, pendingPoiType, snapToRoads, routes, autoPlaceStartFinish]);
 
   useEffect(() => {
     const map = mapRef.current;
