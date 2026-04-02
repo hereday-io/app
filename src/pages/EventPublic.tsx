@@ -17,6 +17,8 @@ interface PublicEvent {
   pois: RoutePoi[];
   route_count: number;
   poi_count: number;
+  logo_url: string | null;
+  branding_style: string;
 }
 
 type ViewMode = 'landing' | 'runner' | 'spectator';
