@@ -447,34 +447,65 @@ const RouteEditor = () => {
         el.textContent = tone.emoji;
 
         const popupContent = document.createElement('div');
-        popupContent.style.cssText = 'font-family:system-ui,sans-serif;min-width:200px;';
+        popupContent.style.cssText = 'font-family:"DM Sans",system-ui,sans-serif;width:260px;';
+
+        const escTitle = (poi.title || '').replace(/"/g, '&quot;');
+        const escDesc = (poi.description || '').replace(/</g, '&lt;');
+        const escImg = (poi.imageUrl || '').replace(/"/g, '&quot;');
+        const escLink = (poi.webLink || '').replace(/"/g, '&quot;');
+        const coordStr = `${poi.coordinates[1].toFixed(5)}, ${poi.coordinates[0].toFixed(5)}`;
+
         popupContent.innerHTML = `
-          <div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-            <span style="font-size:16px;">${tone.emoji}</span>
-            <span style="font-size:11px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${tone.label}</span>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <div style="width:40px;height:40px;border-radius:50%;background:${tone.dot}15;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:2px solid ${tone.dot}30;">${tone.emoji}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${tone.label} Marker</div>
+              <input data-field="title" value="${escTitle}" placeholder="${tone.label}" style="width:100%;padding:0;border:none;font-size:15px;font-weight:700;color:#1e293b;outline:none;background:transparent;font-family:inherit;" />
+            </div>
           </div>
-          <input data-field="title" value="${(poi.title || '').replace(/"/g, '&quot;')}" placeholder="Title" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-weight:600;margin-bottom:6px;outline:none;box-sizing:border-box;" />
-          <textarea data-field="description" placeholder="Add details…" rows="2" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;resize:none;outline:none;box-sizing:border-box;">${poi.description || ''}</textarea>
-          <div style="display:flex;justify-content:flex-end;margin-top:6px;">
-            <button data-action="save" style="padding:4px 12px;background:hsl(var(--primary));color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Save</button>
+          <div style="border-top:1px solid #f1f5f9;padding-top:12px;">
+            <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Description</label>
+            <textarea data-field="description" placeholder="Add notes about this marker location…" rows="2" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;resize:none;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;">${escDesc}</textarea>
+          </div>
+          <div style="margin-top:10px;">
+            <label style="font-size:11px;font-weight:600;color:#64748b;display:flex;align-items:center;gap:4px;margin-bottom:4px;">🖼 Image URL</label>
+            <input data-field="imageUrl" value="${escImg}" placeholder="https://example.com/photo.jpg" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;" />
+          </div>
+          <div style="margin-top:10px;">
+            <label style="font-size:11px;font-weight:600;color:#64748b;display:flex;align-items:center;gap:4px;margin-bottom:4px;">🔗 Web Link</label>
+            <input data-field="webLink" value="${escLink}" placeholder="https://sponsor.com" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;" />
+          </div>
+          <div style="margin-top:10px;padding:6px 10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#94a3b8;font-family:monospace;">${coordStr}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
+            <button data-action="remove" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove marker</button>
+            <button data-action="save" style="padding:6px 18px;background:hsl(var(--primary));color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Done</button>
           </div>
         `;
 
-        const popup = new mapboxgl.Popup({ offset: 12, maxWidth: '260px', closeOnClick: false });
+        const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '300px', closeOnClick: false });
         popup.setDOMContent(popupContent);
 
         popup.on('open', () => {
-          const saveBtn = popupContent.querySelector('[data-action="save"]') as HTMLButtonElement | null;
+          const saveBtn = popupContent.querySelector('[data-action="save"]') as HTMLButtonElement;
+          const removeBtn = popupContent.querySelector('[data-action="remove"]') as HTMLButtonElement;
+
           saveBtn?.addEventListener('click', () => {
-            const titleInput = popupContent.querySelector('[data-field="title"]') as HTMLInputElement;
-            const descInput = popupContent.querySelector('[data-field="description"]') as HTMLTextAreaElement;
+            const t = (popupContent.querySelector('[data-field="title"]') as HTMLInputElement).value;
+            const d = (popupContent.querySelector('[data-field="description"]') as HTMLTextAreaElement).value;
+            const img = (popupContent.querySelector('[data-field="imageUrl"]') as HTMLInputElement).value;
+            const link = (popupContent.querySelector('[data-field="webLink"]') as HTMLInputElement).value;
             setPois((prev) =>
               prev.map((p) =>
                 p.id === poi.id
-                  ? { ...p, title: titleInput.value, description: descInput.value }
+                  ? { ...p, title: t, description: d, imageUrl: img || undefined, webLink: link || undefined }
                   : p
               )
             );
+            popup.remove();
+          });
+
+          removeBtn?.addEventListener('click', () => {
+            setPois((prev) => prev.filter((p) => p.id !== poi.id));
             popup.remove();
           });
         });
