@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Mountain, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import type { Coord, EventRoute } from '@/types/mapEditor';
@@ -153,6 +153,7 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: Elev
                         domain={['auto', 'auto']}
                       />
                       <Tooltip
+                        cursor={{ stroke: routeColor, strokeWidth: 1.5, strokeDasharray: '4 3', strokeOpacity: 0.7 }}
                         contentStyle={{
                           background: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
