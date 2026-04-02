@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { totalDistanceMiles, getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
-import type { EventRoute, RoutePoi } from '@/types/mapEditor';
+import type { Coord, EventRoute, RoutePoi } from '@/types/mapEditor';
 import { ArrowLeft, Route, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,12 +25,22 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mileMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const { token } = useMapboxToken();
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
 
   const activeRouteForProfile = selectedRoute
     ? event.routes.find((r) => r.id === selectedRoute)
     : event.routes[0];
+
+  const handleElevationHover = useCallback((coord: Coord | null) => {
+    if (elevMarkerRef.current) { elevMarkerRef.current.remove(); elevMarkerRef.current = null; }
+    if (coord && mapRef.current) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:14px;height:14px;border-radius:50%;border:2.5px solid white;box-shadow:0 0 6px rgba(0,0,0,0.4);pointer-events:none;background:' + (activeRouteForProfile?.color ?? '#2563eb');
+      elevMarkerRef.current = new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(mapRef.current);
+    }
+  }, [activeRouteForProfile?.color]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
@@ -242,6 +252,7 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
               route={activeRouteForProfile}
               mapboxToken={token}
               routeColor={activeRouteForProfile?.color ?? '#2563eb'}
+              onHoverPoint={handleElevationHover}
             />
           )}
         </div>

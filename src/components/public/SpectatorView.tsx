@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
-import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
+import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Car, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ElevationProfile from '@/components/editor/ElevationProfile';
@@ -26,9 +26,19 @@ const SPECTATOR_POI_TYPES: PoiType[] = ['start', 'finish', 'parking', 'restroom'
 const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const { token } = useMapboxToken();
 
   const spectatorPois = event.pois.filter(p => SPECTATOR_POI_TYPES.includes(p.type));
+
+  const handleElevationHover = useCallback((coord: Coord | null) => {
+    if (elevMarkerRef.current) { elevMarkerRef.current.remove(); elevMarkerRef.current = null; }
+    if (coord && mapRef.current) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:14px;height:14px;border-radius:50%;border:2.5px solid white;box-shadow:0 0 6px rgba(0,0,0,0.4);pointer-events:none;background:' + (event.routes[0]?.color ?? '#2563eb');
+      elevMarkerRef.current = new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(mapRef.current);
+    }
+  }, [event.routes]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
@@ -212,6 +222,7 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
               route={event.routes[0]}
               mapboxToken={token}
               routeColor={event.routes[0]?.color ?? '#2563eb'}
+              onHoverPoint={handleElevationHover}
             />
           )}
         </div>

@@ -9,9 +9,10 @@ interface ElevationProfileProps {
   route: EventRoute | undefined;
   mapboxToken: string;
   routeColor: string;
+  onHoverPoint?: (coord: Coord | null) => void;
 }
 
-const ElevationProfile = ({ route, mapboxToken, routeColor }: ElevationProfileProps) => {
+const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: ElevationProfileProps) => {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<ElevationPoint[]>([]);
@@ -45,6 +46,16 @@ const ElevationProfile = ({ route, mapboxToken, routeColor }: ElevationProfilePr
     }
   }, [expanded, fetchProfile, coordsKey]);
 
+  const handleMouseMove = useCallback((state: any) => {
+    if (state?.activePayload?.[0]?.payload?.coord && onHoverPoint) {
+      onHoverPoint(state.activePayload[0].payload.coord);
+    }
+  }, [onHoverPoint]);
+
+  const handleMouseLeave = useCallback(() => {
+    onHoverPoint?.(null);
+  }, [onHoverPoint]);
+
   const hasRoute = route && route.routeCoords.length >= 2;
   if (!hasRoute) return null;
 
@@ -53,6 +64,7 @@ const ElevationProfile = ({ route, mapboxToken, routeColor }: ElevationProfilePr
   const chartData = profile.map((p) => ({
     distance: Number(p.distance.toFixed(2)),
     elevation: Math.round(p.elevation),
+    coord: p.coord,
   }));
 
   return (
@@ -111,11 +123,13 @@ const ElevationProfile = ({ route, mapboxToken, routeColor }: ElevationProfilePr
                 </div>
 
                 {/* Chart */}
-                <div className="h-[140px] w-full">
+                <div className="h-[140px] w-full" onMouseLeave={handleMouseLeave}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                       data={chartData}
                       margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                      onMouseMove={handleMouseMove}
+                      onMouseLeave={handleMouseLeave}
                     >
                       <defs>
                         <linearGradient id="elevGradient" x1="0" y1="0" x2="0" y2="1">

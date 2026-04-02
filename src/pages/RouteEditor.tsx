@@ -42,6 +42,8 @@ const RouteEditor = () => {
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const currentBasemapRef = useRef('light');
   const initialBoundsRef = useRef<{ coords: Coord[]; city: string } | null>(null);
+  const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
 
   const [eventName, setEventName] = useState('Untitled Event');
   const [eventDate, setEventDate] = useState('');
@@ -77,6 +79,26 @@ const RouteEditor = () => {
   }, [routes, activeRouteId]);
 
   const activeRoute = useMemo(() => routes.find((r) => r.id === activeRouteId), [routes, activeRouteId]);
+
+  const handleElevationHover = useCallback((coord: Coord | null) => {
+    if (elevMarkerRef.current) {
+      elevMarkerRef.current.remove();
+      elevMarkerRef.current = null;
+    }
+    if (coord && mapRef.current) {
+      const el = document.createElement('div');
+      el.style.width = '14px';
+      el.style.height = '14px';
+      el.style.borderRadius = '50%';
+      el.style.border = '2.5px solid white';
+      el.style.backgroundColor = activeRoute?.color ?? '#2563eb';
+      el.style.boxShadow = '0 0 6px rgba(0,0,0,0.4)';
+      el.style.pointerEvents = 'none';
+      elevMarkerRef.current = new mapboxgl.Marker({ element: el })
+        .setLngLat(coord)
+        .addTo(mapRef.current);
+    }
+  }, [activeRoute?.color]);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login');
@@ -564,6 +586,7 @@ const RouteEditor = () => {
           route={activeRoute}
           mapboxToken={mapboxToken}
           routeColor={activeRoute?.color ?? '#2563eb'}
+          onHoverPoint={handleElevationHover}
         />
 
         {pendingPoiType && (
