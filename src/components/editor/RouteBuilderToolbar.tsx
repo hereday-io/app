@@ -43,6 +43,9 @@ interface RouteBuilderToolbarProps {
   // Basemap
   selectedBasemap: string;
   setSelectedBasemap: (id: string) => void;
+  // Highlight
+  highlightedPoiType: PoiType | null;
+  setHighlightedPoiType: (t: PoiType | null) => void;
 }
 
 type FlyoutType = 'routes' | 'poi' | 'basemap' | null;
