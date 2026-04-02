@@ -573,22 +573,35 @@ const RouteEditor = () => {
             setPois((prev) => prev.filter((p) => p.id !== poi.id));
             popup.remove();
           });
+
+          const moveBtn = popupContent.querySelector('[data-action="move"]') as HTMLButtonElement;
+          moveBtn?.addEventListener('click', () => {
+            marker.setDraggable(true);
+            el.style.cursor = 'grabbing';
+            inner.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.4), 0 4px 12px rgba(0,0,0,0.3)';
+            popup.remove();
+            const onDragEnd = () => {
+              const lngLat = marker.getLngLat();
+              setPois((prev) =>
+                prev.map((p) =>
+                  p.id === poi.id
+                    ? { ...p, coordinates: [lngLat.lng, lngLat.lat] as Coord }
+                    : p
+                )
+              );
+              marker.setDraggable(false);
+              el.style.cursor = 'pointer';
+              inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`;
+              marker.off('dragend', onDragEnd);
+            };
+            marker.on('dragend', onDragEnd);
+          });
         });
 
-        const marker = new mapboxgl.Marker({ element: el, draggable: true })
+        const marker = new mapboxgl.Marker({ element: el, draggable: false })
           .setLngLat(poi.coordinates)
           .setPopup(popup)
           .addTo(map);
-        marker.on('dragend', () => {
-          const lngLat = marker.getLngLat();
-          setPois((prev) =>
-            prev.map((p) =>
-              p.id === poi.id
-                ? { ...p, coordinates: [lngLat.lng, lngLat.lat] as Coord }
-                : p
-            )
-          );
-        });
         markersRef.current.push(marker);
       });
     };
