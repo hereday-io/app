@@ -730,25 +730,21 @@ const RouteEditor = () => {
       <div className="flex-1 relative" data-tour="map-area">
         <div ref={mapContainerRef} className="w-full h-full" />
 
-        <MapToolbar
-          snapToRoads={snapToRoads}
-          setSnapToRoads={setSnapToRoads}
-          pendingPoiType={pendingPoiType}
-          setPendingPoiType={setPendingPoiType}
-          selectedBasemap={selectedBasemap}
-          setSelectedBasemap={setSelectedBasemap}
-        />
-
-        <LayersPanel
+        <RouteBuilderToolbar
           routes={routes}
           activeRouteId={activeRouteId}
           setActiveRouteId={setActiveRouteId}
           setRoutes={setRoutes}
           onAddRoute={addRoute}
           onDeleteRoute={deleteRoute}
+          snapToRoads={snapToRoads}
+          setSnapToRoads={setSnapToRoads}
+          pendingPoiType={pendingPoiType}
+          setPendingPoiType={setPendingPoiType}
           pois={pois}
           setPois={setPois}
-          activeDistance={activeDistance}
+          selectedBasemap={selectedBasemap}
+          setSelectedBasemap={setSelectedBasemap}
         />
 
         <ElevationProfile
