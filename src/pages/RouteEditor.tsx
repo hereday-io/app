@@ -78,6 +78,14 @@ const RouteEditor = () => {
     });
   }, [mapboxToken]);
 
+  // Fetch paid status from profile
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('is_paid').eq('user_id', user.id).single().then(({ data }) => {
+      if (data) setIsPaid((data as any).is_paid ?? false);
+    });
+  }, [user]);
+
   useEffect(() => {
     if (!activeRouteId && routes.length > 0) setActiveRouteId(routes[0].id);
   }, [routes, activeRouteId]);
