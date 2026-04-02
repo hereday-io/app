@@ -325,7 +325,7 @@ const RouteEditor = () => {
         const route = prev.find((r) => r.id === activeRouteId);
         if (!route) return prev;
 
-        const nextWaypoints = [...route.waypoints, coord];
+        const nextWaypoints = [...route.waypoints, rawCoord];
 
         if (!snapToRoads || nextWaypoints.length < 2) {
           return prev.map((r) =>
