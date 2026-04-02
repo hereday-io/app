@@ -530,7 +530,7 @@ const RouteEditor = () => {
     return () => {
       map.off('style.load', render);
     };
-  }, [routes, pois, activeRouteId, selectedBasemap, mapReady]);
+  }, [routes, pois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
 
   const handleSave = useCallback(async () => {
     if (!eventId) return;
