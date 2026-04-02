@@ -57,6 +57,7 @@ const RouteBuilderToolbar = ({
   pendingPoiType, setPendingPoiType,
   pois, setPois,
   selectedBasemap, setSelectedBasemap,
+  highlightedPoiType, setHighlightedPoiType,
 }: RouteBuilderToolbarProps) => {
   const [openFlyout, setOpenFlyout] = useState<FlyoutType>(null);
   const dragIdx = useRef<number | null>(null);
