@@ -9,6 +9,7 @@ interface ElevationProfileProps {
   route: EventRoute | undefined;
   mapboxToken: string;
   routeColor: string;
+  onHoverPoint?: (coord: Coord | null) => void;
 }
 
 const ElevationProfile = ({ route, mapboxToken, routeColor }: ElevationProfileProps) => {
