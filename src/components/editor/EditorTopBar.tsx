@@ -213,6 +213,16 @@ const EditorTopBar = ({
                     </Button>
                   </div>
                 </div>
+
+                <BrandingPanel
+                  logoUrl={logoUrl}
+                  brandingStyle={brandingStyle}
+                  onLogoChange={onLogoChange}
+                  onStyleChange={onBrandingStyleChange}
+                  isPaid={isPaid}
+                  eventId={eventId}
+                  userId={userId}
+                />
               </div>
             )}
           </div>
