@@ -54,7 +54,18 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: Elev
   const chartData = profile.map((p) => ({
     distance: Number(p.distance.toFixed(2)),
     elevation: Math.round(p.elevation),
+    coord: p.coord,
   }));
+
+  const handleMouseMove = useCallback((state: any) => {
+    if (state?.activePayload?.[0]?.payload?.coord && onHoverPoint) {
+      onHoverPoint(state.activePayload[0].payload.coord);
+    }
+  }, [onHoverPoint]);
+
+  const handleMouseLeave = useCallback(() => {
+    onHoverPoint?.(null);
+  }, [onHoverPoint]);
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
