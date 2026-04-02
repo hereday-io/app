@@ -26,6 +26,7 @@ const SPECTATOR_POI_TYPES: PoiType[] = ['start', 'finish', 'parking', 'restroom'
 const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const { token } = useMapboxToken();
 
   const spectatorPois = event.pois.filter(p => SPECTATOR_POI_TYPES.includes(p.type));
