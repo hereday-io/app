@@ -235,7 +235,8 @@ const LayersPanel = ({
               </div>
             )}
           </div>
-        )}
+          ) : null;
+        })()}
 
       </div>
     </div>
