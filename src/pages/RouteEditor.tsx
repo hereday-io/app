@@ -65,6 +65,7 @@ const RouteEditor = () => {
   const [eventStatus, setEventStatus] = useState('draft');
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [finishedRouteIds, setFinishedRouteIds] = useState<Set<string>>(new Set());
   const [highlightedPoiType, setHighlightedPoiType] = useState<PoiType | null>(null);
   // Fetch Mapbox token from backend
   useEffect(() => {
