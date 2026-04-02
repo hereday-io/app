@@ -8,6 +8,7 @@ import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Car, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ElevationProfile from '@/components/editor/ElevationProfile';
+import EventBranding from '@/components/public/EventBranding';
 
 interface SpectatorViewProps {
   event: {
@@ -16,6 +17,8 @@ interface SpectatorViewProps {
     event_date: string | null;
     routes: EventRoute[];
     pois: RoutePoi[];
+    logo_url?: string | null;
+    branding_style?: string;
   };
   onBack: () => void;
 }
