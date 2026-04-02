@@ -66,6 +66,7 @@ const RouteEditor = () => {
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [finishedRouteIds, setFinishedRouteIds] = useState<Set<string>>(new Set());
+  const [highlightedPoiType, setHighlightedPoiType] = useState<PoiType | null>(null);
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -441,8 +442,9 @@ const RouteEditor = () => {
         if (autoMatch && hiddenRouteIds.has(autoMatch[2])) return;
 
         const tone = poiTone(poi.type);
+        const isHighlighted = highlightedPoiType === null || highlightedPoiType === poi.type;
         const el = document.createElement('div');
-        el.style.cssText = `width:28px;height:28px;border-radius:50%;background:${tone.dot};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;`;
+        el.style.cssText = `width:${isHighlighted ? 28 : 24}px;height:${isHighlighted ? 28 : 24}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:all 0.2s;`;
         el.textContent = tone.emoji;
 
         const popupContent = document.createElement('div');
@@ -528,7 +530,7 @@ const RouteEditor = () => {
     return () => {
       map.off('style.load', render);
     };
-  }, [routes, pois, activeRouteId, selectedBasemap, mapReady]);
+  }, [routes, pois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
 
   const handleSave = useCallback(async () => {
     if (!eventId) return;
@@ -745,6 +747,8 @@ const RouteEditor = () => {
           setPois={setPois}
           selectedBasemap={selectedBasemap}
           setSelectedBasemap={setSelectedBasemap}
+          highlightedPoiType={highlightedPoiType}
+          setHighlightedPoiType={setHighlightedPoiType}
         />
 
         <ElevationProfile

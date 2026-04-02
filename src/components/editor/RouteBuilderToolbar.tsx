@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Pencil, Plus, Trash2, Eye, EyeOff, Layers, GripVertical } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
@@ -43,6 +43,9 @@ interface RouteBuilderToolbarProps {
   // Basemap
   selectedBasemap: string;
   setSelectedBasemap: (id: string) => void;
+  // Highlight
+  highlightedPoiType: PoiType | null;
+  setHighlightedPoiType: (t: PoiType | null) => void;
 }
 
 type FlyoutType = 'routes' | 'poi' | 'basemap' | null;
@@ -54,6 +57,7 @@ const RouteBuilderToolbar = ({
   pendingPoiType, setPendingPoiType,
   pois, setPois,
   selectedBasemap, setSelectedBasemap,
+  highlightedPoiType, setHighlightedPoiType,
 }: RouteBuilderToolbarProps) => {
   const [openFlyout, setOpenFlyout] = useState<FlyoutType>(null);
   const dragIdx = useRef<number | null>(null);
@@ -242,45 +246,38 @@ const RouteBuilderToolbar = ({
                 })}
               </div>
 
-              {/* Placed POIs list */}
-              {manualPois.length > 0 && (
-                <div className="border-t border-border px-1.5 py-1.5 space-y-0.5 max-h-40 overflow-y-auto">
-                  <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1">Placed ({manualPois.length})</p>
-                  {manualPois.map((poi, idx) => {
-                    const tone = poiTone(poi.type);
-                    const isDragOver = dragGroup === 'pois' && dragOverIdx === idx;
-                    return (
-                      <div
-                        key={poi.id}
-                        draggable
-                        onDragStart={() => handleDragStart('pois', idx)}
-                        onDragOver={(e) => handleDragOver(e, idx)}
-                        onDrop={() => handleDrop('pois', idx)}
-                        onDragEnd={handleDragEnd}
-                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs hover:bg-secondary ${
-                          isDragOver ? 'border-t-2 border-t-primary' : ''
-                        }`}
-                      >
-                        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
-                        <span className="text-sm">{tone.emoji}</span>
-                        <input
-                          value={poi.title}
-                          onChange={(e) =>
-                            setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, title: e.target.value } : p)))
-                          }
-                          className="bg-transparent flex-1 text-xs outline-none min-w-0"
-                        />
+              {/* Placed POIs summary by type */}
+              {manualPois.length > 0 && (() => {
+                const grouped = manualPois.reduce<Record<string, number>>((acc, p) => {
+                  acc[p.type] = (acc[p.type] || 0) + 1;
+                  return acc;
+                }, {});
+                const types = Object.keys(grouped) as PoiType[];
+                return (
+                  <div className="border-t border-border px-1.5 py-1.5 space-y-0.5">
+                    <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1">Placed ({manualPois.length})</p>
+                    {types.map((type) => {
+                      const tone = poiTone(type);
+                      const isHighlighted = highlightedPoiType === type;
+                      return (
                         <button
-                          onClick={() => setPois((prev) => prev.filter((p) => p.id !== poi.id))}
-                          className="text-muted-foreground hover:text-destructive"
+                          key={type}
+                          onClick={() => setHighlightedPoiType(isHighlighted ? null : type)}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                            isHighlighted ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'
+                          }`}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <span className="text-sm">{tone.emoji}</span>
+                          <span className="flex-1 text-left font-medium">{tone.label}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                            isHighlighted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          }`}>{grouped[type]}</span>
                         </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
