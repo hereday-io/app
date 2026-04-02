@@ -25,6 +25,7 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mileMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const { token } = useMapboxToken();
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
 
