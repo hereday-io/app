@@ -222,6 +222,7 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
               route={event.routes[0]}
               mapboxToken={token}
               routeColor={event.routes[0]?.color ?? '#2563eb'}
+              onHoverPoint={handleElevationHover}
             />
           )}
         </div>

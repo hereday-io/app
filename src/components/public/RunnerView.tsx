@@ -252,6 +252,7 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
               route={activeRouteForProfile}
               mapboxToken={token}
               routeColor={activeRouteForProfile?.color ?? '#2563eb'}
+              onHoverPoint={handleElevationHover}
             />
           )}
         </div>
