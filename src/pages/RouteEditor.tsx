@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
-import { totalDistanceMiles, getSnappedRoute, getMileMarkers, ROUTE_COLORS, BASEMAP_OPTIONS } from '@/lib/geo';
+import { totalDistanceMiles, getSnappedRoute, getMileMarkers, snapToNearestRoute, ROUTE_COLORS, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone, POI_TYPES } from '@/lib/pois';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
@@ -301,9 +301,10 @@ const RouteEditor = () => {
     map.doubleClickZoom.disable();
 
     const onClick = async (e: mapboxgl.MapMouseEvent) => {
-      const coord: Coord = [e.lngLat.lng, e.lngLat.lat];
+      const rawCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
 
       if (pendingPoiType) {
+        const coord = snapToNearestRoute(rawCoord, routes);
         const tone = poiTone(pendingPoiType);
         const newPoi: RoutePoi = {
           id: crypto.randomUUID(),
@@ -324,7 +325,7 @@ const RouteEditor = () => {
         const route = prev.find((r) => r.id === activeRouteId);
         if (!route) return prev;
 
-        const nextWaypoints = [...route.waypoints, coord];
+        const nextWaypoints = [...route.waypoints, rawCoord];
 
         if (!snapToRoads || nextWaypoints.length < 2) {
           return prev.map((r) =>
@@ -341,7 +342,7 @@ const RouteEditor = () => {
 
       const route = routes.find((r) => r.id === activeRouteId);
       if (snapToRoads && route && route.waypoints.length >= 1) {
-        const nextWaypoints = [...route.waypoints, coord];
+        const nextWaypoints = [...route.waypoints, rawCoord];
         setIsSnapping(true);
         setStatusText('Snapping to roads...');
         try {
@@ -582,10 +583,12 @@ const RouteEditor = () => {
             popup.remove();
             const onDragEnd = () => {
               const lngLat = marker.getLngLat();
+              const snappedCoord = snapToNearestRoute([lngLat.lng, lngLat.lat] as Coord, routes);
+              marker.setLngLat(snappedCoord);
               setPois((prev) =>
                 prev.map((p) =>
                   p.id === poi.id
-                    ? { ...p, coordinates: [lngLat.lng, lngLat.lat] as Coord }
+                    ? { ...p, coordinates: snappedCoord }
                     : p
                 )
               );
