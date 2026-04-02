@@ -3,6 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
+import BrandingPanel from '@/components/editor/BrandingPanel';
+
+type BrandingStyle = 'none' | 'corner' | 'banner' | 'both';
 
 interface EditorTopBarProps {
   eventName: string;
@@ -25,6 +28,14 @@ interface EditorTopBarProps {
   onLocationSelect: (center: [number, number], name: string) => void;
   onHelp?: () => void;
   onPublish?: () => void;
+  // Branding
+  logoUrl: string | null;
+  brandingStyle: BrandingStyle;
+  onLogoChange: (url: string | null) => void;
+  onBrandingStyleChange: (style: BrandingStyle) => void;
+  isPaid: boolean;
+  eventId: string;
+  userId: string;
 }
 
 const EditorTopBar = ({
