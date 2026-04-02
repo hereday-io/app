@@ -503,16 +503,44 @@ const RouteEditor = () => {
         popup.on('open', () => {
           const saveBtn = popupContent.querySelector('[data-action="save"]') as HTMLButtonElement;
           const removeBtn = popupContent.querySelector('[data-action="remove"]') as HTMLButtonElement;
+          const fileInput = popupContent.querySelector('[data-field="photoFile"]') as HTMLInputElement;
+          const photoPreview = popupContent.querySelector('[data-photo-preview]') as HTMLImageElement;
+          const removePhotoBtn = popupContent.querySelector('[data-action="removePhoto"]') as HTMLButtonElement;
+          let pendingImageDataUrl: string | undefined = poi.imageDataUrl;
+
+          fileInput?.addEventListener('change', () => {
+            const file = fileInput.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              pendingImageDataUrl = reader.result as string;
+              if (photoPreview) {
+                photoPreview.src = pendingImageDataUrl;
+                photoPreview.style.display = 'block';
+              }
+              if (removePhotoBtn) removePhotoBtn.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+          });
+
+          removePhotoBtn?.addEventListener('click', () => {
+            pendingImageDataUrl = undefined;
+            if (photoPreview) {
+              photoPreview.src = '';
+              photoPreview.style.display = 'none';
+            }
+            removePhotoBtn.style.display = 'none';
+          });
 
           saveBtn?.addEventListener('click', () => {
             const t = (popupContent.querySelector('[data-field="title"]') as HTMLInputElement).value;
             const d = (popupContent.querySelector('[data-field="description"]') as HTMLTextAreaElement).value;
-            const img = (popupContent.querySelector('[data-field="imageUrl"]') as HTMLInputElement).value;
-            const link = (popupContent.querySelector('[data-field="webLink"]') as HTMLInputElement).value;
+            const linkEl = popupContent.querySelector('[data-field="webLink"]') as HTMLInputElement | null;
+            const link = linkEl?.value || '';
             setPois((prev) =>
               prev.map((p) =>
                 p.id === poi.id
-                  ? { ...p, title: t, description: d, imageUrl: img || undefined, webLink: link || undefined }
+                  ? { ...p, title: t, description: d, imageDataUrl: pendingImageDataUrl, imageUrl: undefined, webLink: link || undefined }
                   : p
               )
             );
