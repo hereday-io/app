@@ -27,6 +27,8 @@ export interface RoutePoi {
   title: string;
   description: string;
   coordinates: Coord;
+  imageUrl?: string;
+  webLink?: string;
   imageDataUrl?: string;
 }
 
