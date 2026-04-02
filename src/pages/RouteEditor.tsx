@@ -602,6 +602,8 @@ const RouteEditor = () => {
         pois: JSON.parse(JSON.stringify(pois)),
         route_count: routes.length,
         poi_count: pois.length,
+        logo_url: logoUrl,
+        branding_style: brandingStyle,
       })
       .eq('id', eventId);
 
@@ -613,7 +615,7 @@ const RouteEditor = () => {
       setStatusText('Event saved.');
     }
     setIsSaving(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, toast]);
+  }, [eventId, eventName, city, eventDate, routes, pois, logoUrl, brandingStyle, toast]);
   const handlePublish = useCallback(async () => {
     if (!eventId) return;
     setIsPublishing(true);
