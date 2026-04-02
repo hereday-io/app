@@ -446,9 +446,42 @@ const RouteEditor = () => {
         el.style.cssText = `width:28px;height:28px;border-radius:50%;background:${tone.dot};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;`;
         el.textContent = tone.emoji;
 
+        const popupContent = document.createElement('div');
+        popupContent.style.cssText = 'font-family:system-ui,sans-serif;min-width:200px;';
+        popupContent.innerHTML = `
+          <div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:16px;">${tone.emoji}</span>
+            <span style="font-size:11px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${tone.label}</span>
+          </div>
+          <input data-field="title" value="${(poi.title || '').replace(/"/g, '&quot;')}" placeholder="Title" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-weight:600;margin-bottom:6px;outline:none;box-sizing:border-box;" />
+          <textarea data-field="description" placeholder="Add details…" rows="2" style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;resize:none;outline:none;box-sizing:border-box;">${poi.description || ''}</textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+            <button data-action="save" style="padding:4px 12px;background:hsl(var(--primary));color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Save</button>
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 12, maxWidth: '260px', closeOnClick: false });
+        popup.setDOMContent(popupContent);
+
+        popup.on('open', () => {
+          const saveBtn = popupContent.querySelector('[data-action="save"]') as HTMLButtonElement | null;
+          saveBtn?.addEventListener('click', () => {
+            const titleInput = popupContent.querySelector('[data-field="title"]') as HTMLInputElement;
+            const descInput = popupContent.querySelector('[data-field="description"]') as HTMLTextAreaElement;
+            setPois((prev) =>
+              prev.map((p) =>
+                p.id === poi.id
+                  ? { ...p, title: titleInput.value, description: descInput.value }
+                  : p
+              )
+            );
+            popup.remove();
+          });
+        });
+
         const marker = new mapboxgl.Marker(el)
           .setLngLat(poi.coordinates)
-          .setPopup(new mapboxgl.Popup({ offset: 12 }).setHTML(`<strong>${poi.title}</strong><br/>${poi.description || poi.type}`))
+          .setPopup(popup)
           .addTo(map);
         markersRef.current.push(marker);
       });
