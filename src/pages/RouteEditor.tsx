@@ -746,6 +746,8 @@ const RouteEditor = () => {
           setPois={setPois}
           selectedBasemap={selectedBasemap}
           setSelectedBasemap={setSelectedBasemap}
+          highlightedPoiType={highlightedPoiType}
+          setHighlightedPoiType={setHighlightedPoiType}
         />
 
         <ElevationProfile
