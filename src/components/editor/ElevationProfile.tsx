@@ -153,6 +153,7 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: Elev
                         domain={['auto', 'auto']}
                       />
                       <Tooltip
+                        cursor={{ stroke: routeColor, strokeWidth: 1.5, strokeDasharray: '4 3', strokeOpacity: 0.7 }}
                         contentStyle={{
                           background: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
