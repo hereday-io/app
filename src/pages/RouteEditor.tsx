@@ -67,6 +67,9 @@ const RouteEditor = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [finishedRouteIds, setFinishedRouteIds] = useState<Set<string>>(new Set());
   const [highlightedPoiType, setHighlightedPoiType] = useState<PoiType | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [brandingStyle, setBrandingStyle] = useState<'none' | 'corner' | 'banner' | 'both'>('none');
+  const [isPaid, setIsPaid] = useState(false);
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
