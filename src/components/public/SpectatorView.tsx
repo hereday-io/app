@@ -220,6 +220,11 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
         {/* Map */}
         <div className="flex-1 relative">
           <div ref={mapContainerRef} className="w-full h-full" />
+          <EventBranding
+            logoUrl={event.logo_url ?? null}
+            brandingStyle={event.branding_style ?? 'none'}
+            eventName={event.name}
+          />
           {token && (
             <ElevationProfile
               route={event.routes[0]}
