@@ -457,10 +457,14 @@ const RouteEditor = () => {
         const tone = poiTone(poi.type);
         const isHighlighted = highlightedPoiType === null || highlightedPoiType === poi.type;
         const el = document.createElement('div');
-        el.style.cssText = `width:${isHighlighted ? 28 : 24}px;height:${isHighlighted ? 28 : 24}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});cursor:grab;display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:opacity 0.2s, box-shadow 0.2s, transform 0.15s ease;`;
-        el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.25)'; el.style.boxShadow = `0 4px 12px rgba(0,0,0,0.35)`; });
-        el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; el.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
-        el.textContent = tone.emoji;
+        el.style.cssText = `cursor:pointer;display:flex;align-items:center;justify-content:center;`;
+        const inner = document.createElement('div');
+        const size = isHighlighted ? 28 : 24;
+        inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease, box-shadow 0.2s;pointer-events:none;`;
+        inner.textContent = tone.emoji;
+        el.appendChild(inner);
+        el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.25)'; inner.style.boxShadow = `0 4px 12px rgba(0,0,0,0.35)`; });
+        el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)'; inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
 
         const popupContent = document.createElement('div');
         popupContent.style.cssText = 'font-family:"DM Sans",system-ui,sans-serif;width:260px;';
@@ -506,10 +510,13 @@ const RouteEditor = () => {
           </div>
           ` : ''}
           <div style="margin-top:10px;padding:6px 10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#94a3b8;font-family:monospace;">${coordStr}</div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
-            <button data-action="remove" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove marker</button>
-            <button data-action="save" style="padding:6px 18px;background:hsl(var(--primary));color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Done</button>
-          </div>
+           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
+            <button data-action="remove" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove</button>
+            <div style="display:flex;gap:6px;">
+              <button data-action="move" style="padding:6px 12px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✥ Move</button>
+              <button data-action="save" style="padding:6px 18px;background:hsl(var(--primary));color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Done</button>
+            </div>
+           </div>
         `;
 
         const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '300px', closeOnClick: false });
@@ -566,22 +573,35 @@ const RouteEditor = () => {
             setPois((prev) => prev.filter((p) => p.id !== poi.id));
             popup.remove();
           });
+
+          const moveBtn = popupContent.querySelector('[data-action="move"]') as HTMLButtonElement;
+          moveBtn?.addEventListener('click', () => {
+            marker.setDraggable(true);
+            el.style.cursor = 'grabbing';
+            inner.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.4), 0 4px 12px rgba(0,0,0,0.3)';
+            popup.remove();
+            const onDragEnd = () => {
+              const lngLat = marker.getLngLat();
+              setPois((prev) =>
+                prev.map((p) =>
+                  p.id === poi.id
+                    ? { ...p, coordinates: [lngLat.lng, lngLat.lat] as Coord }
+                    : p
+                )
+              );
+              marker.setDraggable(false);
+              el.style.cursor = 'pointer';
+              inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`;
+              marker.off('dragend', onDragEnd);
+            };
+            marker.on('dragend', onDragEnd);
+          });
         });
 
-        const marker = new mapboxgl.Marker({ element: el, draggable: true })
+        const marker = new mapboxgl.Marker({ element: el, draggable: false })
           .setLngLat(poi.coordinates)
           .setPopup(popup)
           .addTo(map);
-        marker.on('dragend', () => {
-          const lngLat = marker.getLngLat();
-          setPois((prev) =>
-            prev.map((p) =>
-              p.id === poi.id
-                ? { ...p, coordinates: [lngLat.lng, lngLat.lat] as Coord }
-                : p
-            )
-          );
-        });
         markersRef.current.push(marker);
       });
     };
