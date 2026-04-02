@@ -342,7 +342,7 @@ const RouteEditor = () => {
 
       const route = routes.find((r) => r.id === activeRouteId);
       if (snapToRoads && route && route.waypoints.length >= 1) {
-        const nextWaypoints = [...route.waypoints, coord];
+        const nextWaypoints = [...route.waypoints, rawCoord];
         setIsSnapping(true);
         setStatusText('Snapping to roads...');
         try {
