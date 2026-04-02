@@ -100,6 +100,7 @@ const RouteEditor = () => {
     }
   }, [activeRoute?.color]);
 
+  useEffect(() => {
     if (!authLoading && !user) navigate('/login');
   }, [user, authLoading, navigate]);
 
