@@ -457,7 +457,7 @@ const RouteEditor = () => {
         const tone = poiTone(poi.type);
         const isHighlighted = highlightedPoiType === null || highlightedPoiType === poi.type;
         const el = document.createElement('div');
-        el.style.cssText = `width:${isHighlighted ? 28 : 24}px;height:${isHighlighted ? 28 : 24}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:all 0.2s;`;
+        el.style.cssText = `width:${isHighlighted ? 28 : 24}px;height:${isHighlighted ? 28 : 24}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:opacity 0.2s, box-shadow 0.2s;`;
         el.textContent = tone.emoji;
 
         const popupContent = document.createElement('div');
