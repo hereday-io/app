@@ -510,10 +510,13 @@ const RouteEditor = () => {
           </div>
           ` : ''}
           <div style="margin-top:10px;padding:6px 10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#94a3b8;font-family:monospace;">${coordStr}</div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
-            <button data-action="remove" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove marker</button>
-            <button data-action="save" style="padding:6px 18px;background:hsl(var(--primary));color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Done</button>
-          </div>
+           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
+            <button data-action="remove" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove</button>
+            <div style="display:flex;gap:6px;">
+              <button data-action="move" style="padding:6px 12px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✥ Move</button>
+              <button data-action="save" style="padding:6px 18px;background:hsl(var(--primary));color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Done</button>
+            </div>
+           </div>
         `;
 
         const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '300px', closeOnClick: false });
