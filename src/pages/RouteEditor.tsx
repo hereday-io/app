@@ -66,6 +66,7 @@ const RouteEditor = () => {
   const [eventStatus, setEventStatus] = useState('draft');
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [finishedRouteIds, setFinishedRouteIds] = useState<Set<string>>(new Set());
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
