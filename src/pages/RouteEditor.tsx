@@ -301,9 +301,10 @@ const RouteEditor = () => {
     map.doubleClickZoom.disable();
 
     const onClick = async (e: mapboxgl.MapMouseEvent) => {
-      const coord: Coord = [e.lngLat.lng, e.lngLat.lat];
+      const rawCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
 
       if (pendingPoiType) {
+        const coord = snapToNearestRoute(rawCoord, routes);
         const tone = poiTone(pendingPoiType);
         const newPoi: RoutePoi = {
           id: crypto.randomUUID(),
