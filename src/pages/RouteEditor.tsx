@@ -243,7 +243,7 @@ const RouteEditor = () => {
       map.getContainer().removeEventListener('mouseleave', onMouseLeave);
       tooltip.remove();
     };
-  }, [activeRouteId, pendingPoiType, routes]);
+  }, [activeRouteId, pendingPoiType, routes, finishedRouteIds]);
 
   // Helper to auto-place start/finish POIs for a route
   const autoPlaceStartFinish = useCallback((routeId: string, waypoints: Coord[]) => {
