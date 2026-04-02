@@ -217,7 +217,7 @@ const RouteEditor = () => {
       if (pendingPoiType) {
         tooltip.textContent = `Click to place ${poiTone(pendingPoiType).label.toLowerCase()}`;
         tooltip.style.opacity = '1';
-      } else if (activeRouteId) {
+      } else if (activeRouteId && !finishedRouteIds.has(activeRouteId)) {
         const route = routes.find((r) => r.id === activeRouteId);
         const wpCount = route?.waypoints.length ?? 0;
         if (wpCount === 0) {
