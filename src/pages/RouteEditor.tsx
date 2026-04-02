@@ -568,10 +568,20 @@ const RouteEditor = () => {
           });
         });
 
-        const marker = new mapboxgl.Marker(el)
+        const marker = new mapboxgl.Marker({ element: el, draggable: true })
           .setLngLat(poi.coordinates)
           .setPopup(popup)
           .addTo(map);
+        marker.on('dragend', () => {
+          const lngLat = marker.getLngLat();
+          setPois((prev) =>
+            prev.map((p) =>
+              p.id === poi.id
+                ? { ...p, coordinates: [lngLat.lng, lngLat.lat] as Coord }
+                : p
+            )
+          );
+        });
         markersRef.current.push(marker);
       });
     };
