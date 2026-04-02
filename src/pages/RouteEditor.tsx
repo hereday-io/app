@@ -430,8 +430,13 @@ const RouteEditor = () => {
           });
         });
 
-      // POI markers
+      // POI markers — hide auto start/finish if their route is hidden
+      const hiddenRouteIds = new Set(routes.filter((r) => !r.visible).map((r) => r.id));
       pois.forEach((poi) => {
+        // Check if this is an auto start/finish POI for a hidden route
+        const autoMatch = poi.id.match(/^auto-(start|finish)-(.+)$/);
+        if (autoMatch && hiddenRouteIds.has(autoMatch[2])) return;
+
         const tone = poiTone(poi.type);
         const el = document.createElement('div');
         el.style.cssText = `width:28px;height:28px;border-radius:50%;background:${tone.dot};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;`;
