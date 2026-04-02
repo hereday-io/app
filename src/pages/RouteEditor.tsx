@@ -129,6 +129,10 @@ const RouteEditor = () => {
           : [makeRoute('5K Route', ROUTE_COLORS[0])];
         setRoutes(loadedRoutes);
         setActiveRouteId(loadedRoutes[0]?.id ?? '');
+        // Mark routes with existing waypoints as finished
+        const finished = new Set<string>();
+        loadedRoutes.forEach((r) => { if (r.waypoints.length >= 2) finished.add(r.id); });
+        setFinishedRouteIds(finished);
         const rawPois = data.pois as unknown;
         setPois(Array.isArray(rawPois) ? (rawPois as RoutePoi[]) : []);
 
