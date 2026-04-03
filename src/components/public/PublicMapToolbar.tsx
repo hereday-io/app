@@ -38,10 +38,22 @@ const PublicMapToolbar = ({
   routes, hiddenRouteIds, onToggleRoute,
   selectedBasemap, onBasemapChange,
   pois, highlightedPoiType, onHighlightPoiType,
-  poiTypeFilter,
+  poiTypeFilter, onFlyToPoi,
 }: PublicMapToolbarProps) => {
   const [openFlyout, setOpenFlyout] = useState<FlyoutType>(null);
-  const toggle = (f: FlyoutType) => setOpenFlyout(prev => prev === f ? null : f);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const toggle = (f: FlyoutType) => {
+    setOpenFlyout(prev => {
+      const next = prev === f ? null : f;
+      if (next !== 'search') setSearchQuery('');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openFlyout === 'search') searchInputRef.current?.focus();
+  }, [openFlyout]);
 
   const filteredPois = poiTypeFilter
     ? pois.filter(p => poiTypeFilter.includes(p.type))
