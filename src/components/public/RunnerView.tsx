@@ -181,20 +181,37 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
 
         const tone = poiTone(poi.type);
         const isHighlighted = !highlightedPoiType || highlightedPoiType === poi.type;
-        const el = document.createElement('div');
-        el.style.cssText = `display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:white;border:2px solid ${tone.dot};font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);opacity:${isHighlighted ? 1 : 0.25};transition:opacity 0.2s,transform 0.15s;`;
-        el.textContent = tone.emoji;
-        el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.2)'; });
-        el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
 
-        const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '260px' }).setHTML(
-          `<div style="font-family:var(--font-body)">
-            <strong style="font-family:var(--font-display)">${poi.title}</strong>
-            ${poi.description ? `<br/><span style="color:#6b7280;font-size:0.875rem">${poi.description}</span>` : ''}
-            ${poi.imageDataUrl ? `<br/><img src="${poi.imageDataUrl}" style="margin-top:6px;border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;" />` : ''}
-            ${poi.webLink ? `<br/><a href="${poi.webLink}" target="_blank" rel="noopener" style="color:#2563eb;font-size:0.75rem">Visit link →</a>` : ''}
-          </div>`
-        );
+        // Outer element for Mapbox positioning — no transition here
+        const el = document.createElement('div');
+        el.style.cssText = 'cursor:pointer;';
+
+        // Inner element for visual styling + hover effect
+        const inner = document.createElement('div');
+        const size = 32;
+        inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:14px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease,box-shadow 0.2s;pointer-events:none;`;
+        inner.textContent = tone.emoji;
+        el.appendChild(inner);
+        el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.25)'; inner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)'; });
+        el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)'; inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
+
+        const existingImage = poi.imageDataUrl || '';
+        const hasWebLink = ['registration', 'sponsor', 'custom'].includes(poi.type);
+        const popupHtml = `
+          <div style="font-family:'DM Sans',system-ui,sans-serif;width:240px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <div style="width:36px;height:36px;border-radius:50%;background:${tone.dot}15;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:2px solid ${tone.dot}30;">${tone.emoji}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${tone.label}</div>
+                <div style="font-size:15px;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${poi.title}</div>
+              </div>
+            </div>
+            ${poi.description ? `<p style="font-size:13px;color:#475569;line-height:1.4;margin:0 0 8px;">${poi.description}</p>` : ''}
+            ${existingImage ? `<img src="${existingImage}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:8px;" />` : ''}
+            ${hasWebLink && poi.webLink ? `<a href="${poi.webLink}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">🔗 Visit link →</a>` : ''}
+          </div>`;
+
+        const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '280px' }).setHTML(popupHtml);
         markersRef.current.push(new mapboxgl.Marker(el).setLngLat(poi.coordinates).setPopup(popup).addTo(map));
       });
     };
