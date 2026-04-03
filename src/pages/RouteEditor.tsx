@@ -52,6 +52,7 @@ const RouteEditor = () => {
   const [pois, setPois] = useState<RoutePoi[]>([]);
   const [pendingPoiType, setPendingPoiType] = useState<PoiType | null>(null);
   const [snapToRoads, setSnapToRoads] = useState(true);
+  const [poiSnapToRoute, setPoiSnapToRoute] = useState(true);
   const [isSnapping, setIsSnapping] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [statusText, setStatusText] = useState('Click on the map to start building your route.');
@@ -304,7 +305,7 @@ const RouteEditor = () => {
       const rawCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
 
       if (pendingPoiType) {
-        const coord = snapToNearestRoute(rawCoord, routes);
+        const coord = poiSnapToRoute ? snapToNearestRoute(rawCoord, routes) : rawCoord;
         const tone = poiTone(pendingPoiType);
         const newPoi: RoutePoi = {
           id: crypto.randomUUID(),
@@ -583,7 +584,7 @@ const RouteEditor = () => {
             popup.remove();
             const onDragEnd = () => {
               const lngLat = marker.getLngLat();
-              const snappedCoord = snapToNearestRoute([lngLat.lng, lngLat.lat] as Coord, routes);
+              const snappedCoord = poiSnapToRoute ? snapToNearestRoute([lngLat.lng, lngLat.lat] as Coord, routes) : [lngLat.lng, lngLat.lat] as Coord;
               marker.setLngLat(snappedCoord);
               setPois((prev) =>
                 prev.map((p) =>
@@ -859,6 +860,8 @@ const RouteEditor = () => {
           setPois={setPois}
           selectedBasemap={selectedBasemap}
           setSelectedBasemap={setSelectedBasemap}
+          poiSnapToRoute={poiSnapToRoute}
+          setPoiSnapToRoute={setPoiSnapToRoute}
           highlightedPoiType={highlightedPoiType}
           setHighlightedPoiType={setHighlightedPoiType}
         />

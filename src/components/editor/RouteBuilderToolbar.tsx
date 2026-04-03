@@ -43,6 +43,9 @@ interface RouteBuilderToolbarProps {
   // Basemap
   selectedBasemap: string;
   setSelectedBasemap: (id: string) => void;
+  // POI snap
+  poiSnapToRoute: boolean;
+  setPoiSnapToRoute: (v: boolean) => void;
   // Highlight
   highlightedPoiType: PoiType | null;
   setHighlightedPoiType: (t: PoiType | null) => void;
@@ -57,6 +60,7 @@ const RouteBuilderToolbar = ({
   pendingPoiType, setPendingPoiType,
   pois, setPois,
   selectedBasemap, setSelectedBasemap,
+  poiSnapToRoute, setPoiSnapToRoute,
   highlightedPoiType, setHighlightedPoiType,
 }: RouteBuilderToolbarProps) => {
   const [openFlyout, setOpenFlyout] = useState<FlyoutType>(null);
@@ -278,6 +282,21 @@ const RouteBuilderToolbar = ({
                   </div>
                 );
               })()}
+
+              {/* POI snap-to-route toggle */}
+              <div className="border-t border-border px-3 py-2">
+                <button
+                  onClick={() => setPoiSnapToRoute(!poiSnapToRoute)}
+                  className={`w-full text-xs px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-2 ${
+                    poiSnapToRoute
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-secondary text-muted-foreground'
+                  }`}
+                >
+                  <span>{poiSnapToRoute ? '🧲' : '📌'}</span>
+                  {poiSnapToRoute ? 'Snap POIs to route' : 'Free placement'}
+                </button>
+              </div>
             </div>
           )}
         </div>
