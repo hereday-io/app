@@ -584,7 +584,7 @@ const RouteEditor = () => {
             popup.remove();
             const onDragEnd = () => {
               const lngLat = marker.getLngLat();
-              const snappedCoord = snapToNearestRoute([lngLat.lng, lngLat.lat] as Coord, routes);
+              const snappedCoord = poiSnapToRoute ? snapToNearestRoute([lngLat.lng, lngLat.lat] as Coord, routes) : [lngLat.lng, lngLat.lat] as Coord;
               marker.setLngLat(snappedCoord);
               setPois((prev) =>
                 prev.map((p) =>
