@@ -305,7 +305,7 @@ const RouteEditor = () => {
       const rawCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
 
       if (pendingPoiType) {
-        const coord = snapToNearestRoute(rawCoord, routes);
+        const coord = poiSnapToRoute ? snapToNearestRoute(rawCoord, routes) : rawCoord;
         const tone = poiTone(pendingPoiType);
         const newPoi: RoutePoi = {
           id: crypto.randomUUID(),
