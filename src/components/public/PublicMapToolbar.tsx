@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Layers, Eye, EyeOff, MapPin, Route } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Layers, Eye, EyeOff, MapPin, Route, Search } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { totalDistanceMiles, BASEMAP_OPTIONS } from '@/lib/geo';
@@ -28,9 +28,11 @@ interface PublicMapToolbarProps {
   onHighlightPoiType: (type: PoiType | null) => void;
   /** Limit which POI types to show in the summary */
   poiTypeFilter?: PoiType[];
+  /** Called when a user selects a POI from search to fly to it */
+  onFlyToPoi?: (poi: RoutePoi) => void;
 }
 
-type FlyoutType = 'routes' | 'poi' | 'basemap' | null;
+type FlyoutType = 'routes' | 'poi' | 'basemap' | 'search' | null;
 
 const PublicMapToolbar = ({
   routes, hiddenRouteIds, onToggleRoute,
