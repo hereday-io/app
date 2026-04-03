@@ -43,6 +43,9 @@ interface RouteBuilderToolbarProps {
   // Basemap
   selectedBasemap: string;
   setSelectedBasemap: (id: string) => void;
+  // POI snap
+  poiSnapToRoute: boolean;
+  setPoiSnapToRoute: (v: boolean) => void;
   // Highlight
   highlightedPoiType: PoiType | null;
   setHighlightedPoiType: (t: PoiType | null) => void;
