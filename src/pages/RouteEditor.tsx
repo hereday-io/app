@@ -860,6 +860,8 @@ const RouteEditor = () => {
           setPois={setPois}
           selectedBasemap={selectedBasemap}
           setSelectedBasemap={setSelectedBasemap}
+          poiSnapToRoute={poiSnapToRoute}
+          setPoiSnapToRoute={setPoiSnapToRoute}
           highlightedPoiType={highlightedPoiType}
           setHighlightedPoiType={setHighlightedPoiType}
         />
