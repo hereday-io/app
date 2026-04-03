@@ -232,6 +232,7 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
           pois={event.pois}
           highlightedPoiType={highlightedPoiType}
           onHighlightPoiType={setHighlightedPoiType}
+          onFlyToPoi={handleFlyToPoi}
         />
 
         <EventBranding

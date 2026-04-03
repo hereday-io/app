@@ -224,6 +224,7 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
           pois={event.pois}
           highlightedPoiType={highlightedPoiType}
           onHighlightPoiType={setHighlightedPoiType}
+          onFlyToPoi={handleFlyToPoi}
         />
 
         <EventBranding
