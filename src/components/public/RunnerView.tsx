@@ -57,6 +57,10 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
     });
   }, []);
 
+  const handleFlyToPoi = useCallback((poi: RoutePoi) => {
+    mapRef.current?.flyTo({ center: poi.coordinates, zoom: 16, duration: 1200 });
+  }, []);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
@@ -228,6 +232,7 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
           pois={event.pois}
           highlightedPoiType={highlightedPoiType}
           onHighlightPoiType={setHighlightedPoiType}
+          onFlyToPoi={handleFlyToPoi}
         />
 
         <EventBranding

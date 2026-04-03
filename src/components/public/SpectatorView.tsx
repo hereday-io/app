@@ -52,6 +52,10 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
     });
   }, []);
 
+  const handleFlyToPoi = useCallback((poi: RoutePoi) => {
+    mapRef.current?.flyTo({ center: poi.coordinates, zoom: 16, duration: 1200 });
+  }, []);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
@@ -220,6 +224,7 @@ const SpectatorView = ({ event, onBack }: SpectatorViewProps) => {
           pois={event.pois}
           highlightedPoiType={highlightedPoiType}
           onHighlightPoiType={setHighlightedPoiType}
+          onFlyToPoi={handleFlyToPoi}
         />
 
         <EventBranding

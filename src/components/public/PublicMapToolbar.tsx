@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Layers, Eye, EyeOff, MapPin, Route } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Layers, Eye, EyeOff, MapPin, Route, Search } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { totalDistanceMiles, BASEMAP_OPTIONS } from '@/lib/geo';
@@ -28,18 +28,32 @@ interface PublicMapToolbarProps {
   onHighlightPoiType: (type: PoiType | null) => void;
   /** Limit which POI types to show in the summary */
   poiTypeFilter?: PoiType[];
+  /** Called when a user selects a POI from search to fly to it */
+  onFlyToPoi?: (poi: RoutePoi) => void;
 }
 
-type FlyoutType = 'routes' | 'poi' | 'basemap' | null;
+type FlyoutType = 'routes' | 'poi' | 'basemap' | 'search' | null;
 
 const PublicMapToolbar = ({
   routes, hiddenRouteIds, onToggleRoute,
   selectedBasemap, onBasemapChange,
   pois, highlightedPoiType, onHighlightPoiType,
-  poiTypeFilter,
+  poiTypeFilter, onFlyToPoi,
 }: PublicMapToolbarProps) => {
   const [openFlyout, setOpenFlyout] = useState<FlyoutType>(null);
-  const toggle = (f: FlyoutType) => setOpenFlyout(prev => prev === f ? null : f);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const toggle = (f: FlyoutType) => {
+    setOpenFlyout(prev => {
+      const next = prev === f ? null : f;
+      if (next !== 'search') setSearchQuery('');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openFlyout === 'search') searchInputRef.current?.focus();
+  }, [openFlyout]);
 
   const filteredPois = poiTypeFilter
     ? pois.filter(p => poiTypeFilter.includes(p.type))
@@ -147,6 +161,67 @@ const PublicMapToolbar = ({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Search POIs */}
+        {manualPois.length > 0 && (
+          <div className="relative">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={() => toggle('search')} className={openFlyout === 'search' ? btnActive : btnDefault}>
+                  <Search className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Search POIs</TooltipContent>
+            </Tooltip>
+
+            {openFlyout === 'search' && (() => {
+              const q = searchQuery.toLowerCase();
+              const results = manualPois.filter(p =>
+                p.title.toLowerCase().includes(q) ||
+                p.description?.toLowerCase().includes(q) ||
+                poiTone(p.type).label.toLowerCase().includes(q)
+              );
+              return (
+                <div className="absolute left-full top-0 ml-2 bg-card/95 backdrop-blur border border-border rounded-lg shadow-lg w-64 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border">
+                    <input
+                      ref={searchInputRef}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by name…"
+                      className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground text-foreground"
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
+                    {results.length === 0 && (
+                      <p className="text-xs text-muted-foreground px-2 py-3 text-center">No results found</p>
+                    )}
+                    {results.map(poi => {
+                      const tone = poiTone(poi.type);
+                      return (
+                        <button
+                          key={poi.id}
+                          onClick={() => {
+                            onFlyToPoi?.(poi);
+                            setOpenFlyout(null);
+                            setSearchQuery('');
+                          }}
+                          className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-xs hover:bg-secondary text-foreground transition-colors"
+                        >
+                          <span className="text-sm shrink-0">{tone.emoji}</span>
+                          <div className="min-w-0 text-left">
+                            <p className="font-medium truncate">{poi.title}</p>
+                            {poi.description && <p className="text-[11px] text-muted-foreground truncate">{poi.description}</p>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
