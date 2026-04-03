@@ -187,7 +187,7 @@ const RunnerView = ({ event, onBack }: RunnerViewProps) => {
           `<div style="font-family:var(--font-body)">
             <strong style="font-family:var(--font-display)">${poi.title}</strong>
             ${poi.description ? `<br/><span style="color:#6b7280;font-size:0.875rem">${poi.description}</span>` : ''}
-            ${poi.imageData ? `<br/><img src="${poi.imageData}" style="margin-top:6px;border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;" />` : ''}
+            ${poi.imageDataUrl ? `<br/><img src="${poi.imageDataUrl}" style="margin-top:6px;border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;" />` : ''}
             ${poi.webLink ? `<br/><a href="${poi.webLink}" target="_blank" rel="noopener" style="color:#2563eb;font-size:0.75rem">Visit link →</a>` : ''}
           </div>`
         );
