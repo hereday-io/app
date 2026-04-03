@@ -60,6 +60,7 @@ const RouteBuilderToolbar = ({
   pendingPoiType, setPendingPoiType,
   pois, setPois,
   selectedBasemap, setSelectedBasemap,
+  poiSnapToRoute, setPoiSnapToRoute,
   highlightedPoiType, setHighlightedPoiType,
 }: RouteBuilderToolbarProps) => {
   const [openFlyout, setOpenFlyout] = useState<FlyoutType>(null);
