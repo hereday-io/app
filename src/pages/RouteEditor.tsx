@@ -52,6 +52,7 @@ const RouteEditor = () => {
   const [pois, setPois] = useState<RoutePoi[]>([]);
   const [pendingPoiType, setPendingPoiType] = useState<PoiType | null>(null);
   const [snapToRoads, setSnapToRoads] = useState(true);
+  const [poiSnapToRoute, setPoiSnapToRoute] = useState(true);
   const [isSnapping, setIsSnapping] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [statusText, setStatusText] = useState('Click on the map to start building your route.');
