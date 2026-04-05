@@ -7,6 +7,8 @@ export interface EventRoute {
   visible: boolean;
   waypoints: Coord[];
   routeCoords: Coord[];
+  /** How many routeCoords each waypoint contributed. Enables precise undo without re-snapping. */
+  segmentCoordCounts?: number[];
 }
 
 export type PoiType =

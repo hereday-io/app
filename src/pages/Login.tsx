@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { MapPin, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -33,10 +34,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 text-primary">
-            <MapPin className="h-8 w-8" />
-            <span className="text-3xl font-display font-bold tracking-tight">Event Mapper</span>
-          </div>
+          <img src="/logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
           <p className="text-muted-foreground">Sign in to manage your event maps</p>
         </div>
 
@@ -46,6 +44,17 @@ const Login = () => {
             <CardDescription>Enter your credentials to continue</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="space-y-3">
+              <GoogleSignInButton />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or continue with email</span>
+                </div>
+              </div>
+            </div>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

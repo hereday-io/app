@@ -1,9 +1,5 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -13,11 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
@@ -34,7 +25,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [cityCenter, setCityCenter] = useState<[number, number] | null>(null);
-  const [date, setDate] = useState<Date>();
+  const [date, setDate] = useState('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const { token: mapboxToken } = useMapboxToken();
@@ -50,7 +41,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
       user_id: userId,
       name: name.trim(),
       city: city.trim() || null,
-      event_date: date ? format(date, 'yyyy-MM-dd') : null,
+      event_date: date || null,
       slug,
     }).select('id').single();
 
@@ -62,7 +53,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
       setName('');
       setCity('');
       setCityCenter(null);
-      setDate(undefined);
+      setDate('');
       onOpenChange(false);
       onCreated(data.id, center);
     }
@@ -107,30 +98,13 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
             )}
           </div>
           <div className="space-y-2">
-            <Label>Event date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !date && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, 'PPP') : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                  className={cn('p-3 pointer-events-auto')}
-                />
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="event-date">Event date</Label>
+            <Input
+              id="event-date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

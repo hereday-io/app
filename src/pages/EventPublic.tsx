@@ -7,6 +7,8 @@ import RunnerView from '@/components/public/RunnerView';
 import SpectatorView from '@/components/public/SpectatorView';
 import { MapPin, Calendar, Trophy, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import WeatherForecast from '@/components/public/WeatherForecast';
+import { logEvent } from '@/lib/analytics';
 
 interface PublicEvent {
   id: string;
@@ -19,9 +21,11 @@ interface PublicEvent {
   poi_count: number;
   logo_url: string | null;
   branding_style: string;
+  owner_is_paid: boolean;
 }
 
-type ViewMode = 'landing' | 'runner' | 'spectator';
+type ViewMode = 'runner' | 'spectator';
+const VIEW_MODE_KEY = 'hereday:publicViewMode';
 
 const EventPublic = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -29,15 +33,29 @@ const EventPublic = () => {
   const { toast } = useToast();
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('landing');
+  // Map-first: land straight on the map. Remember the last role chosen so
+  // returning visitors open the same view they used last time.
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === 'undefined') return 'runner';
+    const saved = window.localStorage.getItem(VIEW_MODE_KEY);
+    return saved === 'spectator' ? 'spectator' : 'runner';
+  });
+
+  const switchView = (mode: ViewMode) => {
+    setViewMode(mode);
+    try { window.localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     if (!slug) return;
+    // Reads from the column-filtered public_events view so anon clients
+    // never see user_id or draft events. See supabase/migrations for the
+    // view definition.
     supabase
-      .from('events')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from('public_events' as any)
       .select('*')
       .eq('slug', slug)
-      .eq('status', 'published')
       .single()
       .then(({ data, error }) => {
         if (error || !data) {
@@ -45,18 +63,22 @@ const EventPublic = () => {
           setLoading(false);
           return;
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const row = data as any;
         setEvent({
-          id: data.id,
-          name: data.name,
-          city: data.city,
-          event_date: data.event_date,
-          routes: (data.routes as unknown as EventRoute[]) || [],
-          pois: (data.pois as unknown as RoutePoi[]) || [],
-          route_count: data.route_count,
-          poi_count: data.poi_count,
-          logo_url: data.logo_url ?? null,
-          branding_style: data.branding_style ?? 'none',
+          id: row.id,
+          name: row.name,
+          city: row.city,
+          event_date: row.event_date,
+          routes: (row.routes as unknown as EventRoute[]) || [],
+          pois: (row.pois as unknown as RoutePoi[]) || [],
+          route_count: row.route_count,
+          poi_count: row.poi_count,
+          logo_url: row.logo_url ?? null,
+          branding_style: row.branding_style ?? 'none',
+          owner_is_paid: row.owner_is_paid === true,
         });
+        logEvent('public_view', row.id, { mode: viewMode, slug });
         setLoading(false);
       });
   }, [slug, toast]);
@@ -80,24 +102,41 @@ const EventPublic = () => {
   }
 
   if (viewMode === 'runner') {
-    return <RunnerView event={event} onBack={() => setViewMode('landing')} />;
+    return (
+      <RunnerView
+        event={event}
+        onBack={() => navigate('/')}
+        onSwitchToSpectator={() => switchView('spectator')}
+      />
+    );
   }
 
   if (viewMode === 'spectator') {
-    return <SpectatorView event={event} onBack={() => setViewMode('landing')} />;
+    return (
+      <SpectatorView
+        event={event}
+        onBack={() => navigate('/')}
+        onSwitchToRunner={() => switchView('runner')}
+      />
+    );
   }
 
-  // Landing page with role selection
+  // Landing page (unreachable in the default flow — kept for fallback/SEO)
   const formattedDate = event.event_date
     ? new Date(event.event_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : null;
+
+  // Pull coordinates from first route waypoint for weather
+  const firstCoord = event.routes?.[0]?.routeCoords?.[0] ?? event.routes?.[0]?.waypoints?.[0] ?? null;
+  const weatherLat = firstCoord ? firstCoord[1] : null;
+  const weatherLon = firstCoord ? firstCoord[0] : null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Hero section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.08),transparent_60%)]" />
-        <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-12 text-center">
+        <div className="relative max-w-3xl mx-auto px-4 pt-10 pb-8 sm:px-6 sm:pt-16 sm:pb-12 text-center">
           {event.logo_url && event.branding_style !== 'none' && (
             <img
               src={event.logo_url}
@@ -127,43 +166,54 @@ const EventPublic = () => {
         </div>
       </div>
 
-      {/* Role selection */}
-      <div className="flex-1 flex items-start justify-center px-6 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl w-full">
+      {/* Weather forecast */}
+      {event.event_date && (
+        <div className="pt-6">
+          <WeatherForecast
+            eventDate={event.event_date}
+            lat={weatherLat}
+            lon={weatherLon}
+          />
+        </div>
+      )}
+
+      {/* View selection */}
+      <div className="flex-1 flex items-start justify-center px-4 py-8 sm:px-6 sm:py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-2xl w-full">
           {/* Runner card */}
           <button
-            onClick={() => setViewMode('runner')}
-            className="group relative rounded-xl border border-border bg-card p-8 text-left transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 focus:outline-none focus:ring-2 focus:ring-ring"
+            onClick={() => switchView('runner')}
+            className="group relative rounded-xl border border-border bg-card p-6 sm:p-8 text-left transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            <div className="mb-4 inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              <Trophy className="w-7 h-7" />
+            <div className="mb-4 inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <Trophy className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
               I'm Running
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               View the full course with route details, aid stations, water stops, and everything you need on race day.
             </p>
-            <div className="mt-4 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="mt-4 text-sm font-medium text-primary">
               View runner map →
             </div>
           </button>
 
           {/* Spectator card */}
           <button
-            onClick={() => setViewMode('spectator')}
-            className="group relative rounded-xl border border-border bg-card p-8 text-left transition-all hover:border-accent/40 hover:shadow-lg hover:shadow-accent/5 focus:outline-none focus:ring-2 focus:ring-ring"
+            onClick={() => switchView('spectator')}
+            className="group relative rounded-xl border border-border bg-card p-6 sm:p-8 text-left transition-all hover:border-accent/40 hover:shadow-lg hover:shadow-accent/5 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            <div className="mb-4 inline-flex items-center justify-center w-14 h-14 rounded-xl bg-accent/10 text-accent group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
-              <Eye className="w-7 h-7" />
+            <div className="mb-4 inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-accent/10 text-accent group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
+              <Eye className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
               I'm Spectating
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Find the best viewing spots, parking, restrooms, and amenities to cheer on your runner.
             </p>
-            <div className="mt-4 text-sm font-medium text-accent opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="mt-4 text-sm font-medium text-accent">
               View spectator map →
             </div>
           </button>

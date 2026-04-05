@@ -55,7 +55,7 @@ const BrandingPanel = ({ logoUrl, brandingStyle, onLogoChange, onStyleChange, is
 
   if (!isPaid) {
     return (
-      <div className="border-t border-border px-4 py-3">
+      <div className="px-3 pb-3">
         <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
           <Crown className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
           <div>
@@ -73,10 +73,10 @@ const BrandingPanel = ({ logoUrl, brandingStyle, onLogoChange, onStyleChange, is
   }
 
   return (
-    <div className="border-t border-border px-4 py-3 space-y-3">
+    <div className="px-3 pb-3 space-y-3">
       <div className="flex items-center gap-2">
         <ImageIcon className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-foreground">Event Branding</span>
+        <span className="text-xs font-medium text-foreground">Event logo</span>
       </div>
 
       {/* Logo upload */}

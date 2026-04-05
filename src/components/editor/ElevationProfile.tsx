@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { Button } from '@/components/ui/button';
 import { Mountain, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import type { Coord, EventRoute } from '@/types/mapEditor';
 import { getElevationProfile, elevationStats, type ElevationPoint } from '@/lib/elevation';
@@ -10,10 +9,17 @@ interface ElevationProfileProps {
   mapboxToken: string;
   routeColor: string;
   onHoverPoint?: (coord: Coord | null) => void;
+  /** When true, skips the absolute-positioned outer wrapper so the parent controls layout */
+  contained?: boolean;
+  /**
+   * When provided, the toggle button is hidden and the chart visibility is controlled
+   * externally (true = show chart, false = hide). Used by PublicMapBottom.
+   */
+  visible?: boolean;
 }
 
-const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: ElevationProfileProps) => {
-  const [expanded, setExpanded] = useState(false);
+const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint, contained = false, visible }: ElevationProfileProps) => {
+  const [expanded, setExpanded] = useState(() => window.innerWidth >= 768);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<ElevationPoint[]>([]);
   const [error, setError] = useState('');
@@ -41,10 +47,11 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: Elev
   }, [route, mapboxToken, coordsKey, profile.length]);
 
   useEffect(() => {
-    if (expanded && coordsKey !== lastCoordsKey.current) {
+    const shouldFetch = visible !== undefined ? visible : expanded;
+    if (shouldFetch && coordsKey !== lastCoordsKey.current) {
       fetchProfile();
     }
-  }, [expanded, fetchProfile, coordsKey]);
+  }, [expanded, visible, fetchProfile, coordsKey]);
 
   const handleMouseMove = useCallback((state: any) => {
     if (state?.activePayload?.[0]?.payload?.coord && onHoverPoint) {
@@ -67,27 +74,29 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: Elev
     coord: p.coord,
   }));
 
-  return (
-    <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
-      <div className="pointer-events-auto mx-4 mb-4">
-        {/* Toggle button */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setExpanded(!expanded)}
-          className="mb-1 bg-card/95 backdrop-blur border border-border shadow-lg"
-        >
-          <Mountain className="h-3.5 w-3.5 mr-1.5" />
-          Elevation
-          {expanded ? (
-            <ChevronDown className="h-3.5 w-3.5 ml-1" />
-          ) : (
-            <ChevronUp className="h-3.5 w-3.5 ml-1" />
-          )}
-        </Button>
+  // When `visible` is provided externally, it overrides internal expanded state
+  const chartVisible = visible !== undefined ? visible : expanded;
 
-        {expanded && (
-          <div className="bg-card/95 backdrop-blur border border-border rounded-lg shadow-xl p-4">
+  const inner = (
+    <>
+        {/* Toggle pill — hidden when parent controls visibility externally */}
+        {visible === undefined && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="mb-2 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-background border border-border/60 shadow-sm text-sm font-medium text-foreground hover:bg-secondary/40 active:scale-95 transition-all"
+          >
+            <Mountain className="h-3.5 w-3.5" />
+            Elevation
+            {expanded ? (
+              <ChevronDown className="h-3.5 w-3.5 ml-0.5 text-muted-foreground" />
+            ) : (
+              <ChevronUp className="h-3.5 w-3.5 ml-0.5 text-muted-foreground" />
+            )}
+          </button>
+        )}
+
+        {chartVisible && (
+          <div className="bg-background border border-border/60 rounded-2xl shadow-sm p-4 overflow-hidden">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -185,6 +194,15 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint }: Elev
             )}
           </div>
         )}
+    </>
+  );
+
+  if (contained) return <div>{inner}</div>;
+
+  return (
+    <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
+      <div className="pointer-events-auto mx-4 mb-4">
+        {inner}
       </div>
     </div>
   );

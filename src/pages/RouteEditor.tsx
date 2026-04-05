@@ -8,12 +8,19 @@ import { useToast } from '@/hooks/use-toast';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { totalDistanceMiles, getSnappedRoute, getMileMarkers, snapToNearestRoute, ROUTE_COLORS, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone, POI_TYPES } from '@/lib/pois';
+import { uploadPoiImage, isDataUrl } from '@/lib/poiImageUpload';
+import { logEvent } from '@/lib/analytics';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
-import ElevationProfile from '@/components/editor/ElevationProfile';
+import EditorBottomSheet from '@/components/editor/EditorBottomSheet';
 import EditorWelcomeModal from '@/components/editor/EditorWelcomeModal';
+import EditorCoachMark from '@/components/editor/EditorCoachMark';
+import SnapModePill from '@/components/editor/SnapModePill';
+import MobileEditorGate from '@/components/editor/MobileEditorGate';
 import EditorTour from '@/components/editor/EditorTour';
 import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
+import UpgradeModal from '@/components/UpgradeModal';
+import { usePaywall } from '@/hooks/usePaywall';
 
 // Mapbox token fetched from backend at runtime
 const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
@@ -40,7 +47,7 @@ const RouteEditor = () => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const currentBasemapRef = useRef('light');
-  const initialBoundsRef = useRef<{ coords: Coord[]; city: string } | null>(null);
+
   const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
 
@@ -59,11 +66,15 @@ const RouteEditor = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBasemap, setSelectedBasemap] = useState('light');
-  // sidebarOpen removed - using floating panels now
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
   const [tourActive, setTourActive] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
+  const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const isDirtyRef = useRef(false);
+  const initialLoadCompleteRef = useRef(false);
   const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [finishedRouteIds, setFinishedRouteIds] = useState<Set<string>>(new Set());
@@ -71,6 +82,7 @@ const RouteEditor = () => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [brandingStyle, setBrandingStyle] = useState<'none' | 'corner' | 'banner' | 'both'>('none');
   const [isPaid, setIsPaid] = useState(false);
+  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | null>(null);
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -99,15 +111,34 @@ const RouteEditor = () => {
       elevMarkerRef.current = null;
     }
     if (coord && mapRef.current) {
+      const color = activeRoute?.color ?? '#2563eb';
       const el = document.createElement('div');
-      el.style.width = '14px';
-      el.style.height = '14px';
-      el.style.borderRadius = '50%';
-      el.style.border = '2.5px solid white';
-      el.style.backgroundColor = activeRoute?.color ?? '#2563eb';
-      el.style.boxShadow = '0 0 6px rgba(0,0,0,0.4)';
-      el.style.pointerEvents = 'none';
-      elevMarkerRef.current = new mapboxgl.Marker({ element: el })
+      el.style.cssText = `position:relative;width:20px;height:20px;pointer-events:none;`;
+
+      // Pulse ring
+      const pulse = document.createElement('div');
+      pulse.style.cssText = `position:absolute;inset:-6px;border-radius:50%;border:2px solid ${color};opacity:0.5;animation:elevPulse 1.2s ease-out infinite;`;
+      el.appendChild(pulse);
+
+      // Outer white ring
+      const ring = document.createElement('div');
+      ring.style.cssText = `position:absolute;inset:-3px;border-radius:50%;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.35);`;
+      el.appendChild(ring);
+
+      // Inner colored dot
+      const dot = document.createElement('div');
+      dot.style.cssText = `position:absolute;inset:3px;border-radius:50%;background:${color};`;
+      el.appendChild(dot);
+
+      // Inject keyframes once
+      if (!document.getElementById('elev-pulse-style')) {
+        const style = document.createElement('style');
+        style.id = 'elev-pulse-style';
+        style.textContent = `@keyframes elevPulse{0%{transform:scale(1);opacity:0.6}70%{transform:scale(1.8);opacity:0}100%{transform:scale(1.8);opacity:0}}`;
+        document.head.appendChild(style);
+      }
+
+      elevMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat(coord)
         .addTo(mapRef.current);
     }
@@ -148,16 +179,47 @@ const RouteEditor = () => {
         const rawPois = data.pois as unknown;
         setPois(Array.isArray(rawPois) ? (rawPois as RoutePoi[]) : []);
 
-        // Collect all route coordinates for initial map bounds
-        const allCoords = loadedRoutes.flatMap((r) => r.routeCoords ?? []);
-        initialBoundsRef.current = { coords: allCoords, city: data.city ?? '' };
-
         setEventStatus(data.status ?? 'draft');
         setEventSlug(data.slug ?? null);
         setLogoUrl(data.logo_url ?? null);
         setBrandingStyle((data.branding_style as 'none' | 'corner' | 'banner' | 'both') ?? 'none');
         setStatusText('Event loaded.');
         setIsLoading(false);
+        // Defer one tick so the state updates above commit before the
+        // autosave dirty-tracking effect starts observing.
+        setTimeout(() => { initialLoadCompleteRef.current = true; }, 0);
+
+        // Fit map to route data or geocode city — run after data is in hand,
+        // whether or not the map style has finished loading yet.
+        if (!searchParams.get('lng')) {
+          const allCoords = loadedRoutes.flatMap((r) => r.routeCoords ?? []);
+          const fitMap = () => {
+            const map = mapRef.current;
+            if (!map) return;
+            if (allCoords.length >= 2) {
+              const bounds = new mapboxgl.LngLatBounds();
+              allCoords.forEach((c) => bounds.extend(c as [number, number]));
+              // duration: 0 — jump instantly so users don't wait on a
+              // globe-to-route zoom animation when opening the editor.
+              map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 0 });
+            } else if (data.city) {
+              fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(data.city)}.json?access_token=${MAPBOX_TOKEN_FALLBACK}&types=place&limit=1`)
+                .then((r) => r.json())
+                .then((geo) => {
+                  const feature = geo?.features?.[0];
+                  if (feature?.center) {
+                    map.jumpTo({ center: feature.center as [number, number], zoom: 13 });
+                  }
+                })
+                .catch(() => {});
+            }
+          };
+          const map = mapRef.current;
+          if (map) {
+            if (map.isStyleLoaded()) fitMap();
+            else map.once('load', fitMap);
+          }
+        }
       });
   }, [eventId, user, toast]);
 
@@ -180,33 +242,13 @@ const RouteEditor = () => {
     mapRef.current = map;
     map.once('load', () => setMapReady(true));
 
-    // Fit map to existing route data or geocode city
-    const boundsData = initialBoundsRef.current;
-    if (boundsData && boundsData.coords.length >= 2 && !searchParams.get('lng')) {
-      map.once('load', () => {
-        const bounds = new mapboxgl.LngLatBounds();
-        boundsData.coords.forEach((c) => bounds.extend(c as [number, number]));
-        map.fitBounds(bounds, { padding: 80, maxZoom: 16 });
-      });
-    } else if (!searchParams.get('lng') && boundsData?.city) {
-      // Geocode the city to center the map
-      fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(boundsData.city)}.json?access_token=${mapboxToken}&types=place&limit=1`)
-        .then((r) => r.json())
-        .then((data) => {
-          const feature = data?.features?.[0];
-          if (feature?.center) {
-            map.flyTo({ center: feature.center as [number, number], zoom: 13, duration: 1000 });
-          }
-        })
-        .catch(() => {});
-    }
-
     return () => {
       map.remove();
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [mapboxToken, isLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapboxToken]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -216,6 +258,21 @@ const RouteEditor = () => {
     const style = BASEMAP_OPTIONS.find((b) => b.id === selectedBasemap)?.style;
     if (style) map.setStyle(style);
   }, [selectedBasemap]);
+
+  // Keep the map sized to its container. Mapbox does not auto-resize when the
+  // parent flex container changes (e.g. when the sidebar is toggled), which
+  // can leave the canvas with stale/zero dimensions and make the map appear
+  // blank. A ResizeObserver fixes this reliably.
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    const map = mapRef.current;
+    if (!container || !map) return;
+    const observer = new ResizeObserver(() => {
+      map.resize();
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [mapReady]);
 
   // Cursor tooltip that follows the mouse
   useEffect(() => {
@@ -322,45 +379,78 @@ const RouteEditor = () => {
 
       if (!activeRouteId || finishedRouteIds.has(activeRouteId)) return;
 
-      setRoutes((prev) => {
-        const route = prev.find((r) => r.id === activeRouteId);
-        if (!route) return prev;
-
-        const nextWaypoints = [...route.waypoints, rawCoord];
-
-        if (!snapToRoads || nextWaypoints.length < 2) {
-          return prev.map((r) =>
-            r.id === activeRouteId
-              ? { ...r, waypoints: nextWaypoints, routeCoords: nextWaypoints }
-              : r
-          );
-        }
-
-        return prev.map((r) =>
-          r.id === activeRouteId ? { ...r, waypoints: nextWaypoints } : r
-        );
-      });
-
       const route = routes.find((r) => r.id === activeRouteId);
-      if (snapToRoads && route && route.waypoints.length >= 1) {
-        const nextWaypoints = [...route.waypoints, rawCoord];
-        setIsSnapping(true);
-        setStatusText('Snapping to roads...');
-        try {
-          const snapped = await getSnappedRoute(nextWaypoints, mapboxToken);
-          setRoutes((prev) =>
-            prev.map((r) =>
-              r.id === activeRouteId
-                ? { ...r, waypoints: nextWaypoints, routeCoords: snapped }
-                : r
-            )
-          );
-          setStatusText(`${nextWaypoints.length} waypoints · ${totalDistanceMiles(snapped).toFixed(2)} mi`);
-        } catch {
-          setStatusText('Road snap failed, using straight line.');
-        } finally {
-          setIsSnapping(false);
-        }
+      if (!route) return;
+      const nextWaypoints = [...route.waypoints, rawCoord];
+
+      // ── Freeform: append coord directly ────────────────────────────────
+      if (!snapToRoads) {
+        const newCoords = [...route.routeCoords, rawCoord];
+        const prevCounts = route.segmentCoordCounts ?? route.waypoints.map(() => 1);
+        setRoutes((prev) =>
+          prev.map((r) =>
+            r.id === activeRouteId
+              ? { ...r, waypoints: nextWaypoints, routeCoords: newCoords, segmentCoordCounts: [...prevCounts, 1] }
+              : r
+          )
+        );
+        return;
+      }
+
+      // ── First snap point: record it, snapping needs ≥2 waypoints ───────
+      if (nextWaypoints.length < 2) {
+        setRoutes((prev) =>
+          prev.map((r) =>
+            r.id === activeRouteId
+              ? { ...r, waypoints: nextWaypoints, routeCoords: [rawCoord], segmentCoordCounts: [1] }
+              : r
+          )
+        );
+        return;
+      }
+
+      // ── Snap mode: snap only the new segment and append ─────────────────
+      // This preserves any freeform segments already drawn and avoids
+      // re-snapping the whole route when the user switches modes mid-draw.
+      const prevWaypoint = route.waypoints[route.waypoints.length - 1];
+
+      setRoutes((prev) =>
+        prev.map((r) =>
+          r.id === activeRouteId ? { ...r, waypoints: nextWaypoints } : r
+        )
+      );
+
+      setIsSnapping(true);
+      setStatusText('Snapping to roads...');
+      try {
+        const snappedSegment = await getSnappedRoute([prevWaypoint, rawCoord], mapboxToken);
+        // Append snapped segment; skip its first coord (already end of existing path)
+        const tail = snappedSegment.slice(route.routeCoords.length > 0 ? 1 : 0);
+        const newCoords = [...route.routeCoords, ...tail];
+        const prevCounts = route.segmentCoordCounts ?? route.waypoints.map(() => 1);
+        setRoutes((prev) =>
+          prev.map((r) =>
+            r.id === activeRouteId
+              ? { ...r, waypoints: nextWaypoints, routeCoords: newCoords, segmentCoordCounts: [...prevCounts, tail.length || 1] }
+              : r
+          )
+        );
+        setStatusText(`${nextWaypoints.length} waypoints · ${totalDistanceMiles(newCoords).toFixed(2)} mi`);
+      } catch {
+        const newCoords = route.routeCoords.length > 0
+          ? [...route.routeCoords, rawCoord]
+          : nextWaypoints;
+        const prevCounts = route.segmentCoordCounts ?? route.waypoints.map(() => 1);
+        setRoutes((prev) =>
+          prev.map((r) =>
+            r.id === activeRouteId
+              ? { ...r, waypoints: nextWaypoints, routeCoords: newCoords, segmentCoordCounts: [...prevCounts, 1] }
+              : r
+          )
+        );
+        setStatusText('Road snap failed, using straight line.');
+      } finally {
+        setIsSnapping(false);
       }
     };
 
@@ -480,43 +570,45 @@ const RouteEditor = () => {
         const hasWebLink = ['registration', 'sponsor', 'custom'].includes(poi.type);
         const existingImage = poi.imageDataUrl || poi.imageUrl || '';
         
+        // All colors/borders use design-system CSS variables so the popup
+        // renders correctly in dark mode and matches the rest of the editor.
         popupContent.innerHTML = `
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
             <div style="width:40px;height:40px;border-radius:50%;background:${tone.dot}15;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:2px solid ${tone.dot}30;">${tone.emoji}</div>
             <div style="flex:1;min-width:0;">
-              <div style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${tone.label} Marker</div>
-              <input data-field="title" value="${escTitle}" placeholder="${tone.label}" style="width:100%;padding:0;border:none;font-size:15px;font-weight:700;color:#1e293b;outline:none;background:transparent;font-family:inherit;" />
+              <div style="font-size:10px;color:hsl(var(--muted-foreground));font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${tone.label} Marker</div>
+              <input data-field="title" value="${escTitle}" placeholder="${tone.label}" style="width:100%;padding:0;border:none;font-size:15px;font-weight:700;color:hsl(var(--foreground));outline:none;background:transparent;font-family:inherit;" />
             </div>
           </div>
-          <div style="border-top:1px solid #f1f5f9;padding-top:12px;">
-            <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Description</label>
-            <textarea data-field="description" placeholder="Add notes about this marker location…" rows="2" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;resize:none;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;">${escDesc}</textarea>
+          <div style="border-top:1px solid hsl(var(--border));padding-top:12px;">
+            <label style="font-size:11px;font-weight:600;color:hsl(var(--muted-foreground));display:block;margin-bottom:4px;">Description</label>
+            <textarea data-field="description" placeholder="Add notes about this marker location…" rows="2" style="width:100%;padding:8px 10px;border:1px solid hsl(var(--border));border-radius:8px;font-size:12px;resize:none;outline:none;box-sizing:border-box;font-family:inherit;color:hsl(var(--foreground));background:hsl(var(--background));">${escDesc}</textarea>
           </div>
           <div style="margin-top:10px;">
-            <label style="font-size:11px;font-weight:600;color:#64748b;display:flex;align-items:center;gap:4px;margin-bottom:4px;">📷 Photo</label>
+            <label style="font-size:11px;font-weight:600;color:hsl(var(--muted-foreground));display:flex;align-items:center;gap:4px;margin-bottom:4px;">📷 Photo</label>
             <div data-photo-area style="position:relative;">
-              <img data-photo-preview src="${existingImage}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:6px;display:${existingImage ? 'block' : 'none'};" />
+              <img data-photo-preview src="${existingImage}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid hsl(var(--border));margin-bottom:6px;display:${existingImage ? 'block' : 'none'};" />
               <div style="display:flex;gap:6px;">
-                <label style="flex:1;padding:8px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;color:#64748b;cursor:pointer;text-align:center;font-family:inherit;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:4px;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                <label data-photo-label style="flex:1;padding:8px;border:1px dashed hsl(var(--border));border-radius:8px;font-size:12px;color:hsl(var(--muted-foreground));cursor:pointer;text-align:center;font-family:inherit;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:4px;background:transparent;">
                   📎 ${existingImage ? 'Change photo' : 'Attach photo'}
                   <input data-field="photoFile" type="file" accept="image/*" style="display:none;" />
                 </label>
-                <button data-action="removePhoto" style="padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#ef4444;cursor:pointer;background:none;font-family:inherit;display:${existingImage ? 'block' : 'none'};">✕</button>
+                <button data-action="removePhoto" style="padding:8px;border:1px solid hsl(var(--border));border-radius:8px;font-size:12px;color:hsl(var(--destructive));cursor:pointer;background:transparent;font-family:inherit;display:${existingImage ? 'block' : 'none'};">✕</button>
               </div>
             </div>
           </div>
           ${hasWebLink ? `
           <div style="margin-top:10px;">
-            <label style="font-size:11px;font-weight:600;color:#64748b;display:flex;align-items:center;gap:4px;margin-bottom:4px;">🔗 Web Link</label>
-            <input data-field="webLink" value="${escLink}" placeholder="https://example.com" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;color:#334155;" />
+            <label style="font-size:11px;font-weight:600;color:hsl(var(--muted-foreground));display:flex;align-items:center;gap:4px;margin-bottom:4px;">🔗 Web Link</label>
+            <input data-field="webLink" value="${escLink}" placeholder="https://example.com" style="width:100%;padding:8px 10px;border:1px solid hsl(var(--border));border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;color:hsl(var(--foreground));background:hsl(var(--background));" />
           </div>
           ` : ''}
-          <div style="margin-top:10px;padding:6px 10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#94a3b8;font-family:monospace;">${coordStr}</div>
-           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
-            <button data-action="remove" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove</button>
+          <div style="margin-top:10px;padding:6px 10px;background:hsl(var(--muted));border-radius:8px;font-size:11px;color:hsl(var(--muted-foreground));font-family:monospace;">${coordStr}</div>
+           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid hsl(var(--border));">
+            <button data-action="remove" style="background:none;border:none;color:hsl(var(--destructive));font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove</button>
             <div style="display:flex;gap:6px;">
-              <button data-action="move" style="padding:6px 12px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✥ Move</button>
-              <button data-action="save" style="padding:6px 18px;background:hsl(var(--primary));color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Done</button>
+              <button data-action="move" style="padding:6px 12px;background:hsl(var(--secondary));color:hsl(var(--secondary-foreground));border:1px solid hsl(var(--border));border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✥ Move</button>
+              <button data-action="save" style="padding:6px 18px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Done</button>
             </div>
            </div>
         `;
@@ -530,16 +622,22 @@ const RouteEditor = () => {
           const fileInput = popupContent.querySelector('[data-field="photoFile"]') as HTMLInputElement;
           const photoPreview = popupContent.querySelector('[data-photo-preview]') as HTMLImageElement;
           const removePhotoBtn = popupContent.querySelector('[data-action="removePhoto"]') as HTMLButtonElement;
-          let pendingImageDataUrl: string | undefined = poi.imageDataUrl;
+          // Track image edit intent explicitly so we can distinguish
+          // "user didn't touch the photo" (keep existing imageUrl) from
+          // "user cleared it" (wipe both fields) from "user picked a new
+          // file" (replace with pending data URL, queue re-upload).
+          let newImageDataUrl: string | undefined;
+          let imageCleared = false;
 
           fileInput?.addEventListener('change', () => {
             const file = fileInput.files?.[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = () => {
-              pendingImageDataUrl = reader.result as string;
+              newImageDataUrl = reader.result as string;
+              imageCleared = false;
               if (photoPreview) {
-                photoPreview.src = pendingImageDataUrl;
+                photoPreview.src = newImageDataUrl;
                 photoPreview.style.display = 'block';
               }
               if (removePhotoBtn) removePhotoBtn.style.display = 'block';
@@ -548,7 +646,8 @@ const RouteEditor = () => {
           });
 
           removePhotoBtn?.addEventListener('click', () => {
-            pendingImageDataUrl = undefined;
+            newImageDataUrl = undefined;
+            imageCleared = true;
             if (photoPreview) {
               photoPreview.src = '';
               photoPreview.style.display = 'none';
@@ -562,11 +661,19 @@ const RouteEditor = () => {
             const linkEl = popupContent.querySelector('[data-field="webLink"]') as HTMLInputElement | null;
             const link = linkEl?.value || '';
             setPois((prev) =>
-              prev.map((p) =>
-                p.id === poi.id
-                  ? { ...p, title: t, description: d, imageDataUrl: pendingImageDataUrl, imageUrl: undefined, webLink: link || undefined }
-                  : p
-              )
+              prev.map((p) => {
+                if (p.id !== poi.id) return p;
+                const base = { ...p, title: t, description: d, webLink: link || undefined };
+                if (imageCleared) {
+                  return { ...base, imageDataUrl: undefined, imageUrl: undefined };
+                }
+                if (newImageDataUrl) {
+                  // New image queued — drop stale imageUrl, let save path upload.
+                  return { ...base, imageDataUrl: newImageDataUrl, imageUrl: undefined };
+                }
+                // No image change — preserve whatever was there.
+                return base;
+              })
             );
             popup.remove();
           });
@@ -623,10 +730,43 @@ const RouteEditor = () => {
     };
   }, [routes, pois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
 
-  const handleSave = useCallback(async () => {
+  // Materializes any POI images that are still base64 data URLs into the
+  // poi-images storage bucket. Returns a POI array safe to persist (no
+  // base64 payloads) and, as a side effect, updates in-memory state so
+  // the next autosave doesn't re-upload the same bytes.
+  const materializePoiImages = useCallback(async (input: RoutePoi[]): Promise<RoutePoi[]> => {
+    if (!user || !eventId) return input;
+    const out: RoutePoi[] = [];
+    let mutated = false;
+    for (const poi of input) {
+      if (isDataUrl(poi.imageDataUrl)) {
+        try {
+          const url = await uploadPoiImage(poi.imageDataUrl!, user.id, eventId, poi.id);
+          out.push({ ...poi, imageUrl: url, imageDataUrl: undefined });
+          mutated = true;
+          continue;
+        } catch (err) {
+          // If upload fails, drop the base64 rather than persist it. The
+          // user keeps the in-memory preview until the next edit.
+          console.error('POI image upload failed', err);
+          out.push({ ...poi, imageDataUrl: undefined });
+          mutated = true;
+          continue;
+        }
+      }
+      out.push(poi);
+    }
+    if (mutated) setPois(out);
+    return out;
+  }, [user, eventId]);
+
+  const handleSave = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!eventId) return;
     setIsSaving(true);
-    setStatusText('Saving...');
+    setSaveState('saving');
+    if (!opts.silent) setStatusText('Saving...');
+
+    const cleanPois = await materializePoiImages(pois);
 
     const { error } = await supabase
       .from('events')
@@ -635,28 +775,67 @@ const RouteEditor = () => {
         city: city || null,
         event_date: eventDate || null,
         routes: JSON.parse(JSON.stringify(routes)),
-        pois: JSON.parse(JSON.stringify(pois)),
+        pois: JSON.parse(JSON.stringify(cleanPois)),
         route_count: routes.length,
-        poi_count: pois.length,
+        poi_count: cleanPois.length,
         logo_url: logoUrl,
         branding_style: brandingStyle,
       })
       .eq('id', eventId);
 
     if (error) {
-      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
-      setStatusText('Save failed.');
+      setSaveState('error');
+      if (!opts.silent) {
+        toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+        setStatusText('Save failed.');
+      }
     } else {
-      toast({ title: 'Event saved' });
-      setStatusText('Event saved.');
+      isDirtyRef.current = false;
+      setSaveState('saved');
+      setLastSavedAt(Date.now());
+      if (!opts.silent) {
+        toast({ title: 'Event saved' });
+        setStatusText('Event saved.');
+      }
     }
     setIsSaving(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, logoUrl, brandingStyle, toast]);
+  }, [eventId, eventName, city, eventDate, routes, pois, logoUrl, brandingStyle, toast, materializePoiImages]);
+
+  // ── Autosave ───────────────────────────────────────────────────────────
+  // Mark dirty whenever editable state changes. The initialLoadCompleteRef
+  // gate prevents the first load from flagging the event as dirty.
+  useEffect(() => {
+    if (!initialLoadCompleteRef.current) return;
+    isDirtyRef.current = true;
+    setSaveState('dirty');
+  }, [eventName, city, eventDate, routes, pois, logoUrl, brandingStyle]);
+
+  // Debounced autosave: whenever dirty, schedule a silent save in ~2s.
+  useEffect(() => {
+    if (saveState !== 'dirty' || !eventId) return;
+    const timer = setTimeout(() => {
+      handleSave({ silent: true });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [saveState, eventId, handleSave]);
+
+  // beforeunload guard: only if there are truly-pending changes.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
   const handlePublish = useCallback(async () => {
     if (!eventId) return;
     setIsPublishing(true);
     // Save first, then publish
     const newStatus = eventStatus === 'published' ? 'draft' : 'published';
+    const cleanPois = await materializePoiImages(pois);
     const { error } = await supabase
       .from('events')
       .update({
@@ -664,9 +843,9 @@ const RouteEditor = () => {
         city: city || null,
         event_date: eventDate || null,
         routes: JSON.parse(JSON.stringify(routes)),
-        pois: JSON.parse(JSON.stringify(pois)),
+        pois: JSON.parse(JSON.stringify(cleanPois)),
         route_count: routes.length,
-        poi_count: pois.length,
+        poi_count: cleanPois.length,
         status: newStatus,
         logo_url: logoUrl,
         branding_style: brandingStyle,
@@ -682,12 +861,44 @@ const RouteEditor = () => {
         const { data: updated } = await supabase.from('events').select('slug').eq('id', eventId).single();
         if (updated?.slug) setEventSlug(updated.slug);
       }
-      toast({ title: newStatus === 'published' ? 'Event published!' : 'Event unpublished' });
+      if (newStatus === 'published') {
+        logEvent('event_published', eventId, {
+          route_count: routes.length,
+          poi_count: cleanPois.length,
+          branding_style: brandingStyle,
+        });
+        toast({
+          title: 'Event is live',
+          description: 'Use the Share button to copy the public link.',
+        });
+      } else {
+        logEvent('event_unpublished', eventId);
+        toast({ title: 'Event unpublished' });
+      }
     }
     setIsPublishing(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, eventSlug, toast]);
+  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, materializePoiImages]);
+
+  const handleResumeRoute = useCallback((id: string) => {
+    setFinishedRouteIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    // Remove the auto-finish POI — it'll be re-placed on the next double-click to finish
+    setPois((prev) => prev.filter((p) => p.id !== `auto-finish-${id}`));
+    setActiveRouteId(id);
+    setStatusText('Route re-opened for editing.');
+  }, []);
+
+  const { canAddRoute, canAddPoi } = usePaywall({ isPaid });
 
   const addRoute = () => {
+    if (!canAddRoute(routes.length)) {
+      logEvent('paywall_hit', eventId, { trigger: 'routes', current_count: routes.length });
+      setUpgradeModalTrigger('routes');
+      return;
+    }
     const color = ROUTE_COLORS[routes.length % ROUTE_COLORS.length];
     const r = makeRoute(`Route ${routes.length + 1}`, color);
     setRoutes((prev) => [...prev, r]);
@@ -705,14 +916,37 @@ const RouteEditor = () => {
     if (!activeRoute || activeRoute.waypoints.length === 0) return;
     const nextWaypoints = activeRoute.waypoints.slice(0, -1);
 
+    // Undoing always re-opens the route for editing
+    setFinishedRouteIds((prev) => {
+      const next = new Set(prev);
+      next.delete(activeRouteId);
+      return next;
+    });
+
     if (nextWaypoints.length === 0) {
       setRoutes((prev) =>
-        prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: [], routeCoords: [] } : r))
+        prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: [], routeCoords: [], segmentCoordCounts: [] } : r))
       );
       setStatusText('Route cleared.');
       return;
     }
 
+    // If we have segment counts, trim routeCoords precisely — no re-snap needed.
+    // This works correctly for mixed freeform+snap routes.
+    const counts = activeRoute.segmentCoordCounts;
+    if (counts && counts.length > 0) {
+      const lastCount = counts[counts.length - 1];
+      const newCoords = activeRoute.routeCoords.slice(0, -lastCount);
+      setRoutes((prev) =>
+        prev.map((r) => (r.id === activeRouteId
+          ? { ...r, waypoints: nextWaypoints, routeCoords: newCoords, segmentCoordCounts: counts.slice(0, -1) }
+          : r))
+      );
+      setStatusText('Undid last point.');
+      return;
+    }
+
+    // Fallback for routes built before segmentCoordCounts was introduced
     if (snapToRoads && nextWaypoints.length >= 2) {
       setIsSnapping(true);
       try {
@@ -740,6 +974,12 @@ const RouteEditor = () => {
     setRoutes((prev) =>
       prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: [], routeCoords: [] } : r))
     );
+    // Un-finish the route so the user can start drawing again
+    setFinishedRouteIds((prev) => {
+      const next = new Set(prev);
+      next.delete(activeRouteId);
+      return next;
+    });
     setStatusText('Route cleared.');
   };
 
@@ -785,7 +1025,7 @@ const RouteEditor = () => {
 
   const activeDistance = activeRoute ? totalDistanceMiles(activeRoute.routeCoords) : 0;
 
-  if (authLoading || isLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading editor…</div>
@@ -793,11 +1033,25 @@ const RouteEditor = () => {
     );
   }
 
+  // Desktop-only gate: editor needs precision pointer + sidebar. Phone users
+  // see a friendly takeover rather than a broken layout.
+  const isTouchDevice = typeof window !== 'undefined' && (
+    window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 768
+  );
+  if (isTouchDevice) {
+    return <MobileEditorGate onBack={() => navigate('/dashboard')} />;
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <EditorWelcomeModal onStartTour={() => setTourActive(true)} />
+      <EditorWelcomeModal onStartTour={() => setTourActive(true)} userId={user?.id ?? ''} />
       <EditorTour active={tourActive} onEnd={() => setTourActive(false)} />
       <KeyboardShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <UpgradeModal
+        open={upgradeModalTrigger !== null}
+        onClose={() => setUpgradeModalTrigger(null)}
+        trigger={upgradeModalTrigger ?? 'routes'}
+      />
 
       <EditorTopBar
         eventName={eventName}
@@ -806,11 +1060,12 @@ const RouteEditor = () => {
         setCity={setCity}
         eventDate={eventDate}
         setEventDate={setEventDate}
-        statusText={statusText}
         isSaving={isSaving}
         isSnapping={isSnapping}
         mapboxToken={mapboxToken}
-        onSave={handleSave}
+        onSave={() => handleSave()}
+        saveState={saveState}
+        lastSavedAt={lastSavedAt}
         onBack={() => navigate('/dashboard')}
         onUndo={undoLastWaypoint}
         onClearRoute={clearActiveRoute}
@@ -822,69 +1077,112 @@ const RouteEditor = () => {
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
-        logoUrl={logoUrl}
-        brandingStyle={brandingStyle}
-        onLogoChange={(url) => {
-          setLogoUrl(url);
-          // Auto-save branding to DB
-          if (eventId) {
-            supabase.from('events').update({ logo_url: url }).eq('id', eventId);
-          }
-        }}
-        onBrandingStyleChange={(style) => {
-          setBrandingStyle(style);
-          if (eventId) {
-            supabase.from('events').update({ branding_style: style }).eq('id', eventId);
-          }
-        }}
-        isPaid={isPaid}
-        eventId={eventId || ''}
-        userId={user?.id || ''}
+        eventId={eventId}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
 
-      <div className="flex-1 relative" data-tour="map-area">
-        <div ref={mapContainerRef} className="w-full h-full" />
+      <div className="flex-1 flex overflow-hidden">
 
-        <RouteBuilderToolbar
-          routes={routes}
-          activeRouteId={activeRouteId}
-          setActiveRouteId={setActiveRouteId}
-          setRoutes={setRoutes}
-          onAddRoute={addRoute}
-          onDeleteRoute={deleteRoute}
-          snapToRoads={snapToRoads}
-          setSnapToRoads={setSnapToRoads}
-          pendingPoiType={pendingPoiType}
-          setPendingPoiType={setPendingPoiType}
-          pois={pois}
-          setPois={setPois}
-          selectedBasemap={selectedBasemap}
-          setSelectedBasemap={setSelectedBasemap}
-          poiSnapToRoute={poiSnapToRoute}
-          setPoiSnapToRoute={setPoiSnapToRoute}
-          highlightedPoiType={highlightedPoiType}
-          setHighlightedPoiType={setHighlightedPoiType}
-        />
-
-        <ElevationProfile
-          route={activeRoute}
-          mapboxToken={mapboxToken}
-          routeColor={activeRoute?.color ?? '#2563eb'}
-          onHoverPoint={handleElevationHover}
-        />
-
-        {pendingPoiType && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-card/95 backdrop-blur border border-border rounded-full px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2">
-            <span>{poiTone(pendingPoiType).emoji}</span>
-            Click map to place {poiTone(pendingPoiType).label.toLowerCase()}
-            <button
-              onClick={() => setPendingPoiType(null)}
-              className="ml-2 text-muted-foreground hover:text-foreground"
-            >
-              ✕
-            </button>
+        {/* ── Persistent sidebar ──────────────────────────────────────── */}
+        {sidebarOpen && (
+          <div className="w-60 shrink-0 overflow-hidden">
+            <RouteBuilderToolbar
+              routes={routes}
+              activeRouteId={activeRouteId}
+              setActiveRouteId={setActiveRouteId}
+              setRoutes={setRoutes}
+              onAddRoute={addRoute}
+              onDeleteRoute={deleteRoute}
+              pendingPoiType={pendingPoiType}
+              setPendingPoiType={(type) => {
+                if (type !== null && !canAddPoi(pois.filter(p => !p.id.startsWith('auto-')).length)) {
+                  logEvent('paywall_hit', eventId, { trigger: 'pois', poi_type: type });
+                  setUpgradeModalTrigger('pois');
+                  return;
+                }
+                setPendingPoiType(type);
+              }}
+              pois={pois}
+              setPois={setPois}
+              selectedBasemap={selectedBasemap}
+              setSelectedBasemap={setSelectedBasemap}
+              poiSnapToRoute={poiSnapToRoute}
+              setPoiSnapToRoute={setPoiSnapToRoute}
+              highlightedPoiType={highlightedPoiType}
+              setHighlightedPoiType={setHighlightedPoiType}
+              isPaid={isPaid}
+              finishedRouteIds={finishedRouteIds}
+              onResumeRoute={handleResumeRoute}
+              logoUrl={logoUrl}
+              brandingStyle={brandingStyle}
+              onLogoChange={(url) => {
+                setLogoUrl(url);
+                if (eventId) supabase.from('events').update({ logo_url: url }).eq('id', eventId);
+              }}
+              onBrandingStyleChange={(style) => {
+                setBrandingStyle(style);
+                if (eventId) supabase.from('events').update({ branding_style: style }).eq('id', eventId);
+              }}
+              eventId={eventId || ''}
+              userId={user?.id || ''}
+            />
           </div>
         )}
+
+        {/* ── Map canvas ──────────────────────────────────────────────── */}
+        <div className="flex-1 relative" data-tour="map-area">
+          <div ref={mapContainerRef} className="w-full h-full" />
+
+          {user && (
+            <EditorCoachMark
+              userId={user.id}
+              hasRouteWaypoints={routes.some((r) => r.waypoints.length > 0)}
+            />
+          )}
+
+          <SnapModePill snapToRoads={snapToRoads} onToggle={setSnapToRoads} />
+
+          {/* Status toast — transient feedback from map actions */}
+          {statusText && !statusText.startsWith('Click on the map') && (
+            <div className="absolute bottom-4 right-4 z-10 bg-background/95 backdrop-blur border border-border rounded-lg px-3 py-2 text-xs text-foreground shadow-sm max-w-xs">
+              {statusText}
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="animate-pulse text-muted-foreground">Loading event…</div>
+            </div>
+          )}
+
+          <EditorBottomSheet
+            route={activeRoute}
+            mapboxToken={mapboxToken}
+            routeColor={activeRoute?.color ?? '#2563eb'}
+            onHoverPoint={handleElevationHover}
+            eventDate={eventDate}
+            weatherCoord={
+              activeRoute?.routeCoords?.[0]
+                ? [activeRoute.routeCoords[0][0], activeRoute.routeCoords[0][1]]
+                : null
+            }
+          />
+
+          {pendingPoiType && (
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 bg-background border border-border rounded-full px-4 py-2 text-sm font-medium shadow-sm flex items-center gap-2">
+              <span>{poiTone(pendingPoiType).emoji}</span>
+              Click map to place {poiTone(pendingPoiType).label.toLowerCase()}
+              <button
+                onClick={() => setPendingPoiType(null)}
+                className="ml-2 text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );

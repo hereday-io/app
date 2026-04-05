@@ -1,19 +1,20 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { MapPin, ArrowRight } from 'lucide-react';
+import { MapPin, ArrowRight, Mail } from 'lucide-react';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [sent, setSent] = useState(false);
   const { toast } = useToast();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -25,27 +26,60 @@ const Signup = () => {
       password,
       options: {
         data: { display_name: displayName },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: `${window.location.origin}/dashboard`,
       },
     });
 
     if (error) {
       toast({ title: 'Signup failed', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Check your email', description: 'We sent you a confirmation link.' });
-      navigate('/login');
+      setSent(true);
     }
     setLoading(false);
   };
+
+  if (sent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="w-full max-w-md space-y-8 text-center">
+          <img src="/logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
+          <Card className="border-border/60 shadow-lg">
+            <CardContent className="pt-8 pb-8 px-8 space-y-4">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Mail className="h-7 w-7 text-primary" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-display font-bold text-foreground">Check your email</h2>
+                <p className="text-sm text-muted-foreground">
+                  We sent a confirmation link to <strong className="text-foreground">{email}</strong>.
+                  Click it to activate your account and you'll land straight on your dashboard.
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground pt-2">
+                Didn't get it? Check your spam folder, or{' '}
+                <button
+                  onClick={() => setSent(false)}
+                  className="text-primary hover:underline font-medium"
+                >
+                  try a different email
+                </button>.
+              </p>
+            </CardContent>
+          </Card>
+          <p className="text-sm text-muted-foreground">
+            Already confirmed?{' '}
+            <Link to="/login" className="text-primary font-medium hover:underline">Sign in</Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 text-primary">
-            <MapPin className="h-8 w-8" />
-            <span className="text-3xl font-display font-bold tracking-tight">Event Mapper</span>
-          </div>
+          <img src="/logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
           <p className="text-muted-foreground">Create your organizer account</p>
         </div>
 
@@ -55,6 +89,17 @@ const Signup = () => {
             <CardDescription>Start mapping your events in minutes</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="space-y-3 mb-4">
+              <GoogleSignInButton />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or sign up with email</span>
+                </div>
+              </div>
+            </div>
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Display name</Label>
