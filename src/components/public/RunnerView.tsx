@@ -406,11 +406,9 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
           eventDate={event.event_date}
           weatherCoord={weatherCoord}
           eventName={event.name}
+          badge={event.plan !== 'pro' ? <MadeWithHeredayBadge /> : undefined}
         />
       )}
-
-      {/* Free-tier attribution */}
-      {event.plan !== 'pro' && <MadeWithHeredayBadge />}
     </div>
   );
 };

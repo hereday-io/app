@@ -45,13 +45,14 @@ interface PublicMapBottomProps {
   eventDate: string | null;
   weatherCoord: [number, number] | null;
   eventName?: string;
+  badge?: React.ReactNode;
 }
 
 const PublicMapBottom = ({
   routes, pois, hiddenRouteIds, onToggleRoute,
   highlightedPoiType, onHighlightPoiType,
   activeRoute, mapboxToken, routeColor, onHoverPoint,
-  eventDate, weatherCoord, eventName,
+  eventDate, weatherCoord, eventName, badge,
 }: PublicMapBottomProps) => {
   const hasRoute = !!(activeRoute && activeRoute.routeCoords.length >= 2);
 
@@ -134,6 +135,7 @@ const PublicMapBottom = ({
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none px-3 pb-3 pb-safe">
+      {badge && <div className="pointer-events-auto mb-2">{badge}</div>}
       <div className="pointer-events-auto rounded-2xl bg-card/85 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] overflow-hidden max-h-[45vh] flex flex-col">
 
         {/* ── Header: event name + collapse toggle ────────────── */}
