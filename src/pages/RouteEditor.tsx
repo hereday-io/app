@@ -91,18 +91,22 @@ const RouteEditor = () => {
     });
   }, [mapboxToken]);
 
-  // Check for upgrade success redirect — clean the URL so a refresh
-  // doesn't re-trigger and Mapbox initializes with a stable URL.
+  // Check for upgrade success redirect on mount only. Clean the URL
+  // param immediately so the map-init effect (which reads searchParams
+  // for lng/lat) doesn't re-fire when the URL changes.
+  const upgradeHandledRef = useRef(false);
   useEffect(() => {
-    if (searchParams.get('upgraded') === 'true') {
+    if (upgradeHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('upgraded') === 'true') {
+      upgradeHandledRef.current = true;
       setEventPlan('pro');
       toast({ title: 'Upgrade complete!', description: 'This event is now on the Pro plan.' });
-      // Remove the upgraded param without a full reload
-      const url = new URL(window.location.href);
-      url.searchParams.delete('upgraded');
-      window.history.replaceState({}, '', url.toString());
+      params.delete('upgraded');
+      const clean = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', clean);
     }
-  }, [searchParams, toast]);
+  }, [toast]);
 
   useEffect(() => {
     if (!activeRouteId && routes.length > 0) setActiveRouteId(routes[0].id);
