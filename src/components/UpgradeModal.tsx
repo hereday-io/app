@@ -12,7 +12,7 @@ interface UpgradeModalProps {
   /** Which limit was hit — shapes the headline */
   trigger?: 'routes' | 'pois' | 'branding';
   /** The event being upgraded */
-  eventId?: string;
+  eventId?: string | null;
 }
 
 const FEATURES = [
@@ -72,17 +72,26 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId }: UpgradeMod
             className="w-full gap-2"
             disabled={loading}
             onClick={async () => {
-              if (!eventId) return;
-              setLoading(true);
-              logEvent('upgrade_clicked', eventId, { trigger });
-              const { data, error } = await supabase.functions.invoke('create-checkout', {
-                body: { eventId, returnUrl: window.location.origin },
-              });
-              if (error || !data?.url) {
-                setLoading(false);
+              if (!eventId) {
+                console.error('[UpgradeModal] No eventId provided');
                 return;
               }
-              window.location.href = data.url;
+              setLoading(true);
+              logEvent('upgrade_clicked', eventId, { trigger });
+              try {
+                const { data, error } = await supabase.functions.invoke('create-checkout', {
+                  body: { eventId, returnUrl: window.location.origin },
+                });
+                if (error || !data?.url) {
+                  console.error('[UpgradeModal] Checkout failed:', error, data);
+                  setLoading(false);
+                  return;
+                }
+                window.location.href = data.url;
+              } catch (err) {
+                console.error('[UpgradeModal] Unexpected error:', err);
+                setLoading(false);
+              }
             }}
           >
             <Crown className="h-4 w-4" />
