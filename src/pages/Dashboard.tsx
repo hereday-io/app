@@ -123,8 +123,8 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto flex items-center justify-between py-4 px-4">
-          <img src="/hereday-logo.png" alt="Hereday" className="h-16 w-auto" />
+        <div className="container mx-auto flex items-center justify-between py-2 px-4">
+          <img src="/hereday-logo.png" alt="Hereday" className="h-16 w-auto -my-2" />
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-primary/10 border border-border flex items-center justify-center shrink-0">

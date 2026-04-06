@@ -125,7 +125,7 @@ const Index = () => {
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="container mx-auto flex items-center justify-between py-3 px-4">
-          <img src="/hereday-logo.png" alt="Hereday" className="h-8 w-auto" />
+          <img src="/hereday-logo.png" alt="Hereday" className="h-16 w-auto -my-3" />
           <div className="flex items-center gap-2">
             <a
               href="#pricing"
