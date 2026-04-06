@@ -80,18 +80,17 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
     if (!event || !name.trim()) return;
     setSaving(true);
 
-    const { error } = await supabase
-      .from('events')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('events') as any)
       .update({
         name: name.trim(),
         city: city.trim() || null,
         event_date: date ? format(date, 'yyyy-MM-dd') : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ...(isPro ? {
           tracking_start: trackingStart ? new Date(trackingStart).toISOString() : null,
           tracking_end: trackingEnd ? new Date(trackingEnd).toISOString() : null,
         } : {}),
-      } as any)
+      })
       .eq('id', event.id);
 
     if (error) {

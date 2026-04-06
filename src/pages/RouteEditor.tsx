@@ -789,8 +789,7 @@ const RouteEditor = () => {
     const cleanPois = await materializePoiImages(pois);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await supabase
-      .from('events')
+    const { error } = await (supabase.from('events') as any)
       .update({
         name: eventName,
         city: city || null,
@@ -803,7 +802,7 @@ const RouteEditor = () => {
         branding_style: brandingStyle,
         tracking_start: trackingStart,
         tracking_end: trackingEnd,
-      } as any)
+      })
       .eq('id', eventId);
 
     if (error) {
@@ -822,7 +821,7 @@ const RouteEditor = () => {
       }
     }
     setIsSaving(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, logoUrl, brandingStyle, toast, materializePoiImages]);
+  }, [eventId, eventName, city, eventDate, routes, pois, logoUrl, brandingStyle, trackingStart, trackingEnd, toast, materializePoiImages]);
 
   // ── Autosave ───────────────────────────────────────────────────────────
   // Mark dirty whenever editable state changes. The initialLoadCompleteRef
@@ -860,8 +859,7 @@ const RouteEditor = () => {
     const newStatus = eventStatus === 'published' ? 'draft' : 'published';
     const cleanPois = await materializePoiImages(pois);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await supabase
-      .from('events')
+    const { error } = await (supabase.from('events') as any)
       .update({
         name: eventName,
         city: city || null,
@@ -875,7 +873,7 @@ const RouteEditor = () => {
         branding_style: brandingStyle,
         tracking_start: trackingStart,
         tracking_end: trackingEnd,
-      } as any)
+      })
       .eq('id', eventId);
 
     if (error) {
