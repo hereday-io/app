@@ -124,7 +124,7 @@ const Dashboard = () => {
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto flex items-center justify-between py-4 px-4">
-          <img src="/logo.png" alt="Hereday" className="h-8 w-auto" />
+          <img src="/hereday-logo.png" alt="Hereday" className="h-8 w-auto" />
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-primary/10 border border-border flex items-center justify-center shrink-0">

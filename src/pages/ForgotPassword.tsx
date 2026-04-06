@@ -34,7 +34,7 @@ const ForgotPassword = () => {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
-          <img src="/logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
+          <img src="/hereday-logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
           <p className="text-muted-foreground">Reset your password</p>
         </div>
 

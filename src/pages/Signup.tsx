@@ -42,7 +42,7 @@ const Signup = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-md space-y-8 text-center">
-          <img src="/logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
+          <img src="/hereday-logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
           <Card className="border-border/60 shadow-lg">
             <CardContent className="pt-8 pb-8 px-8 space-y-4">
               <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
@@ -79,7 +79,7 @@ const Signup = () => {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
-          <img src="/logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
+          <img src="/hereday-logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
           <p className="text-muted-foreground">Create your organizer account</p>
         </div>
 
