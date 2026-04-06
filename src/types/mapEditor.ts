@@ -48,5 +48,7 @@ export interface RunnerPosition {
   lng: number;
   lat: number;
   accuracy: number;
+  speed: number | null;    // m/s from Geolocation API
+  heading: number | null;  // degrees from north
   timestamp: number;
 }

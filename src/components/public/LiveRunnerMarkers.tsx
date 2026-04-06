@@ -1,18 +1,36 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { RunnerPosition } from '@/types/mapEditor';
 
 interface LiveRunnerMarkersProps {
   runners: Map<string, RunnerPosition>;
   mapRef: React.RefObject<mapboxgl.Map | null>;
+  focusedRunnerId?: string | null;
+  onRunnerClick?: (sessionId: string) => void;
+}
+
+/** Convert m/s to min:sec /mi string. Returns null if speed isn't usable. */
+function formatPace(speed: number | null): string | null {
+  if (speed == null || speed <= 0 || speed > 12.5) return null;
+  const minPerMile = 26.8224 / speed; // 1609.34m / 60s
+  if (minPerMile > 30) return null; // slower than 30 min/mi → not useful
+  const mins = Math.floor(minPerMile);
+  const secs = Math.round((minPerMile - mins) * 60);
+  return `${mins}:${secs.toString().padStart(2, '0')} /mi`;
 }
 
 /**
  * Renders a pulsing dot + name label on the Mapbox map for each active runner.
  * Markers are DOM elements managed imperatively (same pattern as POI markers).
  */
-const LiveRunnerMarkers = ({ runners, mapRef }: LiveRunnerMarkersProps) => {
+const LiveRunnerMarkers = ({ runners, mapRef, focusedRunnerId, onRunnerClick }: LiveRunnerMarkersProps) => {
   const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  // Keep references to text DOM nodes for efficient updates
+  const labelsRef = useRef<Map<string, { name: HTMLElement; pace: HTMLElement }>>(new Map());
+
+  const handleClick = useCallback((sessionId: string) => {
+    onRunnerClick?.(sessionId);
+  }, [onRunnerClick]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -26,26 +44,45 @@ const LiveRunnerMarkers = ({ runners, mapRef }: LiveRunnerMarkersProps) => {
       if (!activeIds.has(id)) {
         marker.remove();
         currentMarkers.delete(id);
+        labelsRef.current.delete(id);
       }
     }
 
     // Add or update markers for each runner
     for (const [id, runner] of runners) {
+      // Hide if another runner is focused
+      const hidden = focusedRunnerId != null && focusedRunnerId !== id;
+
       const existing = currentMarkers.get(id);
 
       if (existing) {
-        // Update position smoothly
+        // Update position
         existing.setLngLat([runner.lng, runner.lat]);
+
+        // Update visibility
+        existing.getElement().style.display = hidden ? 'none' : '';
+
+        // Update pace text
+        const refs = labelsRef.current.get(id);
+        if (refs) {
+          refs.name.textContent = runner.name;
+          const pace = formatPace(runner.speed);
+          refs.pace.textContent = pace ?? '';
+          refs.pace.style.display = pace ? '' : 'none';
+        }
       } else {
         // Create new marker
-        const el = createRunnerElement(runner);
+        const { el, nameEl, paceEl } = createRunnerElement(runner);
+        el.style.display = hidden ? 'none' : '';
+        el.addEventListener('click', () => handleClick(id));
         const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([runner.lng, runner.lat])
           .addTo(map);
         currentMarkers.set(id, marker);
+        labelsRef.current.set(id, { name: nameEl, pace: paceEl });
       }
     }
-  }, [runners, mapRef]);
+  }, [runners, mapRef, focusedRunnerId, handleClick]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -54,6 +91,7 @@ const LiveRunnerMarkers = ({ runners, mapRef }: LiveRunnerMarkersProps) => {
         marker.remove();
       }
       markersRef.current.clear();
+      labelsRef.current.clear();
     };
   }, []);
 
@@ -75,7 +113,11 @@ const LiveRunnerMarkers = ({ runners, mapRef }: LiveRunnerMarkersProps) => {
   return null; // Markers are managed imperatively via mapbox-gl
 };
 
-function createRunnerElement(runner: RunnerPosition): HTMLElement {
+function createRunnerElement(runner: RunnerPosition): {
+  el: HTMLElement;
+  nameEl: HTMLElement;
+  paceEl: HTMLElement;
+} {
   const wrapper = document.createElement('div');
   wrapper.style.cssText = 'position:relative;pointer-events:auto;cursor:pointer;';
 
@@ -106,10 +148,9 @@ function createRunnerElement(runner: RunnerPosition): HTMLElement {
   `;
   wrapper.appendChild(dot);
 
-  // Name label
-  const label = document.createElement('div');
-  label.textContent = runner.name;
-  label.style.cssText = `
+  // Label container (name + pace stacked)
+  const labelWrap = document.createElement('div');
+  labelWrap.style.cssText = `
     position:absolute;
     top:100%;
     left:50%;
@@ -117,17 +158,29 @@ function createRunnerElement(runner: RunnerPosition): HTMLElement {
     margin-top:4px;
     background:rgba(0,0,0,0.7);
     color:white;
-    font-size:11px;
-    font-weight:600;
     font-family:'DM Sans',system-ui,sans-serif;
     padding:2px 6px;
     border-radius:4px;
     white-space:nowrap;
     pointer-events:none;
+    text-align:center;
+    line-height:1.3;
   `;
-  wrapper.appendChild(label);
 
-  return wrapper;
+  const nameEl = document.createElement('div');
+  nameEl.textContent = runner.name;
+  nameEl.style.cssText = 'font-size:11px;font-weight:600;';
+  labelWrap.appendChild(nameEl);
+
+  const paceEl = document.createElement('div');
+  const pace = formatPace(runner.speed);
+  paceEl.textContent = pace ?? '';
+  paceEl.style.cssText = `font-size:10px;font-weight:400;opacity:0.85;${pace ? '' : 'display:none;'}`;
+  labelWrap.appendChild(paceEl);
+
+  wrapper.appendChild(labelWrap);
+
+  return { el: wrapper, nameEl, paceEl };
 }
 
 export default LiveRunnerMarkers;

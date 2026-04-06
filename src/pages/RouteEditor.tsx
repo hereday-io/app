@@ -1077,6 +1077,7 @@ const RouteEditor = () => {
         onClose={() => setUpgradeModalTrigger(null)}
         trigger={upgradeModalTrigger ?? 'routes'}
         eventId={eventId}
+        onBeforeRedirect={() => handleSave({ silent: true })}
       />
 
       <EditorTopBar

@@ -13,6 +13,7 @@ import PublicMapBottom from '@/components/public/PublicMapBottom';
 import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
 import LiveRunnerMarkers from '@/components/public/LiveRunnerMarkers';
+import RunnerListPanel from '@/components/public/RunnerListPanel';
 import { useTrackingSubscription } from '@/hooks/useTrackingSubscription';
 
 interface SpectatorViewProps {
@@ -41,6 +42,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
     && !!event.tracking_start && !!event.tracking_end
     && new Date() <= new Date(event.tracking_end);
   const { runners } = useTrackingSubscription(event.id, trackingWindowOpen);
+  const [focusedRunnerId, setFocusedRunnerId] = useState<string | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const poiMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
@@ -432,8 +434,26 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
         eventName={event.name}
       />
 
-      {/* Live runner dots — Pro only */}
-      {isPro && <LiveRunnerMarkers runners={runners} mapRef={mapRef} />}
+      {/* Live runner dots + runner list — Pro only */}
+      {isPro && (
+        <>
+          <LiveRunnerMarkers
+            runners={runners}
+            mapRef={mapRef}
+            focusedRunnerId={focusedRunnerId}
+            onRunnerClick={(id) => setFocusedRunnerId(prev => prev === id ? null : id)}
+          />
+          {trackingWindowOpen && runners.size > 0 && (
+            <div className="absolute bottom-[calc(45vh+16px)] right-3 z-20">
+              <RunnerListPanel
+                runners={runners}
+                focusedRunnerId={focusedRunnerId}
+                onFocusRunner={setFocusedRunnerId}
+              />
+            </div>
+          )}
+        </>
+      )}
 
       {/* ── Bottom sheet ────────────────────────────────────────── */}
       {token && (

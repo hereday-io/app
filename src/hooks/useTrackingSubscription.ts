@@ -3,22 +3,31 @@ import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { RunnerPosition } from '@/types/mapEditor';
 
-const STALE_THRESHOLD_MS = 60_000; // runner gone for 60s → remove
+const NO_PING_MS = 60_000;          // no broadcast at all for 60s → connection lost
+const NO_MOVE_MS = 5 * 60_000;      // position hasn't changed for 5 min → runner stopped
+const MOVE_EPSILON = 0.0001;         // ~10 m — ignore jitter when checking "moved"
+const MAX_SPEED_MS = 12.5;           // ~28 mph — anything above is GPS glitch
 
 export function useTrackingSubscription(eventId: string, enabled: boolean) {
   const [runners, setRunners] = useState<Map<string, RunnerPosition>>(new Map());
   const channelRef = useRef<RealtimeChannel | null>(null);
   const staleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Track when each runner last *actually moved* (not just pinged)
+  const lastMovedRef = useRef<Map<string, { lng: number; lat: number; time: number }>>(new Map());
 
-  // Prune runners that haven't sent a ping in 60 seconds
+  // Prune stale runners: no ping for 60s OR no movement for 5 min
   const pruneStale = useCallback(() => {
     const now = Date.now();
     setRunners(prev => {
       let changed = false;
       const next = new Map(prev);
       for (const [id, runner] of next) {
-        if (now - runner.timestamp > STALE_THRESHOLD_MS) {
+        const noPing = now - runner.timestamp > NO_PING_MS;
+        const moved = lastMovedRef.current.get(id);
+        const noMove = moved ? now - moved.time > NO_MOVE_MS : false;
+        if (noPing || noMove) {
           next.delete(id);
+          lastMovedRef.current.delete(id);
           changed = true;
         }
       }
@@ -48,6 +57,8 @@ export function useTrackingSubscription(eventId: string, enabled: boolean) {
               lng: row.last_lng,
               lat: row.last_lat,
               accuracy: 0,
+              speed: null,
+              heading: null,
               timestamp: row.last_ping_at ? new Date(row.last_ping_at).getTime() : Date.now(),
             });
           }
@@ -64,8 +75,21 @@ export function useTrackingSubscription(eventId: string, enabled: boolean) {
     channel.on('broadcast', { event: 'position' }, (msg) => {
       const p = msg.payload as RunnerPosition;
       if (!p?.sessionId) return;
-      setRunners(prev => {
-        const next = new Map(prev);
+
+      // Ignore GPS glitches (unrealistic speed)
+      if (p.speed != null && p.speed > MAX_SPEED_MS) return;
+
+      // Track last-moved time
+      const prev = lastMovedRef.current.get(p.sessionId);
+      const moved = !prev
+        || Math.abs(p.lng - prev.lng) > MOVE_EPSILON
+        || Math.abs(p.lat - prev.lat) > MOVE_EPSILON;
+      if (moved) {
+        lastMovedRef.current.set(p.sessionId, { lng: p.lng, lat: p.lat, time: Date.now() });
+      }
+
+      setRunners(r => {
+        const next = new Map(r);
         next.set(p.sessionId, p);
         return next;
       });

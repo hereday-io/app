@@ -15,7 +15,7 @@ function pickColor(): string {
 interface TrackingState {
   isTracking: boolean;
   error: string | null;
-  position: { lng: number; lat: number; accuracy: number } | null;
+  position: { lng: number; lat: number; accuracy: number; speed: number | null } | null;
 }
 
 export function useTracking(eventId: string) {
@@ -29,7 +29,7 @@ export function useTracking(eventId: string) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const dbIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const latestPositionRef = useRef<{ lng: number; lat: number; accuracy: number } | null>(null);
+  const latestPositionRef = useRef<{ lng: number; lat: number; accuracy: number; speed: number | null } | null>(null);
   const nameRef = useRef<string>('');
   const colorRef = useRef<string>('');
 
@@ -52,7 +52,7 @@ export function useTracking(eventId: string) {
   }, []);
 
   // Send position via broadcast channel (called by watchPosition)
-  const broadcastPosition = useCallback((lng: number, lat: number, accuracy: number) => {
+  const broadcastPosition = useCallback((lng: number, lat: number, accuracy: number, speed: number | null, heading: number | null) => {
     const channel = channelRef.current;
     if (!channel) return;
     channel.send({
@@ -65,6 +65,8 @@ export function useTracking(eventId: string) {
         lng,
         lat,
         accuracy,
+        speed,
+        heading,
         timestamp: Date.now(),
       },
     });
@@ -139,10 +141,10 @@ export function useTracking(eventId: string) {
     // Start geolocation watch
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        const { longitude: lng, latitude: lat, accuracy } = pos.coords;
-        latestPositionRef.current = { lng, lat, accuracy };
-        setState(s => ({ ...s, position: { lng, lat, accuracy } }));
-        broadcastPosition(lng, lat, accuracy);
+        const { longitude: lng, latitude: lat, accuracy, speed, heading } = pos.coords;
+        latestPositionRef.current = { lng, lat, accuracy, speed };
+        setState(s => ({ ...s, position: { lng, lat, accuracy, speed } }));
+        broadcastPosition(lng, lat, accuracy, speed, heading);
       },
       (err) => {
         let msg = 'Location error.';
