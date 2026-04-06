@@ -352,7 +352,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border bg-card py-8">
         <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <img src="/hereday-logo.png" alt="Hereday" className="h-6 w-auto opacity-70" />
+          <img src="/hereday-logo.png" alt="Hereday" className="h-16 w-auto -my-3 opacity-70" />
           <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Hereday. All rights reserved.</p>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <Link to="/login" className="hover:text-foreground transition-colors">Sign in</Link>
