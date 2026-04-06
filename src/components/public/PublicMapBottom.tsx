@@ -49,13 +49,14 @@ interface PublicMapBottomProps {
   badge?: React.ReactNode;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
+  viewMode?: 'runner' | 'spectator';
 }
 
 const PublicMapBottom = ({
   routes, pois, hiddenRouteIds, onToggleRoute,
   highlightedPoiType, onHighlightPoiType,
   activeRoute, mapboxToken, routeColor, onHoverPoint,
-  eventDate, weatherCoord, eventName, badge, onZoomIn, onZoomOut,
+  eventDate, weatherCoord, eventName, badge, onZoomIn, onZoomOut, viewMode = 'runner',
 }: PublicMapBottomProps) => {
   const hasRoute = !!(activeRoute && activeRoute.routeCoords.length >= 2);
 
@@ -108,10 +109,12 @@ const PublicMapBottom = ({
     return acc;
   }, {});
   const poiTypes = Object.keys(grouped) as PoiType[];
-  const orderedPoiTypes = [
-    ...poiTypes.filter((t) => t === 'start' || t === 'finish'),
-    ...poiTypes.filter((t) => t !== 'start' && t !== 'finish'),
-  ];
+
+  // Order POIs by relevance to the current view mode
+  const runnerPriority: PoiType[] = ['start', 'finish', 'water', 'aid-station', 'medical', 'registration', 'parking', 'restroom', 'sponsor', 'custom'];
+  const spectatorPriority: PoiType[] = ['start', 'finish', 'parking', 'restroom', 'sponsor', 'custom', 'water', 'aid-station', 'medical', 'registration'];
+  const priority = viewMode === 'spectator' ? spectatorPriority : runnerPriority;
+  const orderedPoiTypes = [...poiTypes].sort((a, b) => priority.indexOf(a) - priority.indexOf(b));
 
   // ── Tabs ──────────────────────────────────────────────────────────
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -173,17 +176,27 @@ const PublicMapBottom = ({
       </div>
       <div className="pointer-events-auto rounded-2xl bg-card/85 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] overflow-hidden max-h-[45vh] flex flex-col">
 
-        {/* ── Header: event name + collapse toggle ────────────── */}
+        {/* ── Header: event name, route stats, collapse toggle ── */}
         <button
           onClick={() => setExpanded((v) => !v)}
           className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors shrink-0"
         >
-          <h2
-            className="text-sm font-semibold text-foreground truncate"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            {eventName || 'Event Details'}
-          </h2>
+          <div className="min-w-0 flex-1">
+            <h2
+              className="text-sm font-semibold text-foreground truncate"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              {eventName || 'Event Details'}
+            </h2>
+            {hasRoute && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {activeRoute!.name}
+                {' · '}
+                {totalDistanceMiles(activeRoute!.routeCoords).toFixed(1)} mi
+                {stats ? ` · +${stats.gain} ft` : ''}
+              </p>
+            )}
+          </div>
           {expanded
             ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
             : <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />

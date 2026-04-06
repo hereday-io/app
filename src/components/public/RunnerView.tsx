@@ -6,7 +6,7 @@ import { totalDistanceMiles, getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import { clusterPoisByPixels } from '@/lib/poiCluster';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
-import { ArrowLeft, Trophy, Eye } from 'lucide-react';
+import { ArrowLeft, Trophy, Eye, Maximize2 } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
 import PublicMapToolbar from '@/components/public/PublicMapToolbar';
 import PublicMapBottom from '@/components/public/PublicMapBottom';
@@ -95,6 +95,23 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
 
   const handleZoomIn = useCallback(() => { mapRef.current?.zoomIn(); }, []);
   const handleZoomOut = useCallback(() => { mapRef.current?.zoomOut(); }, []);
+
+  const handleFitRoute = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const coords: [number, number][] = [];
+    event.routes.forEach((r) => {
+      if (!hiddenRouteIds.has(r.id) && r.routeCoords.length >= 2) {
+        coords.push(...(r.routeCoords as [number, number][]));
+      }
+    });
+    if (coords.length === 0) return;
+    const bounds = coords.reduce(
+      (b, c) => b.extend(c),
+      new mapboxgl.LngLatBounds(coords[0], coords[0])
+    );
+    map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 800 });
+  }, [event.routes, hiddenRouteIds]);
 
   // Initialize map
   useEffect(() => {
@@ -387,12 +404,19 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
         </div>
       </div>
 
-      {/* Basemap picker */}
+      {/* Basemap picker + fit-to-route */}
       <PublicMapToolbar
         selectedBasemap={selectedBasemap}
         onBasemapChange={setSelectedBasemap}
         className="top-[60px]"
       />
+      <button
+        onClick={handleFitRoute}
+        className="absolute left-3 top-[108px] z-10 w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/95 active:scale-95 transition-all"
+        aria-label="Fit to route"
+      >
+        <Maximize2 className="w-4 h-4" />
+      </button>
 
       <EventBranding
         logoUrl={event.logo_url ?? null}
@@ -419,6 +443,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
           badge={event.plan !== 'pro' ? <MadeWithHeredayBadge /> : undefined}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
+          viewMode="runner"
         />
       )}
     </div>

@@ -6,7 +6,7 @@ import { getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import { clusterPoisByPixels } from '@/lib/poiCluster';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
-import { ArrowLeft, Trophy, Eye } from 'lucide-react';
+import { ArrowLeft, Trophy, Eye, Maximize2 } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
 import PublicMapToolbar from '@/components/public/PublicMapToolbar';
 import PublicMapBottom from '@/components/public/PublicMapBottom';
@@ -90,6 +90,23 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
 
   const handleZoomIn = useCallback(() => { mapRef.current?.zoomIn(); }, []);
   const handleZoomOut = useCallback(() => { mapRef.current?.zoomOut(); }, []);
+
+  const handleFitRoute = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const coords: [number, number][] = [];
+    event.routes.forEach((r) => {
+      if (!hiddenRouteIds.has(r.id) && r.routeCoords.length >= 2) {
+        coords.push(...(r.routeCoords as [number, number][]));
+      }
+    });
+    if (coords.length === 0) return;
+    const bounds = coords.reduce(
+      (b, c) => b.extend(c),
+      new mapboxgl.LngLatBounds(coords[0], coords[0])
+    );
+    map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 800 });
+  }, [event.routes, hiddenRouteIds]);
 
   // Initialize map
   useEffect(() => {
@@ -260,6 +277,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
       // for events saved before the storage-bucket migration.
       const existingImage = poi.imageUrl || poi.imageDataUrl || '';
       const hasWebLink = ['registration', 'sponsor', 'custom'].includes(poi.type);
+      const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${poi.coordinates[1]},${poi.coordinates[0]}`;
       const popupHtml = `
         <div style="font-family:'DM Sans',system-ui,sans-serif;width:240px;">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
@@ -271,7 +289,10 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
           </div>
           ${poi.description ? `<p style="font-size:13px;color:#475569;line-height:1.4;margin:0 0 8px;">${poi.description}</p>` : ''}
           ${existingImage ? `<img src="${existingImage}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:8px;" />` : ''}
-          ${hasWebLink && poi.webLink ? `<a href="${poi.webLink}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">🔗 Visit link →</a>` : ''}
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            ${hasWebLink && poi.webLink ? `<a href="${poi.webLink}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">🔗 Visit link →</a>` : ''}
+            <a href="${directionsUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">📍 Get directions →</a>
+          </div>
         </div>`;
 
       const popup = new mapboxgl.Popup({ offset: 16, maxWidth: '280px' }).setHTML(popupHtml);
@@ -363,7 +384,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <SubscribeButton eventId={event.id} eventName={event.name} source="spectator" />
+          <SubscribeButton eventId={event.id} eventName={event.name} source="spectator" expanded />
         </div>
 
         {/* Right group: Run/Watch toggle */}
@@ -382,12 +403,19 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
         </div>
       </div>
 
-      {/* Basemap picker */}
+      {/* Basemap picker + fit-to-route */}
       <PublicMapToolbar
         selectedBasemap={selectedBasemap}
         onBasemapChange={setSelectedBasemap}
         className="top-[60px]"
       />
+      <button
+        onClick={handleFitRoute}
+        className="absolute left-3 top-[108px] z-10 w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/95 active:scale-95 transition-all"
+        aria-label="Fit to route"
+      >
+        <Maximize2 className="w-4 h-4" />
+      </button>
 
       <EventBranding
         logoUrl={event.logo_url ?? null}
@@ -414,6 +442,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
           badge={event.plan !== 'pro' ? <MadeWithHeredayBadge /> : undefined}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
+          viewMode="spectator"
         />
       )}
     </div>

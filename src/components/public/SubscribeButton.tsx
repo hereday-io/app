@@ -17,6 +17,8 @@ interface SubscribeButtonProps {
   eventName: string;
   /** Which public view surfaced this — recorded on the row for later analysis. */
   source: 'runner' | 'spectator';
+  /** Show expanded pill with label instead of icon-only circle */
+  expanded?: boolean;
 }
 
 /**
@@ -37,7 +39,7 @@ interface SubscribeButtonProps {
  *   on accidental taps. This is UX only — the DB is still the source of
  *   truth on refresh.
  */
-const SubscribeButton = ({ eventId, eventName, source }: SubscribeButtonProps) => {
+const SubscribeButton = ({ eventId, eventName, source, expanded: expandedPill }: SubscribeButtonProps) => {
   const storageKey = `hereday:subscribed:${eventId}`;
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -91,12 +93,19 @@ const SubscribeButton = ({ eventId, eventName, source }: SubscribeButtonProps) =
       <button
         onClick={() => setOpen(true)}
         aria-label={subscribed ? 'Subscribed to event updates' : 'Get event updates'}
-        className="shrink-0 w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/95 active:scale-95 transition-all"
+        className={
+          expandedPill
+            ? 'shrink-0 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center gap-1.5 px-3 text-foreground hover:bg-card/95 active:scale-95 transition-all'
+            : 'shrink-0 w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/95 active:scale-95 transition-all'
+        }
       >
         {subscribed ? (
           <BellRing className="w-4 h-4 text-primary" />
         ) : (
           <Bell className="w-4 h-4" />
+        )}
+        {expandedPill && (
+          <span className="text-xs font-medium">{subscribed ? 'Subscribed' : 'Get updates'}</span>
         )}
       </button>
 
