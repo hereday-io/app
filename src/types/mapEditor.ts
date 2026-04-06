@@ -39,3 +39,14 @@ export interface BasemapOption {
   label: string;
   style: string;
 }
+
+/** A runner's live GPS position, received via Supabase Broadcast. */
+export interface RunnerPosition {
+  sessionId: string;
+  name: string;
+  color: string;
+  lng: number;
+  lat: number;
+  accuracy: number;
+  timestamp: number;
+}

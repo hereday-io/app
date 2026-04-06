@@ -12,6 +12,8 @@ import PublicMapToolbar from '@/components/public/PublicMapToolbar';
 import PublicMapBottom from '@/components/public/PublicMapBottom';
 import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
+import LiveRunnerMarkers from '@/components/public/LiveRunnerMarkers';
+import { useTrackingSubscription } from '@/hooks/useTrackingSubscription';
 
 interface SpectatorViewProps {
   event: {
@@ -32,6 +34,8 @@ interface SpectatorViewProps {
 const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const isPro = event.plan === 'pro';
+  const { runners } = useTrackingSubscription(event.id, isPro);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const poiMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
@@ -422,6 +426,9 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
         brandingStyle={event.branding_style ?? 'none'}
         eventName={event.name}
       />
+
+      {/* Live runner dots — Pro only */}
+      {isPro && <LiveRunnerMarkers runners={runners} mapRef={mapRef} />}
 
       {/* ── Bottom sheet ────────────────────────────────────────── */}
       {token && (

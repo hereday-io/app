@@ -12,6 +12,7 @@ import PublicMapToolbar from '@/components/public/PublicMapToolbar';
 import PublicMapBottom from '@/components/public/PublicMapBottom';
 import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
+import TrackMeButton from '@/components/public/TrackMeButton';
 
 interface RunnerViewProps {
   event: {
@@ -423,6 +424,9 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
         brandingStyle={event.branding_style ?? 'none'}
         eventName={event.name}
       />
+
+      {/* Live tracking — Pro only */}
+      {event.plan === 'pro' && <TrackMeButton eventId={event.id} />}
 
       {/* ── Bottom sheet ────────────────────────────────────────── */}
       {token && (
