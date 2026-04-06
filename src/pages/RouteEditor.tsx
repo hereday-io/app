@@ -91,12 +91,18 @@ const RouteEditor = () => {
     });
   }, [mapboxToken]);
 
-  // Check for upgrade success redirect
+  // Check for upgrade success redirect — clean the URL so a refresh
+  // doesn't re-trigger and Mapbox initializes with a stable URL.
   useEffect(() => {
     if (searchParams.get('upgraded') === 'true') {
       setEventPlan('pro');
+      toast({ title: 'Upgrade complete!', description: 'This event is now on the Pro plan.' });
+      // Remove the upgraded param without a full reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete('upgraded');
+      window.history.replaceState({}, '', url.toString());
     }
-  }, [searchParams]);
+  }, [searchParams, toast]);
 
   useEffect(() => {
     if (!activeRouteId && routes.length > 0) setActiveRouteId(routes[0].id);
