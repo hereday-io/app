@@ -88,6 +88,9 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
     mapRef.current?.flyTo({ center: poi.coordinates, zoom: 16, duration: 1200 });
   }, []);
 
+  const handleZoomIn = useCallback(() => { mapRef.current?.zoomIn(); }, []);
+  const handleZoomOut = useCallback(() => { mapRef.current?.zoomOut(); }, []);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || !token) return;
@@ -111,12 +114,12 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style,
+      attributionControl: false,
       ...(initialBounds
         ? { bounds: initialBounds, fitBoundsOptions: { padding: 60, maxZoom: 15, duration: 0 } }
         : { center: [-98.5, 39.8] as [number, number], zoom: 4 }),
     });
 
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     mapRef.current = map;
 
     map.on('load', () => {
@@ -402,6 +405,8 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
           weatherCoord={weatherCoord}
           eventName={event.name}
           badge={event.plan !== 'pro' ? <MadeWithHeredayBadge /> : undefined}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
         />
       )}
     </div>

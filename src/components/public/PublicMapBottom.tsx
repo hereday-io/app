@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import {
   Mountain, CircleDot, Cloud, Sun, CloudSun, CloudRain, CloudDrizzle,
   CloudSnow, CloudLightning, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
+  Plus, Minus,
 } from 'lucide-react';
 import type { EventRoute, RoutePoi, PoiType, Coord } from '@/types/mapEditor';
 import { totalDistanceMiles } from '@/lib/geo';
@@ -46,13 +47,15 @@ interface PublicMapBottomProps {
   weatherCoord: [number, number] | null;
   eventName?: string;
   badge?: React.ReactNode;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
 }
 
 const PublicMapBottom = ({
   routes, pois, hiddenRouteIds, onToggleRoute,
   highlightedPoiType, onHighlightPoiType,
   activeRoute, mapboxToken, routeColor, onHoverPoint,
-  eventDate, weatherCoord, eventName, badge,
+  eventDate, weatherCoord, eventName, badge, onZoomIn, onZoomOut,
 }: PublicMapBottomProps) => {
   const hasRoute = !!(activeRoute && activeRoute.routeCoords.length >= 2);
 
@@ -135,7 +138,39 @@ const PublicMapBottom = ({
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none px-3 pb-3 pb-safe">
-      {badge && <div className="pointer-events-auto mb-2">{badge}</div>}
+      {/* Controls row: badge (left) · attribution + zoom (right) */}
+      <div className="flex items-end justify-between mb-2 px-0.5">
+        <div className="pointer-events-auto">
+          {badge}
+        </div>
+        <div className="pointer-events-auto flex items-center gap-2">
+          <a
+            href="https://www.mapbox.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+          >
+            © Mapbox © OpenStreetMap
+          </a>
+          <div className="flex rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] overflow-hidden">
+            <button
+              onClick={onZoomIn}
+              className="w-8 h-8 flex items-center justify-center text-foreground hover:bg-muted/50 transition-colors active:scale-95"
+              aria-label="Zoom in"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            <div className="w-px bg-border/50" />
+            <button
+              onClick={onZoomOut}
+              className="w-8 h-8 flex items-center justify-center text-foreground hover:bg-muted/50 transition-colors active:scale-95"
+              aria-label="Zoom out"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
       <div className="pointer-events-auto rounded-2xl bg-card/85 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] overflow-hidden max-h-[45vh] flex flex-col">
 
         {/* ── Header: event name + collapse toggle ────────────── */}
