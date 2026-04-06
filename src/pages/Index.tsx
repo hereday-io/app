@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Route, MapPinned, Globe, Mountain, Zap, Users, CloudSun, Cloud, Check, Sparkles } from 'lucide-react';
+import { ArrowRight, Route, MapPinned, Globe, Mountain, Zap, Users, Check } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
@@ -21,32 +21,17 @@ const features = [
   {
     icon: Users,
     title: 'Runner & spectator views',
-    description: 'Participants get a you-are-here map to follow the course. Spectators get a full overview to find the action.',
+    description: 'Participants get a course map to follow. Spectators get the full overview to find the action. Same link, two modes.',
   },
   {
     icon: Mountain,
-    title: 'Elevation profiles',
-    description: 'Hover the course to see climbs, descents, and total gain. Runners know exactly what to expect on race day.',
-  },
-  {
-    icon: CloudSun,
-    title: 'Weather on race day',
-    description: 'Forecasts appear automatically on your event once the date is within range. No extra setup, no tabs to juggle.',
-  },
-  {
-    icon: Cloud,
-    title: 'Autosave, always',
-    description: 'Everything you draw saves as you go. Close the tab, open a laptop across the country — your map is exactly where you left it.',
+    title: 'Elevation & weather',
+    description: 'Elevation profiles show every climb and descent. Weather forecasts appear automatically as race day approaches.',
   },
   {
     icon: Globe,
     title: 'Instant public pages',
-    description: 'One click publishes a beautiful, shareable map page at your own link — no code, no design work, no hosting fees.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Custom branding',
-    description: 'Add your event logo and banner so the public page looks like yours, not ours. (Paid plans.)',
+    description: 'One click publishes a polished, shareable map page. Add your event logo so it looks like yours, not ours.',
   },
   {
     icon: Zap,
@@ -60,8 +45,8 @@ const plans = [
     name: 'Free',
     price: '$0',
     priceSuffix: 'forever',
-    description: 'Enough for a typical small race — 5K, 10K, and half-marathon together.',
-    cta: 'Start for free',
+    description: 'Everything you need for a typical small race.',
+    cta: 'Get started',
     ctaVariant: 'outline' as const,
     highlight: false,
     features: [
@@ -75,10 +60,10 @@ const plans = [
   },
   {
     name: 'Pro',
-    price: '$19',
+    price: '$29',
     priceSuffix: 'per event',
-    description: 'For race organizers running real events with real participants.',
-    cta: 'Go Pro',
+    description: 'Unlock the full toolkit when your event needs it.',
+    cta: 'Start free, upgrade anytime',
     ctaVariant: 'default' as const,
     highlight: true,
     features: [
@@ -86,7 +71,6 @@ const plans = [
       'Unlimited routes per event',
       'Unlimited points of interest',
       'Custom logo & banner branding',
-      'Priority support',
       'Remove Hereday watermark',
     ],
   },
@@ -161,14 +145,11 @@ const Index = () => {
         <p className="mt-6 text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
           Hereday is the fastest way for race organizers to turn a course into a polished, shareable map page — the kind runners and spectators actually use on race day.
         </p>
-        <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
-          <Button size="lg" asChild className="rounded-full px-8">
+        <div className="mt-8">
+          <Button size="lg" asChild className="rounded-full px-10">
             <Link to="/signup">
               Start for free <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
-          </Button>
-          <Button size="lg" variant="outline" asChild className="rounded-full px-8">
-            <Link to="/login">Sign in</Link>
           </Button>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">No credit card required · Free tier available</p>
@@ -195,26 +176,7 @@ const Index = () => {
                 className="w-full object-cover"
                 style={{ maxHeight: '420px' }}
               />
-              {/* Overlay route line simulation */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-              {/* Sample UI overlays */}
-              <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-md rounded-xl shadow-lg border border-border/60 px-4 py-3 text-left">
-                <p className="text-xs text-muted-foreground font-medium">Crystal Lake Turkey Trot</p>
-                <p className="text-sm font-bold text-foreground mt-0.5">5K Route</p>
-                <p className="text-xs text-muted-foreground mt-1">3.1 mi · +82 ft gain</p>
-              </div>
-              <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-emerald-500/10 backdrop-blur-md rounded-full shadow-lg border border-emerald-500/20 px-3 py-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Live</span>
-              </div>
-              <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-md rounded-xl shadow-lg border border-border/60 px-3 py-2 flex items-center gap-2">
-                <Cloud className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground">Saved just now</span>
-              </div>
-              <div className="absolute bottom-4 right-4 bg-card/90 backdrop-blur-md rounded-xl shadow-lg border border-border/60 px-3 py-2 flex items-center gap-2">
-                <span className="text-sm">💧</span>
-                <span className="text-xs font-medium text-foreground">4 water stops</span>
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
             </div>
           </div>
           {/* Glow effect */}
@@ -329,7 +291,7 @@ const Index = () => {
             ))}
           </div>
           <p className="text-center text-xs text-muted-foreground mt-8">
-            No credit card for Free · Cancel anytime · Questions? <a href="mailto:hello@hereday.io" className="underline hover:text-foreground">hello@hereday.io</a>
+            No credit card required · One-time upgrade, no subscription · Questions? <a href="mailto:hello@hereday.io" className="underline hover:text-foreground">hello@hereday.io</a>
           </p>
         </div>
       </section>
