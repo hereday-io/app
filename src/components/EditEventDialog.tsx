@@ -70,7 +70,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
 
   // Auto-suggest tracking window when event date changes and no tracking times set yet
   const suggestTrackingWindow = useMemo(() => {
-    if (!isPro || !date || trackingStart || trackingEnd) return null;
+    if (!date || trackingStart || trackingEnd) return null;
     const dayStr = format(date, 'yyyy-MM-dd');
     return { start: `${dayStr}T05:00`, end: `${dayStr}T23:00` };
   }, [isPro, date, trackingStart, trackingEnd]);
@@ -86,10 +86,8 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
         name: name.trim(),
         city: city.trim() || null,
         event_date: date ? format(date, 'yyyy-MM-dd') : null,
-        ...(isPro ? {
-          tracking_start: trackingStart ? new Date(trackingStart).toISOString() : null,
-          tracking_end: trackingEnd ? new Date(trackingEnd).toISOString() : null,
-        } : {}),
+        tracking_start: trackingStart ? new Date(trackingStart).toISOString() : null,
+        tracking_end: trackingEnd ? new Date(trackingEnd).toISOString() : null,
       })
       .eq('id', event.id);
 
@@ -156,9 +154,8 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
               </PopoverContent>
             </Popover>
           </div>
-          {/* Live Tracking Window — Pro only */}
-          {isPro && (
-            <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
+          {/* Live Tracking Window */}
+          <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Radio className="h-3.5 w-3.5 text-primary" />
                 Live Tracking Window
@@ -201,7 +198,6 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
                 </div>
               </div>
             </div>
-          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
