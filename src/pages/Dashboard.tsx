@@ -398,6 +398,7 @@ const Dashboard = () => {
           open={createOpen}
           onOpenChange={setCreateOpen}
           userId={user.id}
+          isPro={isPro}
           onCreated={(eventId, cityCenter) => {
             fetchEvents();
             const params = new URLSearchParams({ id: eventId });
