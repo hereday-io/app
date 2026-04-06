@@ -115,9 +115,16 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
       container: mapContainerRef.current,
       style,
       attributionControl: false,
+      logoPosition: 'bottom-left',
       ...(initialBounds
         ? { bounds: initialBounds, fitBoundsOptions: { padding: 60, maxZoom: 15, duration: 0 } }
         : { center: [-98.5, 39.8] as [number, number], zoom: 4 }),
+    });
+
+    // Hide the Mapbox logo — we render our own attribution in PublicMapBottom
+    map.on('load', () => {
+      const logo = mapContainerRef.current?.querySelector('.mapboxgl-ctrl-logo');
+      if (logo) (logo as HTMLElement).style.display = 'none';
     });
 
     mapRef.current = map;
