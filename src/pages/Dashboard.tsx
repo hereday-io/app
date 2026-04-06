@@ -32,6 +32,8 @@ interface Event {
   poi_count: number;
   created_at: string;
   routes?: Array<{ routeCoords?: [number, number][]; waypoints?: [number, number][] }>;
+  tracking_start?: string | null;
+  tracking_end?: string | null;
 }
 
 const Dashboard = () => {
@@ -45,6 +47,7 @@ const Dashboard = () => {
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
+  const [isPro, setIsPro] = useState(false);
   const navigate = useNavigate();
   const menuActionRef = useRef(false);
 
@@ -53,6 +56,15 @@ const Dashboard = () => {
       navigate('/login');
     }
   }, [user, authLoading, navigate]);
+
+  // Fetch user plan status
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('is_paid, plan').eq('user_id', user.id).single()
+      .then(({ data }) => {
+        if (data) setIsPro((data as any).plan === 'pro' || data.is_paid === true);
+      });
+  }, [user]);
 
   const fetchEvents = useCallback(async () => {
     if (!user) return;
@@ -403,6 +415,7 @@ const Dashboard = () => {
         onOpenChange={(open) => !open && setEditEvent(null)}
         event={editEvent}
         onUpdated={fetchEvents}
+        isPro={isPro}
       />
 
       <DeleteEventDialog

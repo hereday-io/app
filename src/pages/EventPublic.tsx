@@ -22,6 +22,8 @@ interface PublicEvent {
   logo_url: string | null;
   branding_style: string;
   plan: 'free' | 'pro';
+  tracking_start: string | null;
+  tracking_end: string | null;
 }
 
 type ViewMode = 'runner' | 'spectator';
@@ -76,7 +78,9 @@ const EventPublic = () => {
           poi_count: row.poi_count,
           logo_url: row.logo_url ?? null,
           branding_style: row.branding_style ?? 'none',
-          plan: row.plan === 'pro' ? 'pro' : 'free',
+          plan: row.owner_is_paid ? 'pro' : 'free',
+          tracking_start: row.tracking_start ?? null,
+          tracking_end: row.tracking_end ?? null,
         });
         logEvent('public_view', row.id, { mode: viewMode, slug });
         setLoading(false);

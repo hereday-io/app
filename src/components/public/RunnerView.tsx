@@ -25,6 +25,8 @@ interface RunnerViewProps {
     logo_url?: string | null;
     branding_style?: string;
     plan?: 'free' | 'pro';
+    tracking_start?: string | null;
+    tracking_end?: string | null;
   };
   onBack: () => void;
   onSwitchToSpectator: () => void;
@@ -426,7 +428,13 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       />
 
       {/* Live tracking — Pro only */}
-      {event.plan === 'pro' && <TrackMeButton eventId={event.id} />}
+      {event.plan === 'pro' && (
+        <TrackMeButton
+          eventId={event.id}
+          trackingStart={event.tracking_start ?? null}
+          trackingEnd={event.tracking_end ?? null}
+        />
+      )}
 
       {/* ── Bottom sheet ────────────────────────────────────────── */}
       {token && (

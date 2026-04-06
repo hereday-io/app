@@ -26,6 +26,8 @@ interface SpectatorViewProps {
     logo_url?: string | null;
     branding_style?: string;
     plan?: 'free' | 'pro';
+    tracking_start?: string | null;
+    tracking_end?: string | null;
   };
   onBack: () => void;
   onSwitchToRunner: () => void;
@@ -35,7 +37,10 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const isPro = event.plan === 'pro';
-  const { runners } = useTrackingSubscription(event.id, isPro);
+  const trackingWindowOpen = isPro
+    && !!event.tracking_start && !!event.tracking_end
+    && new Date() <= new Date(event.tracking_end);
+  const { runners } = useTrackingSubscription(event.id, trackingWindowOpen);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const poiMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);

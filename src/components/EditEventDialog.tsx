@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Radio } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -26,6 +26,8 @@ interface EventData {
   name: string;
   city: string | null;
   event_date: string | null;
+  tracking_start?: string | null;
+  tracking_end?: string | null;
 }
 
 interface EditEventDialogProps {
@@ -33,12 +35,26 @@ interface EditEventDialogProps {
   onOpenChange: (open: boolean) => void;
   event: EventData | null;
   onUpdated: () => void;
+  /** Pass true when the event owner is on a Pro plan */
+  isPro?: boolean;
 }
 
-const EditEventDialog = ({ open, onOpenChange, event, onUpdated }: EditEventDialogProps) => {
+/** Convert a TIMESTAMPTZ ISO string to a datetime-local input value (local tz). */
+function toLocalDatetime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  // yyyy-MM-ddTHH:mm in local timezone
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEventDialogProps) => {
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [date, setDate] = useState<Date>();
+  const [trackingStart, setTrackingStart] = useState('');
+  const [trackingEnd, setTrackingEnd] = useState('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -47,8 +63,17 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated }: EditEventDial
       setName(event.name);
       setCity(event.city ?? '');
       setDate(event.event_date ? new Date(event.event_date + 'T00:00:00') : undefined);
+      setTrackingStart(toLocalDatetime(event.tracking_start));
+      setTrackingEnd(toLocalDatetime(event.tracking_end));
     }
   }, [event]);
+
+  // Auto-suggest tracking window when event date changes and no tracking times set yet
+  const suggestTrackingWindow = useMemo(() => {
+    if (!isPro || !date || trackingStart || trackingEnd) return null;
+    const dayStr = format(date, 'yyyy-MM-dd');
+    return { start: `${dayStr}T05:00`, end: `${dayStr}T23:00` };
+  }, [isPro, date, trackingStart, trackingEnd]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +86,12 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated }: EditEventDial
         name: name.trim(),
         city: city.trim() || null,
         event_date: date ? format(date, 'yyyy-MM-dd') : null,
-      })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(isPro ? {
+          tracking_start: trackingStart ? new Date(trackingStart).toISOString() : null,
+          tracking_end: trackingEnd ? new Date(trackingEnd).toISOString() : null,
+        } : {}),
+      } as any)
       .eq('id', event.id);
 
     if (error) {
@@ -127,6 +157,53 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated }: EditEventDial
               </PopoverContent>
             </Popover>
           </div>
+          {/* Live Tracking Window — Pro only */}
+          {isPro && (
+            <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Radio className="h-3.5 w-3.5 text-primary" />
+                Live Tracking Window
+              </div>
+              <p className="text-xs text-muted-foreground leading-snug">
+                Runners can only share their GPS location within this window.
+              </p>
+              {suggestTrackingWindow && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTrackingStart(suggestTrackingWindow.start);
+                    setTrackingEnd(suggestTrackingWindow.end);
+                  }}
+                  className="text-xs text-primary font-medium hover:underline"
+                >
+                  Auto-fill: event day 5 AM – 11 PM
+                </button>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="tracking-start" className="text-xs">Opens</Label>
+                  <Input
+                    id="tracking-start"
+                    type="datetime-local"
+                    value={trackingStart}
+                    onChange={(e) => setTrackingStart(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="tracking-end" className="text-xs">Closes</Label>
+                  <Input
+                    id="tracking-end"
+                    type="datetime-local"
+                    value={trackingEnd}
+                    onChange={(e) => setTrackingEnd(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel

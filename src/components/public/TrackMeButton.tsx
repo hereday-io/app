@@ -1,20 +1,46 @@
-import { useState } from 'react';
-import { MapPin, Square, Loader2, Navigation } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { MapPin, Square, Loader2, Navigation, Clock } from 'lucide-react';
 import { useTracking } from '@/hooks/useTracking';
 
 interface TrackMeButtonProps {
   eventId: string;
+  trackingStart: string | null;
+  trackingEnd: string | null;
 }
 
-const TrackMeButton = ({ eventId }: TrackMeButtonProps) => {
+type WindowStatus = 'not-configured' | 'too-early' | 'open' | 'closed';
+
+function getWindowStatus(start: string | null, end: string | null): WindowStatus {
+  if (!start || !end) return 'not-configured';
+  const now = Date.now();
+  if (now < new Date(start).getTime()) return 'too-early';
+  if (now > new Date(end).getTime()) return 'closed';
+  return 'open';
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
+}
+
+const TrackMeButton = ({ eventId, trackingStart, trackingEnd }: TrackMeButtonProps) => {
   const { isTracking, error, position, startTracking, stopTracking } = useTracking(eventId);
   const [showNameEntry, setShowNameEntry] = useState(false);
   const [name, setName] = useState('');
   const [starting, setStarting] = useState(false);
 
+  const windowStatus = useMemo(
+    () => getWindowStatus(trackingStart, trackingEnd),
+    [trackingStart, trackingEnd],
+  );
+
   const handleStart = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
+    // Double-check window before hitting DB (the RLS policy is the real gate)
+    if (getWindowStatus(trackingStart, trackingEnd) !== 'open') return;
     setStarting(true);
     await startTracking(trimmed);
     setStarting(false);
@@ -53,6 +79,34 @@ const TrackMeButton = ({ eventId }: TrackMeButtonProps) => {
             {error}
           </div>
         )}
+      </div>
+    );
+  }
+
+  // ── Window not open — show status message ──
+  if (windowStatus === 'not-configured') {
+    // Organizer hasn't set tracking times yet — hide button entirely
+    return null;
+  }
+
+  if (windowStatus === 'too-early') {
+    return (
+      <div className="absolute bottom-[calc(45vh+16px)] left-3 z-20">
+        <div className="flex items-center gap-1.5 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] px-3 py-2.5 text-xs text-muted-foreground">
+          <Clock className="h-3.5 w-3.5" />
+          Tracking opens {formatDateTime(trackingStart!)}
+        </div>
+      </div>
+    );
+  }
+
+  if (windowStatus === 'closed') {
+    return (
+      <div className="absolute bottom-[calc(45vh+16px)] left-3 z-20">
+        <div className="flex items-center gap-1.5 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] px-3 py-2.5 text-xs text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5" />
+          Tracking has ended
+        </div>
       </div>
     );
   }

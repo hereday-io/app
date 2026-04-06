@@ -82,6 +82,8 @@ const RouteEditor = () => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [brandingStyle, setBrandingStyle] = useState<'none' | 'corner' | 'banner' | 'both'>('none');
   const [eventPlan, setEventPlan] = useState<'free' | 'pro'>('free');
+  const [trackingStart, setTrackingStart] = useState<string | null>(null);
+  const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
   const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | null>(null);
   // Fetch Mapbox token from backend
   useEffect(() => {
@@ -193,6 +195,8 @@ const RouteEditor = () => {
         setLogoUrl(data.logo_url ?? null);
         setBrandingStyle((data.branding_style as 'none' | 'corner' | 'banner' | 'both') ?? 'none');
         setEventPlan((data as any).plan === 'pro' ? 'pro' : 'free');
+        setTrackingStart((data as any).tracking_start ?? null);
+        setTrackingEnd((data as any).tracking_end ?? null);
         setStatusText('Event loaded.');
         setIsLoading(false);
         // Defer one tick so the state updates above commit before the
@@ -784,6 +788,7 @@ const RouteEditor = () => {
 
     const cleanPois = await materializePoiImages(pois);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await supabase
       .from('events')
       .update({
@@ -796,7 +801,9 @@ const RouteEditor = () => {
         poi_count: cleanPois.length,
         logo_url: logoUrl,
         branding_style: brandingStyle,
-      })
+        tracking_start: trackingStart,
+        tracking_end: trackingEnd,
+      } as any)
       .eq('id', eventId);
 
     if (error) {
@@ -852,6 +859,7 @@ const RouteEditor = () => {
     // Save first, then publish
     const newStatus = eventStatus === 'published' ? 'draft' : 'published';
     const cleanPois = await materializePoiImages(pois);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await supabase
       .from('events')
       .update({
@@ -865,7 +873,9 @@ const RouteEditor = () => {
         status: newStatus,
         logo_url: logoUrl,
         branding_style: brandingStyle,
-      })
+        tracking_start: trackingStart,
+        tracking_end: trackingEnd,
+      } as any)
       .eq('id', eventId);
 
     if (error) {
