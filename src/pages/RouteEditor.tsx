@@ -233,8 +233,26 @@ const RouteEditor = () => {
       });
   }, [eventId, user, toast]);
 
+  // Track whether the map has been initialized so we don't recreate it
+  const mapInitializedRef = useRef(false);
+
   useEffect(() => {
+    if (mapInitializedRef.current) return;
     if (!mapContainerRef.current || !mapboxToken) return;
+
+    // Ensure the container has dimensions before initializing Mapbox.
+    // On full-page loads (e.g. Stripe redirect) the layout may not have
+    // painted yet, causing Mapbox to create a 0×0 canvas.
+    const container = mapContainerRef.current;
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+      const timer = setTimeout(() => {
+        // Re-trigger by forcing a state update
+        setMapReady(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+
+    mapInitializedRef.current = true;
     mapboxgl.accessToken = mapboxToken;
 
     const lng = parseFloat(searchParams.get('lng') || '') || -98.5;
@@ -242,7 +260,7 @@ const RouteEditor = () => {
     const initialZoom = searchParams.get('lng') ? 13 : 4;
 
     const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
+      container,
       style: BASEMAP_OPTIONS.find((b) => b.id === selectedBasemap)?.style ?? BASEMAP_OPTIONS[2].style,
       center: [lng, lat],
       zoom: initialZoom,
@@ -255,10 +273,11 @@ const RouteEditor = () => {
     return () => {
       map.remove();
       mapRef.current = null;
+      mapInitializedRef.current = false;
       setMapReady(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapboxToken]);
+  }, [mapboxToken, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
