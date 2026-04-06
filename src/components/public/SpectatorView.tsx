@@ -116,7 +116,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
         : { center: [-98.5, 39.8] as [number, number], zoom: 4 }),
     });
 
-    map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     mapRef.current = map;
 
     map.on('load', () => {

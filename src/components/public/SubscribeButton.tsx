@@ -91,7 +91,7 @@ const SubscribeButton = ({ eventId, eventName, source }: SubscribeButtonProps) =
       <button
         onClick={() => setOpen(true)}
         aria-label={subscribed ? 'Subscribed to event updates' : 'Get event updates'}
-        className="shrink-0 w-11 h-11 rounded-full bg-card/75 backdrop-blur-xl shadow-[0_2px_16px_rgba(0,0,0,0.14)] ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/90 active:scale-95 transition-all"
+        className="shrink-0 w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/95 active:scale-95 transition-all"
       >
         {subscribed ? (
           <BellRing className="w-4 h-4 text-primary" />
