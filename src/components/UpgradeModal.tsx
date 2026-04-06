@@ -1,13 +1,18 @@
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Crown, Route, MapPin, ImageIcon, Check } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
+import { supabase } from '@/integrations/supabase/client';
+import { logEvent } from '@/lib/analytics';
 
 interface UpgradeModalProps {
   open: boolean;
   onClose: () => void;
   /** Which limit was hit — shapes the headline */
   trigger?: 'routes' | 'pois' | 'branding';
+  /** The event being upgraded */
+  eventId?: string;
 }
 
 const FEATURES = [
@@ -32,8 +37,9 @@ const TRIGGER_COPY: Record<string, { headline: string; sub: string }> = {
   },
 };
 
-const UpgradeModal = ({ open, onClose, trigger = 'routes' }: UpgradeModalProps) => {
+const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId }: UpgradeModalProps) => {
   const copy = TRIGGER_COPY[trigger];
+  const [loading, setLoading] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -64,14 +70,23 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes' }: UpgradeModalProps) 
         <div className="flex flex-col gap-2 mt-2">
           <Button
             className="w-full gap-2"
-            onClick={() => {
-              // TODO: wire to Stripe / payment flow
-              window.open('mailto:hello@hereday.io?subject=Upgrade inquiry', '_blank');
-              onClose();
+            disabled={loading}
+            onClick={async () => {
+              if (!eventId) return;
+              setLoading(true);
+              logEvent('upgrade_clicked', eventId, { trigger });
+              const { data, error } = await supabase.functions.invoke('create-checkout', {
+                body: { eventId, returnUrl: window.location.origin },
+              });
+              if (error || !data?.url) {
+                setLoading(false);
+                return;
+              }
+              window.location.href = data.url;
             }}
           >
             <Crown className="h-4 w-4" />
-            Upgrade to Pro
+            {loading ? 'Redirecting to checkout…' : 'Upgrade to Pro — $29'}
           </Button>
           <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={onClose}>
             Maybe later

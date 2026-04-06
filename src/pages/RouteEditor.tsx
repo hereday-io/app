@@ -81,7 +81,7 @@ const RouteEditor = () => {
   const [highlightedPoiType, setHighlightedPoiType] = useState<PoiType | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [brandingStyle, setBrandingStyle] = useState<'none' | 'corner' | 'banner' | 'both'>('none');
-  const [isPaid, setIsPaid] = useState(false);
+  const [eventPlan, setEventPlan] = useState<'free' | 'pro'>('free');
   const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | null>(null);
   // Fetch Mapbox token from backend
   useEffect(() => {
@@ -91,13 +91,12 @@ const RouteEditor = () => {
     });
   }, [mapboxToken]);
 
-  // Fetch paid status from profile
+  // Check for upgrade success redirect
   useEffect(() => {
-    if (!user) return;
-    supabase.from('profiles').select('is_paid').eq('user_id', user.id).single().then(({ data }) => {
-      if (data) setIsPaid((data as any).is_paid ?? false);
-    });
-  }, [user]);
+    if (searchParams.get('upgraded') === 'true') {
+      setEventPlan('pro');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!activeRouteId && routes.length > 0) setActiveRouteId(routes[0].id);
@@ -183,6 +182,7 @@ const RouteEditor = () => {
         setEventSlug(data.slug ?? null);
         setLogoUrl(data.logo_url ?? null);
         setBrandingStyle((data.branding_style as 'none' | 'corner' | 'banner' | 'both') ?? 'none');
+        setEventPlan((data as any).plan === 'pro' ? 'pro' : 'free');
         setStatusText('Event loaded.');
         setIsLoading(false);
         // Defer one tick so the state updates above commit before the
@@ -891,6 +891,7 @@ const RouteEditor = () => {
     setStatusText('Route re-opened for editing.');
   }, []);
 
+  const isPaid = eventPlan === 'pro';
   const { canAddRoute, canAddPoi } = usePaywall({ isPaid });
 
   const addRoute = () => {
@@ -1051,6 +1052,7 @@ const RouteEditor = () => {
         open={upgradeModalTrigger !== null}
         onClose={() => setUpgradeModalTrigger(null)}
         trigger={upgradeModalTrigger ?? 'routes'}
+        eventId={eventId}
       />
 
       <EditorTopBar

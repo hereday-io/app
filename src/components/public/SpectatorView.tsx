@@ -23,7 +23,7 @@ interface SpectatorViewProps {
     pois: RoutePoi[];
     logo_url?: string | null;
     branding_style?: string;
-    owner_is_paid?: boolean;
+    plan?: 'free' | 'pro';
   };
   onBack: () => void;
   onSwitchToRunner: () => void;
@@ -412,7 +412,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
       )}
 
       {/* Free-tier attribution — paid events suppress it */}
-      {!event.owner_is_paid && <MadeWithHeredayBadge />}
+      {event.plan !== 'pro' && <MadeWithHeredayBadge />}
     </div>
   );
 };
