@@ -348,48 +348,40 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       {/* Map — full screen */}
       <div ref={mapContainerRef} className="absolute inset-0" />
 
-      {/* Floating glass header */}
-      <div className="absolute left-4 right-4 z-20 flex items-center gap-2" style={{ top: 'max(1rem, env(safe-area-inset-top))' }}>
-        <button
-          onClick={onBack}
-          className="shrink-0 w-11 h-11 rounded-full bg-card/75 backdrop-blur-xl shadow-[0_2px_16px_rgba(0,0,0,0.14)] ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/90 active:scale-95 transition-all"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
+      {/* ── Top controls ────────────────────────────────────────── */}
+      <div className="absolute left-3 right-3 z-30 flex items-center justify-between" style={{ top: 'max(0.75rem, env(safe-area-inset-top))' }}>
+        {/* Left group: back + subscribe */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onBack}
+            className="shrink-0 w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/95 active:scale-95 transition-all"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <SubscribeButton eventId={event.id} eventName={event.name} source="runner" />
+        </div>
 
-        <SubscribeButton eventId={event.id} eventName={event.name} source="runner" />
-
-        {/* Event card — name + mode toggle + weather */}
-        <div className="flex-1 min-w-0 px-4 py-2 rounded-2xl bg-card/75 backdrop-blur-xl shadow-[0_2px_16px_rgba(0,0,0,0.14)] ring-1 ring-black/[0.06]">
-          {/* Top row: event name + Run/Watch toggle */}
-          <div className="flex items-center justify-between gap-2">
-            <h1 className="text-sm font-semibold text-foreground truncate" style={{ fontFamily: 'var(--font-display)' }}>
-              {event.name}
-            </h1>
-            <div className="shrink-0 flex rounded-full bg-black/[0.06] p-0.5 gap-0.5">
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-                <Trophy className="h-3 w-3" />
-                <span className="hidden sm:inline">Run</span>
-              </span>
-              <button
-                onClick={onSwitchToSpectator}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-muted-foreground hover:text-foreground text-xs font-medium transition-colors active:scale-95"
-              >
-                <Eye className="h-3 w-3" />
-                <span className="hidden sm:inline">Watch</span>
-              </button>
-            </div>
-          </div>
-          {/* Bottom row: subtitle */}
-          <p className="text-[11px] text-muted-foreground tracking-wide uppercase font-medium mt-0.5">Runner Course</p>
+        {/* Right group: Run/Watch toggle */}
+        <div className="flex rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] p-0.5 gap-0.5">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+            <Trophy className="h-3 w-3" />
+            Run
+          </span>
+          <button
+            onClick={onSwitchToSpectator}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-muted-foreground hover:text-foreground text-xs font-medium transition-colors active:scale-95"
+          >
+            <Eye className="h-3 w-3" />
+            Watch
+          </button>
         </div>
       </div>
 
-      {/* Toolbar — basemap only, offset below header */}
+      {/* Basemap picker */}
       <PublicMapToolbar
         selectedBasemap={selectedBasemap}
         onBasemapChange={setSelectedBasemap}
-        className="top-[76px]"
+        className="top-[60px]"
       />
 
       <EventBranding
@@ -398,7 +390,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
         eventName={event.name}
       />
 
-      {/* Bottom bar — Elevation | Legend | Weather */}
+      {/* ── Bottom sheet ────────────────────────────────────────── */}
       {token && (
         <PublicMapBottom
           routes={event.routes}
@@ -413,10 +405,11 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
           onHoverPoint={handleElevationHover}
           eventDate={event.event_date}
           weatherCoord={weatherCoord}
+          eventName={event.name}
         />
       )}
 
-      {/* Free-tier attribution — paid events suppress it */}
+      {/* Free-tier attribution */}
       {event.plan !== 'pro' && <MadeWithHeredayBadge />}
     </div>
   );
