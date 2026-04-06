@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Route, MapPinned, Globe, Mountain, Zap, Users, Check } from 'lucide-react';
+import { ArrowRight, Route, MapPinned, Globe, Mountain, Zap, Users, Check, Radio } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
@@ -34,9 +34,9 @@ const features = [
     description: 'One click publishes a polished, shareable map page. Add your event logo so it looks like yours, not ours.',
   },
   {
-    icon: Zap,
-    title: 'Zero learning curve',
-    description: 'Type a name, click on the map, publish. Most organizers ship their first event page in under 5 minutes.',
+    icon: Radio,
+    title: 'Live GPS tracking',
+    description: 'Runners share their location in real time. Spectators watch moving dots on the map — no app download required.',
   },
 ];
 
@@ -70,6 +70,7 @@ const plans = [
       'Everything in Free',
       'Unlimited routes per event',
       'Unlimited points of interest',
+      'Live GPS tracking for runners',
       'Custom logo & banner branding',
       'Remove Hereday watermark',
     ],
