@@ -28,10 +28,7 @@ export function logEvent(
   // Get current user id if available, but don't await — we fire the
   // insert immediately either way.
   supabase.auth.getUser().then(({ data }) => {
-    // Cast: product_events isn't in the generated types.ts yet. Regenerate
-    // with `supabase gen types` when convenient.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    void (supabase.from('product_events' as any) as any)
+    void supabase.from('product_events')
       .insert({
         event_type: eventType,
         user_id: data.user?.id ?? null,

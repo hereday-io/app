@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { MapPin, ArrowRight, Mail } from 'lucide-react';
+import { ArrowRight, Mail } from 'lucide-react';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 const Signup = () => {

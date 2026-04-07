@@ -45,6 +45,7 @@ export async function getSnappedRoute(
     const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coordStr}?geometries=geojson&overview=full&access_token=${token}`;
 
     const res = await fetch(url);
+    if (!res.ok) continue;
     const data = await res.json();
 
     if (data.routes?.[0]?.geometry?.coordinates) {
