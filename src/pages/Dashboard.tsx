@@ -62,7 +62,7 @@ const Dashboard = () => {
     if (!user) return;
     supabase.from('profiles').select('is_paid, plan').eq('user_id', user.id).single()
       .then(({ data }) => {
-        if (data) setIsPro((data as any).plan === 'pro' || data.is_paid === true);
+        if (data) setIsPro(data.plan === 'pro' || data.is_paid === true);
       });
   }, [user]);
 

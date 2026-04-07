@@ -13,7 +13,6 @@ import { logEvent } from '@/lib/analytics';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
 import EditorBottomSheet from '@/components/editor/EditorBottomSheet';
-import EditorWelcomeModal from '@/components/editor/EditorWelcomeModal';
 import EditorCoachMark from '@/components/editor/EditorCoachMark';
 import SnapModePill from '@/components/editor/SnapModePill';
 import MobileEditorGate from '@/components/editor/MobileEditorGate';
@@ -194,9 +193,9 @@ const RouteEditor = () => {
         setEventSlug(data.slug ?? null);
         setLogoUrl(data.logo_url ?? null);
         setBrandingStyle((data.branding_style as 'none' | 'corner' | 'banner' | 'both') ?? 'none');
-        setEventPlan((data as any).plan === 'pro' ? 'pro' : 'free');
-        setTrackingStart((data as any).tracking_start ?? null);
-        setTrackingEnd((data as any).tracking_end ?? null);
+        setEventPlan(data.plan === 'pro' ? 'pro' : 'free');
+        setTrackingStart(data.tracking_start ?? null);
+        setTrackingEnd(data.tracking_end ?? null);
         setStatusText('Event loaded.');
         setIsLoading(false);
         // Defer one tick so the state updates above commit before the
@@ -788,8 +787,7 @@ const RouteEditor = () => {
 
     const cleanPois = await materializePoiImages(pois);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('events') as any)
+    const { error } = await supabase.from('events')
       .update({
         name: eventName,
         city: city || null,
@@ -858,8 +856,7 @@ const RouteEditor = () => {
     // Save first, then publish
     const newStatus = eventStatus === 'published' ? 'draft' : 'published';
     const cleanPois = await materializePoiImages(pois);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('events') as any)
+    const { error } = await supabase.from('events')
       .update({
         name: eventName,
         city: city || null,
@@ -1069,7 +1066,6 @@ const RouteEditor = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <EditorWelcomeModal onStartTour={() => setTourActive(true)} userId={user?.id ?? ''} />
       <EditorTour active={tourActive} onEnd={() => setTourActive(false)} />
       <KeyboardShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <UpgradeModal

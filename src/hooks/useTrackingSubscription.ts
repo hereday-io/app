@@ -40,8 +40,7 @@ export function useTrackingSubscription(eventId: string, enabled: boolean) {
 
     // 1. Fetch active sessions from the DB for late-joining spectators
     const fetchInitial = async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.from('tracking_sessions' as any) as any)
+      const { data } = await supabase.from('tracking_sessions')
         .select('id, runner_name, color, last_lng, last_lat, last_ping_at')
         .eq('event_id', eventId)
         .eq('is_active', true);

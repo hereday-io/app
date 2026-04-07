@@ -63,10 +63,7 @@ const SubscribeButton = ({ eventId, eventName, source, expanded: expandedPill }:
     setSubmitting(true);
     setError(null);
 
-    // Cast: event_subscribers isn't in the generated types.ts yet. Regenerate
-    // with `supabase gen types` when convenient.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertError } = await (supabase.from('event_subscribers' as any) as any)
+    const { error: insertError } = await supabase.from('event_subscribers')
       .insert({ event_id: eventId, email: trimmed, source });
 
     setSubmitting(false);

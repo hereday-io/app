@@ -46,8 +46,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
 
     const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.random().toString(36).slice(2, 7);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('events') as any).insert({
+    const { data, error } = await supabase.from('events').insert({
       user_id: userId,
       name: name.trim(),
       city: city.trim() || null,

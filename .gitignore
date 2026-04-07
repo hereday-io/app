@@ -30,3 +30,4 @@ dist-ssr
 
 # Claude Code local working directory (agent state, memory, logs)
 .claude/
+supabase/.temp/

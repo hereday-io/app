@@ -80,8 +80,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
     if (!event || !name.trim()) return;
     setSaving(true);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('events') as any)
+    const { error } = await supabase.from('events')
       .update({
         name: name.trim(),
         city: city.trim() || null,

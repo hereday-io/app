@@ -41,8 +41,7 @@ export function useTracking(eventId: string) {
     const sid = sessionIdRef.current;
     if (!pos || !sid) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('tracking_sessions' as any) as any)
+    await supabase.from('tracking_sessions')
       .update({
         last_lng: pos.lng,
         last_lat: pos.lat,
@@ -92,8 +91,7 @@ export function useTracking(eventId: string) {
       if (stored) {
         const parsed = JSON.parse(stored);
         // Verify the session still exists and is active
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data } = await (supabase.from('tracking_sessions' as any) as any)
+        const { data } = await supabase.from('tracking_sessions')
           .select('id, is_active')
           .eq('id', parsed.sessionId)
           .single();
@@ -107,8 +105,7 @@ export function useTracking(eventId: string) {
 
     // Create a new session if we don't have one to resume
     if (!sessionId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error: insertError } = await (supabase.from('tracking_sessions' as any) as any)
+      const { data, error: insertError } = await supabase.from('tracking_sessions')
         .insert({
           event_id: eventId,
           runner_name: runnerName,
@@ -179,8 +176,7 @@ export function useTracking(eventId: string) {
     const sid = sessionIdRef.current;
     if (sid) {
       const pos = latestPositionRef.current;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('tracking_sessions' as any) as any)
+      await supabase.from('tracking_sessions')
         .update({
           is_active: false,
           ...(pos ? { last_lng: pos.lng, last_lat: pos.lat } : {}),

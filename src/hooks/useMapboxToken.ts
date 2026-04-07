@@ -13,7 +13,8 @@ export function useMapboxToken() {
       if (!error && data?.token) setToken(data.token);
       setLoading(false);
     });
-  }, [token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return { token, loading };
 }

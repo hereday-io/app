@@ -54,8 +54,7 @@ const EventPublic = () => {
     // never see user_id or draft events. See supabase/migrations for the
     // view definition.
     supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from('public_events' as any)
+      .from('public_events')
       .select('*')
       .eq('slug', slug)
       .single()
@@ -65,8 +64,7 @@ const EventPublic = () => {
           setLoading(false);
           return;
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const row = data as any;
+        const row = data;
         setEvent({
           id: row.id,
           name: row.name,
