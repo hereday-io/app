@@ -1,22 +1,13 @@
 import { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { RunnerPosition } from '@/types/mapEditor';
+import { formatPace } from '@/lib/pace';
 
 interface LiveRunnerMarkersProps {
   runners: Map<string, RunnerPosition>;
   mapRef: React.RefObject<mapboxgl.Map | null>;
   focusedRunnerId?: string | null;
   onRunnerClick?: (sessionId: string) => void;
-}
-
-/** Convert m/s to min:sec /mi string. Returns null if speed isn't usable. */
-function formatPace(speed: number | null): string | null {
-  if (speed == null || speed <= 0 || speed > 12.5) return null;
-  const minPerMile = 26.8224 / speed; // 1609.34m / 60s
-  if (minPerMile > 30) return null; // slower than 30 min/mi → not useful
-  const mins = Math.floor(minPerMile);
-  const secs = Math.round((minPerMile - mins) * 60);
-  return `${mins}:${secs.toString().padStart(2, '0')} /mi`;
 }
 
 /**

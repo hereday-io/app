@@ -1,21 +1,12 @@
 import { useState } from 'react';
 import { Users, X, Eye } from 'lucide-react';
 import type { RunnerPosition } from '@/types/mapEditor';
+import { formatPace } from '@/lib/pace';
 
 interface RunnerListPanelProps {
   runners: Map<string, RunnerPosition>;
   focusedRunnerId: string | null;
   onFocusRunner: (id: string | null) => void;
-}
-
-/** Convert m/s → min:sec /mi */
-function formatPace(speed: number | null): string | null {
-  if (speed == null || speed <= 0 || speed > 12.5) return null;
-  const minPerMile = 26.8224 / speed;
-  if (minPerMile > 30) return null;
-  const mins = Math.floor(minPerMile);
-  const secs = Math.round((minPerMile - mins) * 60);
-  return `${mins}:${secs.toString().padStart(2, '0')} /mi`;
 }
 
 const RunnerListPanel = ({ runners, focusedRunnerId, onFocusRunner }: RunnerListPanelProps) => {
