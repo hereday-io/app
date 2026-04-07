@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -10,10 +10,52 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      event_subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          event_id: string
+          id: number
+          source: string | null
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          event_id: string
+          id?: number
+          source?: string | null
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          event_id?: string
+          id?: number
+          source?: string | null
+          unsubscribed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_subscribers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_subscribers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "public_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           branding_style: string
@@ -23,12 +65,16 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          plan: string
           poi_count: number
           pois: Json
           route_count: number
           routes: Json
           slug: string | null
           status: string
+          stripe_payment_id: string | null
+          tracking_end: string | null
+          tracking_start: string | null
           updated_at: string
           user_id: string
         }
@@ -40,12 +86,16 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          plan?: string
           poi_count?: number
           pois?: Json
           route_count?: number
           routes?: Json
           slug?: string | null
           status?: string
+          stripe_payment_id?: string | null
+          tracking_end?: string | null
+          tracking_start?: string | null
           updated_at?: string
           user_id: string
         }
@@ -57,14 +107,45 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          plan?: string
           poi_count?: number
           pois?: Json
           route_count?: number
           routes?: Json
           slug?: string | null
           status?: string
+          stripe_payment_id?: string | null
+          tracking_end?: string | null
+          tracking_start?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      product_events: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          event_type: string
+          id: number
+          properties: Json
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          event_type: string
+          id?: number
+          properties?: Json
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          event_type?: string
+          id?: number
+          properties?: Json
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -72,41 +153,160 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          current_period_end: string | null
           display_name: string | null
           id: string
           is_paid: boolean
           organization_name: string | null
+          plan: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          current_period_end?: string | null
           display_name?: string | null
           id?: string
           is_paid?: boolean
           organization_name?: string | null
+          plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          current_period_end?: string | null
           display_name?: string | null
           id?: string
           is_paid?: boolean
           organization_name?: string | null
+          plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
       }
+      tracking_sessions: {
+        Row: {
+          color: string
+          created_at: string
+          event_id: string
+          id: string
+          is_active: boolean
+          last_lat: number | null
+          last_lng: number | null
+          last_ping_at: string | null
+          runner_name: string
+          started_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          event_id: string
+          id?: string
+          is_active?: boolean
+          last_lat?: number | null
+          last_lng?: number | null
+          last_ping_at?: string | null
+          runner_name: string
+          started_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_active?: boolean
+          last_lat?: number | null
+          last_lng?: number | null
+          last_ping_at?: string | null
+          runner_name?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracking_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "public_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      public_events: {
+        Row: {
+          branding_style: string | null
+          city: string | null
+          event_date: string | null
+          id: string | null
+          logo_url: string | null
+          name: string | null
+          owner_is_paid: boolean | null
+          poi_count: number | null
+          pois: Json | null
+          route_count: number | null
+          routes: Json | null
+          slug: string | null
+          tracking_end: string | null
+          tracking_start: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          branding_style?: string | null
+          city?: string | null
+          event_date?: string | null
+          id?: string | null
+          logo_url?: string | null
+          name?: string | null
+          owner_is_paid?: never
+          poi_count?: number | null
+          pois?: Json | null
+          route_count?: number | null
+          routes?: Json | null
+          slug?: string | null
+          tracking_end?: string | null
+          tracking_start?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          branding_style?: string | null
+          city?: string | null
+          event_date?: string | null
+          id?: string | null
+          logo_url?: string | null
+          name?: string | null
+          owner_is_paid?: never
+          poi_count?: number | null
+          pois?: Json | null
+          route_count?: number | null
+          routes?: Json | null
+          slug?: string | null
+          tracking_end?: string | null
+          tracking_start?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      event_owner_is_paid: { Args: { owner_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
