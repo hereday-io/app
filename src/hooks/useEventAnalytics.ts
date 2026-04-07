@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+
+const POLL_INTERVAL_MS = 30_000; // refresh every 30s while open
 
 export interface EventAnalytics {
   views_total: number;
@@ -30,13 +32,9 @@ export function useEventAnalytics(eventId: string | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!eventId) {
-      setData(null);
-      return;
-    }
-
-    setLoading(true);
+  const fetch = useCallback((showLoading: boolean) => {
+    if (!eventId) return;
+    if (showLoading) setLoading(true);
     setError(null);
 
     supabase
@@ -46,13 +44,28 @@ export function useEventAnalytics(eventId: string | null) {
           setError(rpcError.message);
           setData(EMPTY);
         } else {
-          // The function returns JSON — parse into our typed interface
           const parsed = (typeof result === 'string' ? JSON.parse(result) : result) as EventAnalytics;
           setData(parsed);
         }
         setLoading(false);
       });
   }, [eventId]);
+
+  // Initial fetch
+  useEffect(() => {
+    if (!eventId) {
+      setData(null);
+      return;
+    }
+    fetch(true);
+  }, [eventId, fetch]);
+
+  // Poll every 30s while open
+  useEffect(() => {
+    if (!eventId) return;
+    const timer = setInterval(() => fetch(false), POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [eventId, fetch]);
 
   return { data, loading, error };
 }

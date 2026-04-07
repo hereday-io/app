@@ -45,6 +45,7 @@ const EventPublic = () => {
 
   const switchView = (mode: ViewMode) => {
     setViewMode(mode);
+    if (event) logEvent('public_view', event.id, { mode, slug, switch: true });
     try { window.localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* ignore */ }
   };
 
