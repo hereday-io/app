@@ -12,13 +12,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar } from 'lucide-react';
+import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import EditEventDialog from '@/components/EditEventDialog';
 import DeleteEventDialog from '@/components/DeleteEventDialog';
 import DuplicateEventDialog from '@/components/DuplicateEventDialog';
 import EventWeatherBadge from '@/components/EventWeatherBadge';
+import EventAnalyticsSheet from '@/components/EventAnalyticsSheet';
 import { logEvent } from '@/lib/analytics';
 
 interface Event {
@@ -47,6 +48,7 @@ const Dashboard = () => {
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
+  const [analyticsEvent, setAnalyticsEvent] = useState<Event | null>(null);
   const [isPro, setIsPro] = useState(false);
   const navigate = useNavigate();
   const menuActionRef = useRef(false);
@@ -345,6 +347,11 @@ const Dashboard = () => {
                             <Link className="h-4 w-4 mr-2" /> Copy share link
                           </DropdownMenuItem>
                         )}
+                        {isPublished && (
+                          <DropdownMenuItem onClick={() => { menuActionRef.current = true; setAnalyticsEvent(event); }}>
+                            <BarChart3 className="h-4 w-4 mr-2" /> View Stats
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => { menuActionRef.current = true; navigate(`/editor?id=${event.id}`); }}>
                           <Pencil className="h-4 w-4 mr-2" /> Open Editor
                         </DropdownMenuItem>
@@ -439,6 +446,14 @@ const Dashboard = () => {
           }}
         />
       )}
+
+      <EventAnalyticsSheet
+        open={!!analyticsEvent}
+        onOpenChange={(open) => !open && setAnalyticsEvent(null)}
+        eventId={analyticsEvent?.id ?? null}
+        eventName={analyticsEvent?.name ?? ''}
+        isPro={isPro}
+      />
     </div>
   );
 };
