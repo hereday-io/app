@@ -13,7 +13,7 @@ interface UpgradeModalProps {
   open: boolean;
   onClose: () => void;
   /** Which limit was hit — shapes the headline */
-  trigger?: 'routes' | 'pois' | 'branding';
+  trigger?: 'routes' | 'pois' | 'branding' | 'publish';
   /** The event being upgraded */
   eventId?: string | null;
   /** Called before navigating to Stripe so the caller can flush pending saves */
@@ -29,16 +29,20 @@ const FEATURES = [
 
 const TRIGGER_COPY: Record<string, { headline: string; sub: string }> = {
   routes: {
-    headline: 'You\'ve reached the route limit',
-    sub: `The free plan includes up to ${PAYWALL_LIMITS.routes} routes per event. Upgrade for unlimited routes — perfect for marathon weekends and multi-day festivals.`,
+    headline: "You've reached the route limit",
+    sub: `Free events include up to ${PAYWALL_LIMITS.routes} routes. Unlock this event for unlimited routes — perfect for marathon weekends and multi-day festivals.`,
   },
   pois: {
-    headline: 'You\'ve reached the POI limit',
-    sub: `The free plan includes ${PAYWALL_LIMITS.pois} points of interest. Upgrade to add as many water stations, parking spots, and more as your event needs.`,
+    headline: "You've reached the POI limit",
+    sub: `Free events include ${PAYWALL_LIMITS.pois} points of interest. Unlock this event to add as many water stations, parking spots, and more as you need.`,
   },
   branding: {
-    headline: 'Custom branding is a paid feature',
-    sub: 'Add your event logo and a branded banner to the public map. Upgrade to make your event look professional.',
+    headline: 'Custom branding is a Pro feature',
+    sub: 'Add your event logo and a branded banner to the public map. Unlock this event to make it look professional.',
+  },
+  publish: {
+    headline: 'Your event is live — want to go Pro?',
+    sub: "It's published on the Free plan. Unlock this event to remove limits, add custom branding, and enable live runner tracking.",
   },
 };
 
@@ -104,7 +108,7 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
               }}
             >
               <Crown className="h-4 w-4" />
-              {loading ? 'Redirecting to checkout…' : 'Upgrade to Pro — $29'}
+              {loading ? 'Redirecting to checkout…' : 'Unlock this event — $49'}
             </Button>
             <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={onClose}>
               Maybe later

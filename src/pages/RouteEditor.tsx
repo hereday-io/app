@@ -83,7 +83,7 @@ const RouteEditor = () => {
   const [eventPlan, setEventPlan] = useState<'free' | 'pro'>('free');
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
-  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | null>(null);
+  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | null>(null);
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -892,13 +892,20 @@ const RouteEditor = () => {
           title: 'Event is live',
           description: 'Use the Share button to copy the public link.',
         });
+        // Soft Pro upsell at the publish moment — only for free events.
+        // A slight delay lets the toast land first so the modal feels
+        // like a follow-up, not a block. Republishing a pro event
+        // skips this entirely.
+        if (eventPlan === 'free') {
+          setTimeout(() => setUpgradeModalTrigger('publish'), 600);
+        }
       } else {
         logEvent('event_unpublished', eventId);
         toast({ title: 'Event unpublished' });
       }
     }
     setIsPublishing(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, materializePoiImages]);
+  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, eventPlan, materializePoiImages]);
 
   const handleResumeRoute = useCallback((id: string) => {
     setFinishedRouteIds((prev) => {

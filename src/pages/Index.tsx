@@ -10,7 +10,6 @@ import {
   Check,
   Radio,
   Sparkles,
-  Clock,
 } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 
@@ -71,6 +70,10 @@ const features = [
   },
 ];
 
+// Both plans share the same signup flow — you start free and unlock
+// Pro per event at publish time. This is intentional: the landing
+// page should never ask a visitor to pick a plan before they've
+// built the thing they're paying for.
 const plans = [
   {
     name: 'Free',
@@ -91,13 +94,12 @@ const plans = [
   },
   {
     name: 'Pro',
-    price: '$29',
+    price: '$49',
     priceSuffix: 'per event',
-    description: 'Unlock the full toolkit when your event needs it.',
-    cta: 'Get notified',
+    description: 'Pay when you publish — only for the events you actually run.',
+    cta: 'Start for free',
     ctaVariant: 'default' as const,
     highlight: true,
-    comingSoon: true,
     features: [
       'Everything in Free',
       'Unlimited routes per event',
@@ -368,15 +370,9 @@ const Index = () => {
                     : 'border-border bg-card'
                 }`}
               >
-                {plan.highlight && !plan.comingSoon && (
+                {plan.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1">
                     Most popular
-                  </div>
-                )}
-                {plan.comingSoon && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand text-brand-foreground text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Coming soon
                   </div>
                 )}
                 <div className="mb-6">
@@ -400,13 +396,13 @@ const Index = () => {
                   ))}
                 </ul>
                 <Button size="lg" variant={plan.ctaVariant} asChild className="w-full rounded-full">
-                  <Link to={plan.comingSoon ? '/signup' : '/signup'}>{plan.cta}</Link>
+                  <Link to="/signup">{plan.cta}</Link>
                 </Button>
               </div>
             ))}
           </div>
           <p className="text-center text-xs text-muted-foreground mt-8">
-            No credit card required · One-time upgrade, no subscription · Questions?{' '}
+            Start free, pay only when you're ready to publish · No subscription, ever · Questions?{' '}
             <a href="mailto:hello@hereday.io" className="underline hover:text-foreground">
               hello@hereday.io
             </a>
