@@ -6,13 +6,15 @@ import { totalDistanceMiles, getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import { clusterPoisByPixels } from '@/lib/poiCluster';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
-import { ArrowLeft, Trophy, Eye, Maximize2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Eye, Maximize2, Download } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
 import PublicMapToolbar from '@/components/public/PublicMapToolbar';
 import PublicMapBottom from '@/components/public/PublicMapBottom';
 import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
 import TrackMeButton from '@/components/public/TrackMeButton';
+import { buildGpx, downloadGpx, gpxFilename } from '@/lib/gpx';
+import { logEvent } from '@/lib/analytics';
 
 interface RunnerViewProps {
   event: {
@@ -98,6 +100,29 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
 
   const handleZoomIn = useCallback(() => { mapRef.current?.zoomIn(); }, []);
   const handleZoomOut = useCallback(() => { mapRef.current?.zoomOut(); }, []);
+
+  const handleDownloadGpx = useCallback(() => {
+    // Only export routes the user has left visible — respects the
+    // legend toggle so filtering matches what they see on the map.
+    const visibleRoutes = event.routes.filter(
+      (r) => !hiddenRouteIds.has(r.id) && r.routeCoords.length >= 2
+    );
+    if (visibleRoutes.length === 0) return;
+
+    const gpx = buildGpx({
+      eventName: event.name,
+      eventDate: event.event_date,
+      routes: visibleRoutes,
+      pois: event.pois,
+    });
+    downloadGpx(gpxFilename(event.name), gpx);
+    logEvent('gpx_downloaded', event.id, {
+      route_count: visibleRoutes.length,
+      poi_count: event.pois.length,
+    });
+  }, [event.id, event.name, event.event_date, event.routes, event.pois, hiddenRouteIds]);
+
+  const hasDownloadableRoute = event.routes.some((r) => r.routeCoords.length >= 2);
 
   const handleFitRoute = useCallback(() => {
     const map = mapRef.current;
@@ -420,6 +445,16 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       >
         <Maximize2 className="w-4 h-4" />
       </button>
+      {hasDownloadableRoute && (
+        <button
+          onClick={handleDownloadGpx}
+          className="absolute left-3 top-[156px] z-10 w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/95 active:scale-95 transition-all"
+          aria-label="Download GPX"
+          title="Download GPX"
+        >
+          <Download className="w-4 h-4" />
+        </button>
+      )}
 
       <EventBranding
         logoUrl={event.logo_url ?? null}
