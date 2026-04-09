@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import RunnerView from '@/components/public/RunnerView';
 import SpectatorView from '@/components/public/SpectatorView';
+import EventEndedView from '@/components/public/EventEndedView';
 import { MapPin, Calendar, Trophy, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WeatherForecast from '@/components/public/WeatherForecast';
@@ -24,6 +25,7 @@ interface PublicEvent {
   plan: 'free' | 'pro';
   tracking_start: string | null;
   tracking_end: string | null;
+  has_ended: boolean;
 }
 
 type ViewMode = 'runner' | 'spectator';
@@ -80,8 +82,13 @@ const EventPublic = () => {
           plan: row.owner_is_paid ? 'pro' : 'free',
           tracking_start: row.tracking_start ?? null,
           tracking_end: row.tracking_end ?? null,
+          has_ended: row.has_ended ?? false,
         });
-        logEvent('public_view', row.id, { mode: viewMode, slug });
+        logEvent('public_view', row.id, {
+          mode: viewMode,
+          slug,
+          ended: row.has_ended ?? false,
+        });
         setLoading(false);
       });
   }, [slug, toast]);
@@ -101,6 +108,22 @@ const EventPublic = () => {
         <p className="text-muted-foreground">This event doesn't exist or hasn't been published yet.</p>
         <Button variant="outline" onClick={() => navigate('/')}>Go Home</Button>
       </div>
+    );
+  }
+
+  // Event date has passed — show the ended screen instead of the course.
+  // The row is still `published`; the view layer made this decision via
+  // the `has_ended` column in the public_events view.
+  if (event.has_ended) {
+    return (
+      <EventEndedView
+        eventId={event.id}
+        eventName={event.name}
+        eventDate={event.event_date}
+        city={event.city}
+        logoUrl={event.logo_url}
+        brandingStyle={event.branding_style}
+      />
     );
   }
 

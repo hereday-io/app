@@ -255,6 +255,7 @@ export type Database = {
           branding_style: string | null
           city: string | null
           event_date: string | null
+          has_ended: boolean | null
           id: string | null
           logo_url: string | null
           name: string | null
@@ -272,6 +273,7 @@ export type Database = {
           branding_style?: string | null
           city?: string | null
           event_date?: string | null
+          has_ended?: never
           id?: string | null
           logo_url?: string | null
           name?: string | null
@@ -289,6 +291,7 @@ export type Database = {
           branding_style?: string | null
           city?: string | null
           event_date?: string | null
+          has_ended?: never
           id?: string | null
           logo_url?: string | null
           name?: string | null

@@ -80,6 +80,7 @@ interface PublicEventRow {
   route_count: number;
   poi_count: number;
   logo_url: string | null;
+  has_ended: boolean | null;
 }
 
 function buildMapboxImage(routes: unknown): string {
@@ -101,6 +102,14 @@ function buildMapboxImage(routes: unknown): string {
 }
 
 function buildDescription(row: PublicEventRow): string {
+  // Ended events get a different framing — scrapers (and search engines)
+  // should see "this event is over, sign up for updates" instead of
+  // "join the race" copy.
+  if (row.has_ended) {
+    const dateStr = formatDate(row.event_date);
+    const when = dateStr ? `on ${dateStr}` : '';
+    return `This event has concluded${when ? ` ${when}` : ''}. Subscribe to be notified when it runs again.`;
+  }
   const parts: string[] = [];
   const dateStr = formatDate(row.event_date);
   if (dateStr) parts.push(dateStr);
@@ -113,9 +122,11 @@ function buildDescription(row: PublicEventRow): string {
 
 function injectMetaTags(html: string, row: PublicEventRow, slug: string): string {
   const url = `${SITE_URL}/event/${slug}`;
-  const title = `${row.name} — Hereday`;
+  const title = row.has_ended ? `${row.name} — Event Ended` : `${row.name} — Hereday`;
   const description = buildDescription(row);
-  const ogImage = buildMapboxImage(row.routes);
+  // Don't burn Mapbox static image quota on a course that's no longer
+  // relevant — the default OG image is fine for the ended state.
+  const ogImage = row.has_ended ? DEFAULT_OG_IMAGE : buildMapboxImage(row.routes);
 
   const metaBlock = [
     `<meta property="og:type" content="website" />`,
@@ -184,7 +195,7 @@ export default async function handler(req: { query: Record<string, string | stri
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await supabase
       .from('public_events')
-      .select('id, name, slug, city, event_date, routes, route_count, poi_count, logo_url')
+      .select('id, name, slug, city, event_date, routes, route_count, poi_count, logo_url, has_ended')
       .eq('slug', slug)
       .maybeSingle();
 
