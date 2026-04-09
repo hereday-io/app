@@ -1,5 +1,11 @@
 {
   "rewrites": [
+    { "source": "/event/:slug", "destination": "/api/event/:slug" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/event/[slug].ts": {
+      "includeFiles": "dist/index.html"
+    }
+  }
 }
