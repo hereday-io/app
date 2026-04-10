@@ -705,23 +705,17 @@ const RouteEditor = () => {
       });
 
       // Scouted POIs — rendered with a distinct "pending review" style
-      // (dashed amber ring + compass badge) so organizers can visually
+      // (dashed amber ring + pulsing shadow) so organizers can visually
       // locate what they're about to accept or reject. Non-draggable,
       // non-editable; all interaction flows through the review panel.
       scoutedPois.forEach((poi) => {
         const tone = poiTone(poi.type);
         const el = document.createElement('div');
-        el.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;';
+        el.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
         const inner = document.createElement('div');
         inner.style.cssText = `width:30px;height:30px;border-radius:50%;background:${tone.dot};border:2.5px dashed #f59e0b;box-shadow:0 2px 8px rgba(245,158,11,0.45);display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none;animation:scoutPulse 2s ease-in-out infinite;`;
         inner.textContent = tone.emoji;
-        // Small compass badge in the corner so the amber ring alone
-        // isn't the only signal that this is a scouted pin.
-        const badge = document.createElement('div');
-        badge.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:#f59e0b;color:white;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;border:1.5px solid white;pointer-events:none;';
-        badge.textContent = '!';
         el.appendChild(inner);
-        el.appendChild(badge);
         el.addEventListener('click', () => {
           // Inlined rather than calling handleScoutedFlyTo so the
           // render effect doesn't need that callback in its deps.
