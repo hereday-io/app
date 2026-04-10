@@ -614,7 +614,9 @@ const RouteEditor = () => {
         const popupHost = document.createElement('div');
         popupHost.style.fontFamily = '"DM Sans", system-ui, sans-serif';
 
-        const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '320px', closeOnClick: false });
+        // Hide Mapbox's default X — PoiEditPopover renders its own
+        // close button styled to match the rest of the card.
+        const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '320px', closeOnClick: false, closeButton: false });
         popup.setDOMContent(popupHost);
 
         popup.on('open', () => {
