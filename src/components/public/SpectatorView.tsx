@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
@@ -10,6 +11,7 @@ import { ArrowLeft, Trophy, Eye, Maximize2 } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
 import PublicMapToolbar from '@/components/public/PublicMapToolbar';
 import PublicMapBottom from '@/components/public/PublicMapBottom';
+import PoiReadonlyPopover from '@/components/public/PoiReadonlyPopover';
 import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
 import LiveRunnerMarkers from '@/components/public/LiveRunnerMarkers';
@@ -45,6 +47,14 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
   const [focusedRunnerId, setFocusedRunnerId] = useState<string | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const poiMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  // Index single POI markers by id so we can auto-open the right
+  // popup after a cluster zoom-split.
+  const poiMarkerByIdRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  // React roots mounted into Mapbox popup DOM for each open popover.
+  const popoverRootsRef = useRef<Map<string, Root>>(new Map());
+  // Queued target POI id from a cluster-row click — consumed by the
+  // moveend render after the fly-in completes.
+  const pendingPoiPopupRef = useRef<string | null>(null);
   const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const { token } = useMapboxToken();
 
@@ -284,29 +294,34 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
       el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.25)'; inner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)'; });
       el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)'; inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
 
-      // Prefer uploaded imageUrl; fall back to legacy base64 imageDataUrl
-      // for events saved before the storage-bucket migration.
-      const existingImage = poi.imageUrl || poi.imageDataUrl || '';
-      const hasWebLink = ['registration', 'sponsor', 'custom'].includes(poi.type);
-      const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${poi.coordinates[1]},${poi.coordinates[0]}`;
-      const popupHtml = `
-        <div style="font-family:'DM Sans',system-ui,sans-serif;width:240px;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-            <div style="width:36px;height:36px;border-radius:50%;background:${tone.dot}15;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:2px solid ${tone.dot}30;">${tone.emoji}</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${tone.label}</div>
-              <div style="font-size:15px;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${poi.title}</div>
-            </div>
-          </div>
-          ${poi.description ? `<p style="font-size:13px;color:#475569;line-height:1.4;margin:0 0 8px;">${poi.description}</p>` : ''}
-          ${existingImage ? `<img src="${existingImage}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:8px;" />` : ''}
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            ${hasWebLink && poi.webLink ? `<a href="${poi.webLink}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">🔗 Visit link →</a>` : ''}
-            <a href="${directionsUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">📍 Get directions →</a>
-          </div>
-        </div>`;
+      // Mount the React PoiReadonlyPopover into a Mapbox-owned DOM
+      // node. createRoot on open, deferred unmount on close (to stay
+      // out of React's current render cycle). Spectator gets the
+      // Get Directions link via showDirections.
+      const popupHost = document.createElement('div');
+      popupHost.style.fontFamily = '"DM Sans", system-ui, sans-serif';
+      const popup = new mapboxgl.Popup({ offset: 16, maxWidth: '320px', closeButton: false });
+      popup.setDOMContent(popupHost);
 
-      const popup = new mapboxgl.Popup({ offset: 16, maxWidth: '280px' }).setHTML(popupHtml);
+      popup.on('open', () => {
+        const root = createRoot(popupHost);
+        popoverRootsRef.current.set(poi.id, root);
+        root.render(
+          <PoiReadonlyPopover
+            poi={poi}
+            onClose={() => popup.remove()}
+            showDirections
+          />
+        );
+      });
+      popup.on('close', () => {
+        const root = popoverRootsRef.current.get(poi.id);
+        if (root) {
+          setTimeout(() => root.unmount(), 0);
+          popoverRootsRef.current.delete(poi.id);
+        }
+      });
+
       return new mapboxgl.Marker(el).setLngLat(poi.coordinates).setPopup(popup);
     };
 
@@ -345,9 +360,16 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
           </div>
         `;
         row.addEventListener('click', () => {
-          // Zoom in to split the cluster apart — the moveend handler will
-          // rebuild markers and the POI will render on its own.
-          map.flyTo({ center: poi.coordinates, zoom: Math.max(map.getZoom() + 2, 16), duration: 700 });
+          // Queue the tapped POI, close the cluster popup, and zoom in
+          // enough to split the cluster apart. The moveend handler will
+          // rebuild markers and auto-open the queued POI's popover.
+          pendingPoiPopupRef.current = poi.id;
+          popup.remove();
+          map.flyTo({
+            center: poi.coordinates,
+            zoom: Math.max(map.getZoom() + 2, 17),
+            duration: 700,
+          });
         });
         list.appendChild(row);
       });
@@ -360,14 +382,31 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
     const render = () => {
       poiMarkersRef.current.forEach(m => m.remove());
       poiMarkersRef.current = [];
+      poiMarkerByIdRef.current.clear();
       const clusters = clusterPoisByPixels(visiblePois, map, 44);
       clusters.forEach((c) => {
-        const marker = c.pois.length === 1
-          ? buildSinglePoiMarker(c.pois[0])
-          : buildClusterMarker(c.lng, c.lat, c.pois);
-        marker.addTo(map);
-        poiMarkersRef.current.push(marker);
+        if (c.pois.length === 1) {
+          const marker = buildSinglePoiMarker(c.pois[0]);
+          marker.addTo(map);
+          poiMarkersRef.current.push(marker);
+          poiMarkerByIdRef.current.set(c.pois[0].id, marker);
+        } else {
+          const marker = buildClusterMarker(c.lng, c.lat, c.pois);
+          marker.addTo(map);
+          poiMarkersRef.current.push(marker);
+        }
       });
+
+      // Consume a queued cluster-row tap: if the target POI is now a
+      // standalone marker, auto-open its popover.
+      const pending = pendingPoiPopupRef.current;
+      if (pending) {
+        const targetMarker = poiMarkerByIdRef.current.get(pending);
+        if (targetMarker) {
+          targetMarker.togglePopup();
+          pendingPoiPopupRef.current = null;
+        }
+      }
     };
 
     render();
@@ -377,6 +416,13 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
       map.off('moveend', render);
       poiMarkersRef.current.forEach(m => m.remove());
       poiMarkersRef.current = [];
+      poiMarkerByIdRef.current.clear();
+      // Defer root unmounts past the current React render cycle.
+      const roots = popoverRootsRef.current;
+      setTimeout(() => {
+        roots.forEach((r) => r.unmount());
+        roots.clear();
+      }, 0);
     };
   }, [event.pois, hiddenRouteIds, highlightedPoiType]);
 
