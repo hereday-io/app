@@ -337,29 +337,56 @@ const PublicMapBottom = ({
               {/* Legend panel */}
               {activeTab === 'legend' && (
                 <div className="px-4 py-3">
-                  {/* Routes — the eye toggle only appears when multi-route.
-                      Single-route events get a clean row with no junk. */}
+                  {/* Routes — on multi-route events, the entire row is a
+                      tap target that toggles visibility. Single-route
+                      events render as a plain row with no toggle. */}
                   {routes.length > 0 && (
                     <div className="mb-3">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Routes</span>
-                      <div className="mt-1.5 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Routes</span>
+                        {routes.length > 1 && (
+                          <span className="text-[10px] text-muted-foreground">Tap to show/hide</span>
+                        )}
+                      </div>
+                      <div className="mt-1.5 space-y-1">
                         {routes.map((route) => {
                           const dist = totalDistanceMiles(route.routeCoords);
                           const hidden = hiddenRouteIds.has(route.id);
-                          return (
-                            <div key={route.id} className={`flex items-center gap-3 ${hidden ? 'opacity-40' : ''}`}>
-                              <div className="w-6 h-[3px] rounded-full shrink-0" style={{ backgroundColor: route.color }} />
-                              <span className="text-xs text-foreground font-medium flex-1 truncate">{route.name}</span>
-                              {dist > 0 && <span className="text-xs text-muted-foreground">{dist.toFixed(1)} mi</span>}
-                              {routes.length > 1 && (
-                                <button
-                                  onClick={() => onToggleRoute(route.id)}
-                                  className="text-muted-foreground hover:text-foreground shrink-0"
-                                  aria-label={hidden ? `Show ${route.name}` : `Hide ${route.name}`}
-                                >
-                                  {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                                </button>
+                          const multi = routes.length > 1;
+
+                          const content = (
+                            <>
+                              <div
+                                className="w-6 h-[3px] rounded-full shrink-0"
+                                style={{ backgroundColor: route.color }}
+                              />
+                              <span className="text-xs text-foreground font-medium flex-1 truncate text-left">
+                                {route.name}
+                              </span>
+                              {dist > 0 && (
+                                <span className="text-xs text-muted-foreground">{dist.toFixed(1)} mi</span>
                               )}
+                              {multi && (
+                                hidden
+                                  ? <EyeOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  : <Eye    className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              )}
+                            </>
+                          );
+
+                          return multi ? (
+                            <button
+                              key={route.id}
+                              onClick={() => onToggleRoute(route.id)}
+                              aria-pressed={!hidden}
+                              aria-label={hidden ? `Show ${route.name}` : `Hide ${route.name}`}
+                              className={`w-full flex items-center gap-3 px-2 py-1.5 -mx-2 rounded-md hover:bg-muted/50 active:scale-[0.99] transition-all ${hidden ? 'opacity-40' : ''}`}
+                            >
+                              {content}
+                            </button>
+                          ) : (
+                            <div key={route.id} className="flex items-center gap-3 px-2 py-1.5 -mx-2">
+                              {content}
                             </div>
                           );
                         })}

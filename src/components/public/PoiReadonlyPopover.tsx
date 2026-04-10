@@ -8,8 +8,6 @@ const WEB_LINK_TYPES = new Set(['registration', 'sponsor', 'custom']);
 interface PoiReadonlyPopoverProps {
   poi: RoutePoi;
   onClose: () => void;
-  /** Spectator view surfaces a Google Maps directions link. */
-  showDirections?: boolean;
 }
 
 /**
@@ -19,11 +17,16 @@ interface PoiReadonlyPopoverProps {
  * label, styled X close button) as the editor popover — viewers get
  * a consistent, premium card whether they're an organizer clicking
  * in the editor or a runner tapping on the live map.
+ *
+ * Directions are surfaced only for Logistics/Amenities POIs — on-course
+ * markers (start, aid, water, etc.) don't need directions because the
+ * runner/spectator already has the route loaded.
  */
-const PoiReadonlyPopover = ({ poi, onClose, showDirections = false }: PoiReadonlyPopoverProps) => {
+const PoiReadonlyPopover = ({ poi, onClose }: PoiReadonlyPopoverProps) => {
   const tone = poiTone(poi.type);
   const hasWebLink = WEB_LINK_TYPES.has(poi.type) && !!poi.webLink;
   const existingImage = poi.imageUrl || poi.imageDataUrl || '';
+  const showDirections = tone.category === 'logistics' || tone.category === 'support';
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${poi.coordinates[1]},${poi.coordinates[0]}`;
 
   return (

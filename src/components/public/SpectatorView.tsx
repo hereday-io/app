@@ -310,7 +310,6 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
           <PoiReadonlyPopover
             poi={poi}
             onClose={() => popup.remove()}
-            showDirections
           />
         );
       });
