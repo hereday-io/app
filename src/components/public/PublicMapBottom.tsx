@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import type { EventRoute, RoutePoi, PoiType, Coord } from '@/types/mapEditor';
 import { totalDistanceMiles } from '@/lib/geo';
-import { poiTone } from '@/lib/pois';
+import { poiTone, poisByCategory, POI_CATEGORIES, POI_CATEGORY_ORDER } from '@/lib/pois';
 import { fetchEventWeather, daysUntilEvent, type WeatherResult } from '@/lib/weather';
 import { getElevationProfile, elevationStats, type ElevationPoint } from '@/lib/elevation';
 
@@ -104,17 +104,50 @@ const PublicMapBottom = ({
     : null;
 
   // ── POI grouping ─────────────────────────────────────────────────
+  // Count markers per type so the legend shows ×N badges alongside
+  // each category row.
   const grouped = pois.reduce<Record<string, number>>((acc, p) => {
     acc[p.type] = (acc[p.type] || 0) + 1;
     return acc;
   }, {});
-  const poiTypes = Object.keys(grouped) as PoiType[];
 
-  // Order POIs by relevance to the current view mode
-  const runnerPriority: PoiType[] = ['start', 'finish', 'water', 'aid-station', 'medical', 'registration', 'parking', 'restroom', 'sponsor', 'custom'];
-  const spectatorPriority: PoiType[] = ['start', 'finish', 'parking', 'restroom', 'sponsor', 'custom', 'water', 'aid-station', 'medical', 'registration'];
-  const priority = viewMode === 'spectator' ? spectatorPriority : runnerPriority;
-  const orderedPoiTypes = [...poiTypes].sort((a, b) => priority.indexOf(a) - priority.indexOf(b));
+  // Has-start / has-finish drive the pinned hero row above the
+  // category grid — start and finish are the two markers runners need
+  // to spot at a glance, and burying them in a 3-col grid violates
+  // the "must be instantly recognizable" rule in UX_PATTERNS.md.
+  const hasStart  = (grouped.start  || 0) > 0;
+  const hasFinish = (grouped.finish || 0) > 0;
+
+  // Group POI types by category, skipping start/finish (rendered as
+  // hero) and empty categories. Within each category we preserve the
+  // canonical order from `poisByCategory()` and filter to only the
+  // types that are actually placed on this event.
+  const grouping = poisByCategory();
+  const legendCategories = POI_CATEGORY_ORDER
+    .map((cat) => ({
+      cat,
+      types: grouping[cat].filter((t) => {
+        if (t === 'start' || t === 'finish') return false;
+        return (grouped[t] || 0) > 0;
+      }),
+    }))
+    .filter((g) => g.types.length > 0);
+
+  // Role-aware ordering: spectators see logistics/amenities first
+  // (parking, restrooms) and on-course markers last, runners keep the
+  // canonical order. We reorder at the category level so on-course
+  // support items still group together visually.
+  const orderedLegendCategories = viewMode === 'spectator'
+    ? [...legendCategories].sort((a, b) => {
+        const rank = { logistics: 0, support: 1, course: 2 } as const;
+        return rank[a.cat] - rank[b.cat];
+      })
+    : legendCategories;
+
+  // Sum visible route distances for the Start → Finish hero row.
+  const heroDistance = routes
+    .filter((r) => r.visible && !hiddenRouteIds.has(r.id))
+    .reduce((sum, r) => sum + totalDistanceMiles(r.routeCoords), 0);
 
   // ── Tabs ──────────────────────────────────────────────────────────
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -304,6 +337,8 @@ const PublicMapBottom = ({
               {/* Legend panel */}
               {activeTab === 'legend' && (
                 <div className="px-4 py-3">
+                  {/* Routes — the eye toggle only appears when multi-route.
+                      Single-route events get a clean row with no junk. */}
                   {routes.length > 0 && (
                     <div className="mb-3">
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Routes</span>
@@ -316,12 +351,15 @@ const PublicMapBottom = ({
                               <div className="w-6 h-[3px] rounded-full shrink-0" style={{ backgroundColor: route.color }} />
                               <span className="text-xs text-foreground font-medium flex-1 truncate">{route.name}</span>
                               {dist > 0 && <span className="text-xs text-muted-foreground">{dist.toFixed(1)} mi</span>}
-                              <button
-                                onClick={() => onToggleRoute(route.id)}
-                                className="text-muted-foreground hover:text-foreground shrink-0"
-                              >
-                                {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                              </button>
+                              {routes.length > 1 && (
+                                <button
+                                  onClick={() => onToggleRoute(route.id)}
+                                  className="text-muted-foreground hover:text-foreground shrink-0"
+                                  aria-label={hidden ? `Show ${route.name}` : `Hide ${route.name}`}
+                                >
+                                  {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                              )}
                             </div>
                           );
                         })}
@@ -329,36 +367,89 @@ const PublicMapBottom = ({
                     </div>
                   )}
 
-                  {orderedPoiTypes.length > 0 && (
-                    <div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Places</span>
-                      <div className="mt-1.5 grid grid-cols-3 gap-y-1.5 gap-x-2">
-                        {orderedPoiTypes.map((type) => {
-                          const tone = poiTone(type);
-                          const count = grouped[type];
-                          const isHighlighted = highlightedPoiType === type;
-                          return (
-                            <button
-                              key={type}
-                              onClick={() => onHighlightPoiType(isHighlighted ? null : type)}
-                              className={`flex items-center gap-2 rounded-md px-1.5 py-1 text-xs transition-colors text-left ${
-                                isHighlighted ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50 text-foreground'
-                              }`}
-                            >
-                              <div
-                                className="w-3 h-3 rounded-full shrink-0 border-2 border-card"
-                                style={{ backgroundColor: tone.dot }}
-                              />
-                              <span className="truncate">{tone.label}</span>
-                              {count > 1 && <span className="text-muted-foreground">×{count}</span>}
-                            </button>
-                          );
-                        })}
+                  {/* Start → Finish hero row — rendered only when both
+                      markers exist. Promotes the two most important POIs
+                      out of the category grid and puts them front-and-
+                      center with the total visible route distance. */}
+                  {hasStart && hasFinish && (
+                    <div className="mb-3 flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <span className="text-base leading-none">{poiTone('start').emoji}</span>
+                        <span>Start</span>
+                        <span className="text-muted-foreground mx-1">→</span>
+                        <span className="text-base leading-none">{poiTone('finish').emoji}</span>
+                        <span>Finish</span>
                       </div>
+                      {heroDistance > 0 && (
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          {heroDistance.toFixed(1)} mi
+                        </span>
+                      )}
                     </div>
                   )}
 
-                  {routes.length === 0 && orderedPoiTypes.length === 0 && (
+                  {/* Grouped POI categories — one labeled section per
+                      category that actually has markers. Emoji match the
+                      on-map markers so scanning the legend maps 1:1 with
+                      what's visible. Tap a chip to filter. */}
+                  {orderedLegendCategories.length > 0 && (
+                    <div className="space-y-3">
+                      {orderedLegendCategories.map(({ cat, types }) => (
+                        <div key={cat}>
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {POI_CATEGORIES[cat].label}
+                          </span>
+                          <div className="mt-1.5 grid grid-cols-2 md:grid-cols-3 gap-y-1.5 gap-x-2">
+                            {types.map((type) => {
+                              const tone = poiTone(type);
+                              const count = grouped[type] || 0;
+                              const isHighlighted = highlightedPoiType === type;
+                              // On-course markers get a slightly muted
+                              // treatment for spectators — they're still
+                              // discoverable, just not the primary focus.
+                              const deemphasize = viewMode === 'spectator' && cat === 'course';
+                              return (
+                                <button
+                                  key={type}
+                                  onClick={() => onHighlightPoiType(isHighlighted ? null : type)}
+                                  className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors text-left ${
+                                    isHighlighted
+                                      ? 'bg-primary text-primary-foreground font-semibold'
+                                      : deemphasize
+                                        ? 'hover:bg-muted/50 text-muted-foreground'
+                                        : 'hover:bg-muted/50 text-foreground'
+                                  }`}
+                                  aria-pressed={isHighlighted}
+                                  title={`${tone.label}${count > 1 ? ` (${count})` : ''} — ${isHighlighted ? 'Clear filter' : 'Filter markers'}`}
+                                >
+                                  <span className="text-sm leading-none shrink-0">{tone.emoji}</span>
+                                  <span className="truncate flex-1">{tone.label}</span>
+                                  {count > 1 && (
+                                    <span className={isHighlighted ? 'text-primary-foreground/80' : 'text-muted-foreground'}>
+                                      ×{count}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Filter affordance — the POI chips are tappable
+                      filters, but that's invisible without a hint. Shown
+                      only when there's something to filter. */}
+                  {orderedLegendCategories.length > 0 && (
+                    <p className="mt-3 text-[10px] text-muted-foreground text-center">
+                      {highlightedPoiType
+                        ? 'Tap the highlighted type again to clear the filter'
+                        : 'Tap any type to filter markers on the map'}
+                    </p>
+                  )}
+
+                  {routes.length === 0 && orderedLegendCategories.length === 0 && !hasStart && !hasFinish && (
                     <p className="text-sm text-muted-foreground py-3 text-center">No routes or places to show.</p>
                   )}
                 </div>
