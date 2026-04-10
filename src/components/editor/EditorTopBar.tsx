@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil } from 'lucide-react';
+import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
 import ShareQrCode from '@/components/editor/ShareQrCode';
 
@@ -24,6 +24,7 @@ interface EditorTopBarProps {
   onClearRoute: () => void;
   onLocationSelect: (center: [number, number], name: string) => void;
   onHelp?: () => void;
+  onScoutLink?: () => void;
   onPublish?: () => void;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
@@ -48,6 +49,7 @@ const EditorTopBar = ({
   onClearRoute,
   onLocationSelect,
   onHelp,
+  onScoutLink,
   onPublish,
   sidebarOpen,
   onToggleSidebar,
@@ -164,6 +166,11 @@ const EditorTopBar = ({
         {onHelp && (
           <Button variant="ghost" size="sm" onClick={onHelp} title="Show editor tour" className="h-8 w-8 p-0">
             <HelpCircle className="h-4 w-4" />
+          </Button>
+        )}
+        {onScoutLink && (
+          <Button variant="ghost" size="sm" onClick={onScoutLink} title="Scout mode link — drop POIs from your phone" className="h-8 w-8 p-0">
+            <Compass className="h-4 w-4" />
           </Button>
         )}
         {/* Autosave status chip — doubles as a manual-save trigger */}

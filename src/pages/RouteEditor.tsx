@@ -17,6 +17,9 @@ import MapBottomSheet from '@/components/map/MapBottomSheet';
 import EditorCoachMark from '@/components/editor/EditorCoachMark';
 import SnapModePill from '@/components/editor/SnapModePill';
 import MobileEditorGate from '@/components/editor/MobileEditorGate';
+import ScoutLinkDialog from '@/components/editor/ScoutLinkDialog';
+import ScoutReviewBanner from '@/components/editor/ScoutReviewBanner';
+import ScoutReviewPanel, { type ScoutedPoiRecord } from '@/components/editor/ScoutReviewPanel';
 import EditorTour from '@/components/editor/EditorTour';
 import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
 import PoiEditPopover from '@/components/editor/PoiEditPopover';
@@ -82,6 +85,9 @@ const RouteEditor = () => {
   const [mapboxToken, setMapboxToken] = useState(MAPBOX_TOKEN_FALLBACK);
   const [tourActive, setTourActive] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [scoutLinkDialogOpen, setScoutLinkDialogOpen] = useState(false);
+  const [scoutedPois, setScoutedPois] = useState<ScoutedPoiRecord[]>([]);
+  const [scoutReviewPanelOpen, setScoutReviewPanelOpen] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
   const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -213,6 +219,8 @@ const RouteEditor = () => {
         setFinishedRouteIds(finished);
         const rawPois = data.pois as unknown;
         setPois(Array.isArray(rawPois) ? (rawPois as RoutePoi[]) : []);
+        const rawScouted = (data as { scouted_pois?: unknown }).scouted_pois;
+        setScoutedPois(Array.isArray(rawScouted) ? (rawScouted as ScoutedPoiRecord[]) : []);
 
         setEventStatus(data.status ?? 'draft');
         setEventSlug(data.slug ?? null);
@@ -752,6 +760,7 @@ const RouteEditor = () => {
         event_date: eventDate || null,
         routes: JSON.parse(JSON.stringify(routes)),
         pois: JSON.parse(JSON.stringify(cleanPois)),
+        scouted_pois: JSON.parse(JSON.stringify(scoutedPois)),
         route_count: routes.length,
         poi_count: cleanPois.length,
         logo_url: logoUrl,
@@ -777,7 +786,7 @@ const RouteEditor = () => {
       }
     }
     setIsSaving(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, logoUrl, brandingStyle, trackingStart, trackingEnd, toast, materializePoiImages]);
+  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, logoUrl, brandingStyle, trackingStart, trackingEnd, toast, materializePoiImages]);
 
   // ── Autosave ───────────────────────────────────────────────────────────
   // Mark dirty whenever editable state changes. The initialLoadCompleteRef
@@ -786,7 +795,7 @@ const RouteEditor = () => {
     if (!initialLoadCompleteRef.current) return;
     isDirtyRef.current = true;
     setSaveState('dirty');
-  }, [eventName, city, eventDate, routes, pois, logoUrl, brandingStyle]);
+  }, [eventName, city, eventDate, routes, pois, scoutedPois, logoUrl, brandingStyle]);
 
   // Debounced autosave: whenever dirty, schedule a silent save in ~2s.
   useEffect(() => {
@@ -821,6 +830,7 @@ const RouteEditor = () => {
         event_date: eventDate || null,
         routes: JSON.parse(JSON.stringify(routes)),
         pois: JSON.parse(JSON.stringify(cleanPois)),
+        scouted_pois: JSON.parse(JSON.stringify(scoutedPois)),
         route_count: routes.length,
         poi_count: cleanPois.length,
         status: newStatus,
@@ -863,7 +873,7 @@ const RouteEditor = () => {
       }
     }
     setIsPublishing(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, eventPlan, materializePoiImages]);
+  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, eventPlan, materializePoiImages]);
 
   const handleResumeRoute = useCallback((id: string) => {
     setFinishedRouteIds((prev) => {
@@ -1023,6 +1033,27 @@ const RouteEditor = () => {
 
   const activeDistance = activeRoute ? totalDistanceMiles(activeRoute.routeCoords) : 0;
 
+  // ── Scout review handlers ──────────────────────────────────────────────
+  // Accept: strip the scout-specific fields and move the POI into the
+  // event's regular pois array. Reject: drop it. Both mutations flow
+  // through the existing autosave path — no new endpoint.
+  const handleAcceptScoutedPoi = useCallback((poi: ScoutedPoiRecord) => {
+    const { scouted_at: _sa, scouted_via_token: _svt, ...cleanPoi } = poi;
+    void _sa; void _svt;
+    setPois((prev) => [...prev, cleanPoi as RoutePoi]);
+    setScoutedPois((prev) => prev.filter((p) => p.id !== poi.id));
+    logEvent('scout_poi_accepted', eventId, { type: poi.type });
+  }, [eventId]);
+
+  const handleRejectScoutedPoi = useCallback((poi: ScoutedPoiRecord) => {
+    setScoutedPois((prev) => prev.filter((p) => p.id !== poi.id));
+    logEvent('scout_poi_rejected', eventId, { type: poi.type });
+  }, [eventId]);
+
+  const handleScoutedFlyTo = useCallback((coord: [number, number]) => {
+    mapRef.current?.flyTo({ center: coord, zoom: 16, duration: 800 });
+  }, []);
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -1051,6 +1082,22 @@ const RouteEditor = () => {
         eventId={eventId}
         onBeforeRedirect={() => handleSave({ silent: true })}
       />
+      {eventId && user && (
+        <ScoutLinkDialog
+          open={scoutLinkDialogOpen}
+          onOpenChange={setScoutLinkDialogOpen}
+          eventId={eventId}
+          userId={user.id}
+        />
+      )}
+      <ScoutReviewPanel
+        open={scoutReviewPanelOpen}
+        onOpenChange={setScoutReviewPanelOpen}
+        scoutedPois={scoutedPois}
+        onAccept={handleAcceptScoutedPoi}
+        onReject={handleRejectScoutedPoi}
+        onFlyTo={handleScoutedFlyTo}
+      />
 
       <EditorTopBar
         eventName={eventName}
@@ -1072,6 +1119,7 @@ const RouteEditor = () => {
           mapRef.current?.flyTo({ center, zoom: 14, duration: 1500 });
         }}
         onHelp={() => setTourActive(true)}
+        onScoutLink={() => setScoutLinkDialogOpen(true)}
         onPublish={handlePublish}
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
@@ -1079,6 +1127,11 @@ const RouteEditor = () => {
         eventId={eventId}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
+      />
+
+      <ScoutReviewBanner
+        count={scoutedPois.length}
+        onReview={() => setScoutReviewPanelOpen(true)}
       />
 
       <div className="flex-1 flex overflow-hidden">

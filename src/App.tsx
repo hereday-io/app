@@ -11,6 +11,7 @@ import ForgotPassword from "./pages/ForgotPassword.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import RouteEditor from "./pages/RouteEditor.tsx";
+import ScoutPage from "./pages/ScoutPage.tsx";
 import EventPublic from "./pages/EventPublic.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/editor" element={<RouteEditor />} />
+            <Route path="/scout/:token" element={<ScoutPage />} />
             <Route path="/event/:slug" element={<EventPublic />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="*" element={<NotFound />} />
