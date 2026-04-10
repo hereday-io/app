@@ -45,8 +45,6 @@ interface RouteBuilderToolbarProps {
   setSelectedBasemap: (id: string) => void;
   poiSnapToRoute: boolean;
   setPoiSnapToRoute: (v: boolean) => void;
-  highlightedPoiType: PoiType | null;
-  setHighlightedPoiType: (t: PoiType | null) => void;
   isPaid: boolean;
   finishedRouteIds: Set<string>;
   onResumeRoute: (id: string) => void;
@@ -95,7 +93,6 @@ const RouteBuilderToolbar = ({
   pois, setPois,
   selectedBasemap, setSelectedBasemap,
   poiSnapToRoute, setPoiSnapToRoute,
-  highlightedPoiType, setHighlightedPoiType,
   isPaid,
   finishedRouteIds, onResumeRoute,
   logoUrl, brandingStyle, onLogoChange, onBrandingStyleChange,
@@ -128,15 +125,6 @@ const RouteBuilderToolbar = ({
     setDragOverIdx(null);
     dragGroup.current = null;
   };
-
-  const manualPois = pois.filter(
-    (p) => !p.id.startsWith('auto-start-') && !p.id.startsWith('auto-finish-')
-  );
-
-  const groupedPois = manualPois.reduce<Record<string, number>>((acc, p) => {
-    acc[p.type] = (acc[p.type] || 0) + 1;
-    return acc;
-  }, {});
 
   return (
     <div className="h-full flex flex-col bg-card border-r border-border overflow-hidden" data-tour="snap-toggle">
@@ -326,35 +314,6 @@ const RouteBuilderToolbar = ({
             })}
           </div>
 
-          {/* Filter by type — read-only summary of placed markers */}
-          {manualPois.length > 0 && (
-            <div className="border-t border-border/50 px-1.5 py-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
-                Filter by type ({manualPois.length})
-              </p>
-              {(Object.keys(groupedPois) as PoiType[]).map((type) => {
-                const tone        = poiTone(type);
-                const isHighlighted = highlightedPoiType === type;
-                return (
-                  <button
-                    key={type}
-                    onClick={() => setHighlightedPoiType(isHighlighted ? null : type)}
-                    className={`w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors ${
-                      isHighlighted ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'
-                    }`}
-                  >
-                    <span className="text-base">{tone.emoji}</span>
-                    <span className="flex-1 text-left font-medium">{tone.label}</span>
-                    <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${
-                      isHighlighted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {groupedPois[type]}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </Section>
 
         {/* ── Branding ──────────────────────────────────────────────────── */}

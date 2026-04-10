@@ -32,7 +32,7 @@ function wmoIcon(code: number): React.ComponentType<{ className?: string }> {
   return Cloud;
 }
 
-interface PublicMapBottomProps {
+interface MapBottomSheetProps {
   routes: EventRoute[];
   pois: RoutePoi[];
   hiddenRouteIds: Set<string>;
@@ -49,15 +49,21 @@ interface PublicMapBottomProps {
   badge?: React.ReactNode;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
-  viewMode?: 'runner' | 'spectator';
+  /**
+   * Drives subtle legend ordering/styling differences:
+   * - runner (default): canonical category order
+   * - spectator: logistics/support first, on-course chips de-emphasized
+   * - editor: same as runner today, reserved for editor-only tweaks
+   */
+  viewMode?: 'runner' | 'spectator' | 'editor';
 }
 
-const PublicMapBottom = ({
+const MapBottomSheet = ({
   routes, pois, hiddenRouteIds, onToggleRoute,
   highlightedPoiType, onHighlightPoiType,
   activeRoute, mapboxToken, routeColor, onHoverPoint,
   eventDate, weatherCoord, eventName, badge, onZoomIn, onZoomOut, viewMode = 'runner',
-}: PublicMapBottomProps) => {
+}: MapBottomSheetProps) => {
   const hasRoute = !!(activeRoute && activeRoute.routeCoords.length >= 2);
 
   const [activeTab,    setActiveTab]    = useState<Tab>(hasRoute ? 'elevation' : 'legend');
@@ -503,4 +509,4 @@ const PublicMapBottom = ({
   );
 };
 
-export default PublicMapBottom;
+export default MapBottomSheet;

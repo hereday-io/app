@@ -13,7 +13,7 @@ import { uploadPoiImage, isDataUrl } from '@/lib/poiImageUpload';
 import { logEvent } from '@/lib/analytics';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
-import EditorBottomSheet from '@/components/editor/EditorBottomSheet';
+import MapBottomSheet from '@/components/map/MapBottomSheet';
 import EditorCoachMark from '@/components/editor/EditorCoachMark';
 import SnapModePill from '@/components/editor/SnapModePill';
 import MobileEditorGate from '@/components/editor/MobileEditorGate';
@@ -127,6 +127,18 @@ const RouteEditor = () => {
   }, [routes, activeRouteId]);
 
   const activeRoute = useMemo(() => routes.find((r) => r.id === activeRouteId), [routes, activeRouteId]);
+
+  // Adapter: MapBottomSheet takes `hiddenRouteIds: Set<string>`, but
+  // the editor tracks visibility as `route.visible` on each route
+  // object. Derive the set on the fly and flip the flag in-place when
+  // the bottom sheet's legend toggles a row.
+  const hiddenRouteIdsForLegend = useMemo(
+    () => new Set(routes.filter((r) => !r.visible).map((r) => r.id)),
+    [routes],
+  );
+  const toggleRouteVisible = useCallback((id: string) => {
+    setRoutes((prev) => prev.map((r) => r.id === id ? { ...r, visible: !r.visible } : r));
+  }, []);
 
   const handleElevationHover = useCallback((coord: Coord | null) => {
     if (elevMarkerRef.current) {
@@ -1098,8 +1110,6 @@ const RouteEditor = () => {
               setSelectedBasemap={setSelectedBasemap}
               poiSnapToRoute={poiSnapToRoute}
               setPoiSnapToRoute={setPoiSnapToRoute}
-              highlightedPoiType={highlightedPoiType}
-              setHighlightedPoiType={setHighlightedPoiType}
               isPaid={isPaid}
               finishedRouteIds={finishedRouteIds}
               onResumeRoute={handleResumeRoute}
@@ -1145,17 +1155,25 @@ const RouteEditor = () => {
             </div>
           )}
 
-          <EditorBottomSheet
-            route={activeRoute}
+          <MapBottomSheet
+            routes={routes}
+            pois={pois}
+            hiddenRouteIds={hiddenRouteIdsForLegend}
+            onToggleRoute={toggleRouteVisible}
+            highlightedPoiType={highlightedPoiType}
+            onHighlightPoiType={setHighlightedPoiType}
+            activeRoute={activeRoute}
             mapboxToken={mapboxToken}
             routeColor={activeRoute?.color ?? '#2563eb'}
             onHoverPoint={handleElevationHover}
-            eventDate={eventDate}
+            eventDate={eventDate || null}
             weatherCoord={
               activeRoute?.routeCoords?.[0]
                 ? [activeRoute.routeCoords[0][0], activeRoute.routeCoords[0][1]]
                 : null
             }
+            eventName={eventName}
+            viewMode="editor"
           />
 
           {pendingPoiType && (

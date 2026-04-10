@@ -10,7 +10,7 @@ import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Trophy, Eye, Maximize2, Download } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
 import PublicMapToolbar from '@/components/public/PublicMapToolbar';
-import PublicMapBottom from '@/components/public/PublicMapBottom';
+import MapBottomSheet from '@/components/map/MapBottomSheet';
 import PoiReadonlyPopover from '@/components/public/PoiReadonlyPopover';
 import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
@@ -533,7 +533,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
 
       {/* ── Bottom sheet ────────────────────────────────────────── */}
       {token && (
-        <PublicMapBottom
+        <MapBottomSheet
           routes={event.routes}
           pois={event.pois}
           hiddenRouteIds={hiddenRouteIds}
