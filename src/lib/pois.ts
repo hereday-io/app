@@ -19,7 +19,7 @@ const POI_TONES: Record<PoiType, PoiTone> = {
   start:         { label: 'Start',        emoji: '🟢', dot: '#16a34a', description: 'Where runners begin the race',     category: 'course' },
   finish:        { label: 'Finish',       emoji: '🏁', dot: '#dc2626', description: 'The race finish line',              category: 'course' },
   'aid-station': { label: 'Aid Station',  emoji: '⛑️', dot: '#f97316', description: 'Water, snacks, first aid',          category: 'course' },
-  water:         { label: 'Water Only',   emoji: '💧', dot: '#0ea5e9', description: 'Hydration-only stop',               category: 'course' },
+  water:         { label: 'Water Station', emoji: '💧', dot: '#0ea5e9', description: 'Hydration-only stop',              category: 'course' },
   medical:       { label: 'Medical',      emoji: '🏥', dot: '#ef4444', description: 'First aid & medical support',       category: 'course' },
   sponsor:       { label: 'Sponsor',      emoji: '⭐', dot: '#f59e0b', description: 'Sponsor activation area',           category: 'course' },
 

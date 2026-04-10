@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Trash2, Move, X } from 'lucide-react';
+import { Trash2, Move } from 'lucide-react';
 import type { RoutePoi } from '@/types/mapEditor';
 import { poiTone } from '@/lib/pois';
 import { Input } from '@/components/ui/input';
@@ -128,7 +128,7 @@ const PoiEditPopover = ({ poi, onSave, onDelete, onClose }: PoiEditPopoverProps)
         >
           {tone.emoji}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-5">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             {tone.label} Marker
           </p>
@@ -140,13 +140,6 @@ const PoiEditPopover = ({ poi, onSave, onDelete, onClose }: PoiEditPopoverProps)
             className="h-auto border-0 shadow-none px-0 py-0 text-[15px] font-bold focus-visible:ring-0"
           />
         </div>
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="text-muted-foreground hover:text-foreground shrink-0 -mt-3 -mr-1"
-        >
-          <X className="h-4 w-4" />
-        </button>
       </div>
 
       {/* Description */}
