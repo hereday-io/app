@@ -6,7 +6,7 @@ import {
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { totalDistanceMiles, BASEMAP_OPTIONS } from '@/lib/geo';
-import { poiTone, POI_TYPES } from '@/lib/pois';
+import { poiTone, poisByCategory, POI_CATEGORIES, POI_CATEGORY_ORDER } from '@/lib/pois';
 import BrandingPanel from '@/components/editor/BrandingPanel';
 
 import basemapStreets  from '@/assets/basemap-streets.jpg';
@@ -37,6 +37,8 @@ interface RouteBuilderToolbarProps {
   onDeleteRoute: (id: string) => void;
   pendingPoiType: PoiType | null;
   setPendingPoiType: (t: PoiType | null) => void;
+  keepPoiTypeArmed: boolean;
+  setKeepPoiTypeArmed: (v: boolean) => void;
   pois: RoutePoi[];
   setPois: React.Dispatch<React.SetStateAction<RoutePoi[]>>;
   selectedBasemap: string;
@@ -89,6 +91,7 @@ const RouteBuilderToolbar = ({
   routes, activeRouteId, setActiveRouteId, setRoutes,
   onAddRoute, onDeleteRoute,
   pendingPoiType, setPendingPoiType,
+  keepPoiTypeArmed, setKeepPoiTypeArmed,
   pois, setPois,
   selectedBasemap, setSelectedBasemap,
   poiSnapToRoute, setPoiSnapToRoute,
@@ -272,34 +275,62 @@ const RouteBuilderToolbar = ({
             </button>
           </div>
 
-          {/* POI type list */}
-          <div className="px-1.5 pb-2 space-y-0.5">
-            {POI_TYPES.map((type) => {
-              const tone     = poiTone(type);
-              const isActive = pendingPoiType === type;
+          {/* Grouped POI picker — one entry per type, organized into
+              category sections. Shift-click to keep the type armed for
+              batch placement; Esc (handled in RouteEditor) disarms. */}
+          <div className="px-1.5 pb-2">
+            {POI_CATEGORY_ORDER.map((cat) => {
+              const types = poisByCategory()[cat];
+              if (types.length === 0) return null;
               return (
-                <button
-                  key={type}
-                  onClick={() => setPendingPoiType(isActive ? null : type)}
-                  className={`w-full text-left px-2.5 py-2 rounded-md flex items-center gap-2.5 text-sm transition-colors ${
-                    isActive ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'
-                  }`}
-                >
-                  <span className="text-lg shrink-0">{tone.emoji}</span>
-                  <div className="min-w-0">
-                    <p className={`leading-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>{tone.label}</p>
-                    <p className="text-[11px] text-muted-foreground leading-tight mt-0.5 truncate">{tone.description}</p>
+                <div key={cat} className="mb-1.5 last:mb-0">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1">
+                    {POI_CATEGORIES[cat].label}
+                  </p>
+                  <div className="space-y-0.5">
+                    {types.map((type) => {
+                      const tone     = poiTone(type);
+                      const isActive = pendingPoiType === type;
+                      return (
+                        <button
+                          key={type}
+                          title={`${tone.description}${'\n'}Shift-click to place multiple`}
+                          onClick={(e) => {
+                            if (isActive) {
+                              setPendingPoiType(null);
+                              setKeepPoiTypeArmed(false);
+                              return;
+                            }
+                            setKeepPoiTypeArmed(e.shiftKey);
+                            setPendingPoiType(type);
+                          }}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-md flex items-center gap-2.5 text-sm transition-colors ${
+                            isActive ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'
+                          }`}
+                        >
+                          <span className="text-base shrink-0">{tone.emoji}</span>
+                          <span className={`leading-tight truncate ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                            {tone.label}
+                          </span>
+                          {isActive && keepPoiTypeArmed && (
+                            <span className="ml-auto text-[9px] uppercase tracking-wider font-semibold text-primary/80">
+                              batch
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
 
-          {/* Placed POIs summary */}
+          {/* Filter by type — read-only summary of placed markers */}
           {manualPois.length > 0 && (
             <div className="border-t border-border/50 px-1.5 py-2">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
-                Placed ({manualPois.length})
+                Filter by type ({manualPois.length})
               </p>
               {(Object.keys(groupedPois) as PoiType[]).map((type) => {
                 const tone        = poiTone(type);

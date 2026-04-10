@@ -8,8 +8,10 @@ const SHORTCUTS = [
   { keys: `${mod} + S`, label: 'Save event' },
   { keys: `${mod} + Z`, label: 'Undo last point' },
   { keys: 'S', label: 'Toggle snap to roads' },
-  { keys: 'Delete', label: 'Clear active route' },
-  { keys: 'Esc', label: 'Cancel POI placement' },
+  { keys: 'Delete', label: 'Delete selected marker (or clear route)' },
+  { keys: 'Esc', label: 'Cancel POI placement · close popover' },
+  { keys: 'Shift + click', label: 'Keep marker type armed for batch placing' },
+  { keys: 'Drag marker', label: 'Move a marker to a new spot' },
   { keys: '?', label: 'Show this cheat sheet' },
 ];
 

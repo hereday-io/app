@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -18,6 +19,7 @@ import SnapModePill from '@/components/editor/SnapModePill';
 import MobileEditorGate from '@/components/editor/MobileEditorGate';
 import EditorTour from '@/components/editor/EditorTour';
 import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
+import PoiEditPopover from '@/components/editor/PoiEditPopover';
 import UpgradeModal from '@/components/UpgradeModal';
 import { usePaywall } from '@/hooks/usePaywall';
 
@@ -46,6 +48,10 @@ const RouteEditor = () => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const currentBasemapRef = useRef('light');
+  // Track React roots mounted into Mapbox popup DOM nodes so we can
+  // cleanly unmount them on popup close / marker rebuild and avoid
+  // leaking one root per POI click.
+  const popoverRootsRef = useRef<Map<string, Root>>(new Map());
 
   const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
@@ -57,6 +63,13 @@ const RouteEditor = () => {
   const [activeRouteId, setActiveRouteId] = useState('');
   const [pois, setPois] = useState<RoutePoi[]>([]);
   const [pendingPoiType, setPendingPoiType] = useState<PoiType | null>(null);
+  // When true, the picker stays armed after each placement so the user
+  // can drop multiple of the same type without re-opening the dropdown.
+  // Set by Shift-clicking a type in the MapToolbar. Cleared by Esc.
+  const [keepPoiTypeArmed, setKeepPoiTypeArmed] = useState(false);
+  // Currently selected POI (for keyboard delete + visual selection ring).
+  // Set when a marker is clicked; cleared on Esc or background click.
+  const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
   const [snapToRoads, setSnapToRoads] = useState(true);
   const [poiSnapToRoute, setPoiSnapToRoute] = useState(true);
   const [isSnapping, setIsSnapping] = useState(false);
@@ -391,12 +404,20 @@ const RouteEditor = () => {
           coordinates: coord,
         };
         setPois((prev) => [...prev, newPoi]);
-        setPendingPoiType(null);
-        setStatusText(`${tone.label} placed.`);
+        // Shift-click on the picker arms batch mode — the type stays
+        // selected after each placement until the user presses Esc or
+        // picks a different type.
+        if (!keepPoiTypeArmed) setPendingPoiType(null);
+        setStatusText(keepPoiTypeArmed ? `${tone.label} placed. Click to add another.` : `${tone.label} placed.`);
         return;
       }
 
-      if (!activeRouteId || finishedRouteIds.has(activeRouteId)) return;
+      // Click on empty map (no pending type, not drawing) — clear
+      // any POI selection so Delete doesn't accidentally remove it.
+      if (!activeRouteId || finishedRouteIds.has(activeRouteId)) {
+        setSelectedPoiId(null);
+        return;
+      }
 
       const route = routes.find((r) => r.id === activeRouteId);
       if (!route) return;
@@ -493,7 +514,7 @@ const RouteEditor = () => {
       map.off('dblclick', onDblClick);
       map.doubleClickZoom.enable();
     };
-  }, [activeRouteId, pendingPoiType, snapToRoads, routes, autoPlaceStartFinish, finishedRouteIds]);
+  }, [activeRouteId, pendingPoiType, keepPoiTypeArmed, poiSnapToRoute, snapToRoads, routes, autoPlaceStartFinish, finishedRouteIds]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -558,180 +579,103 @@ const RouteEditor = () => {
           });
         });
 
-      // POI markers — hide auto start/finish if their route is hidden
+      // POI markers — hide auto start/finish if their route is hidden.
+      // Markers are always draggable now (see plan step 6) — the
+      // separate "Move" button is gone. Click opens the React popover
+      // for editing; drag repositions directly. The popover mounts
+      // into a DOM node via React portal and is cleaned up on close
+      // to avoid leaking roots across re-renders.
       const hiddenRouteIds = new Set(routes.filter((r) => !r.visible).map((r) => r.id));
       pois.forEach((poi) => {
-        // Check if this is an auto start/finish POI for a hidden route
         const autoMatch = poi.id.match(/^auto-(start|finish)-(.+)$/);
         if (autoMatch && hiddenRouteIds.has(autoMatch[2])) return;
 
         const tone = poiTone(poi.type);
         const isHighlighted = highlightedPoiType === null || highlightedPoiType === poi.type;
+        const isSelected = selectedPoiId === poi.id;
         const el = document.createElement('div');
-        el.style.cssText = `cursor:pointer;display:flex;align-items:center;justify-content:center;`;
+        el.style.cssText = `cursor:grab;display:flex;align-items:center;justify-content:center;`;
         const inner = document.createElement('div');
         const size = isHighlighted ? 28 : 24;
-        inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease, box-shadow 0.2s;pointer-events:none;`;
+        const selectionRing = isSelected ? '0 0 0 3px hsl(var(--primary) / 0.4), ' : '';
+        inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:${selectionRing}0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease, box-shadow 0.2s;pointer-events:none;`;
         inner.textContent = tone.emoji;
         el.appendChild(inner);
-        el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.25)'; inner.style.boxShadow = `0 4px 12px rgba(0,0,0,0.35)`; });
-        el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)'; inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
-
-        const popupContent = document.createElement('div');
-        popupContent.style.cssText = 'font-family:"DM Sans",system-ui,sans-serif;width:260px;';
-
-        const escTitle = (poi.title || '').replace(/"/g, '&quot;');
-        const escDesc = (poi.description || '').replace(/</g, '&lt;');
-        const escImg = (poi.imageUrl || '').replace(/"/g, '&quot;');
-        const escLink = (poi.webLink || '').replace(/"/g, '&quot;');
-        const coordStr = `${poi.coordinates[1].toFixed(5)}, ${poi.coordinates[0].toFixed(5)}`;
-
-        const hasWebLink = ['registration', 'sponsor', 'custom'].includes(poi.type);
-        const existingImage = poi.imageDataUrl || poi.imageUrl || '';
-        
-        // All colors/borders use design-system CSS variables so the popup
-        // renders correctly in dark mode and matches the rest of the editor.
-        popupContent.innerHTML = `
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-            <div style="width:40px;height:40px;border-radius:50%;background:${tone.dot}15;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:2px solid ${tone.dot}30;">${tone.emoji}</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:10px;color:hsl(var(--muted-foreground));font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${tone.label} Marker</div>
-              <input data-field="title" value="${escTitle}" placeholder="${tone.label}" style="width:100%;padding:0;border:none;font-size:15px;font-weight:700;color:hsl(var(--foreground));outline:none;background:transparent;font-family:inherit;" />
-            </div>
-          </div>
-          <div style="border-top:1px solid hsl(var(--border));padding-top:12px;">
-            <label style="font-size:11px;font-weight:600;color:hsl(var(--muted-foreground));display:block;margin-bottom:4px;">Description</label>
-            <textarea data-field="description" placeholder="Add notes about this marker location…" rows="2" style="width:100%;padding:8px 10px;border:1px solid hsl(var(--border));border-radius:8px;font-size:12px;resize:none;outline:none;box-sizing:border-box;font-family:inherit;color:hsl(var(--foreground));background:hsl(var(--background));">${escDesc}</textarea>
-          </div>
-          <div style="margin-top:10px;">
-            <label style="font-size:11px;font-weight:600;color:hsl(var(--muted-foreground));display:flex;align-items:center;gap:4px;margin-bottom:4px;">📷 Photo</label>
-            <div data-photo-area style="position:relative;">
-              <img data-photo-preview src="${existingImage}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid hsl(var(--border));margin-bottom:6px;display:${existingImage ? 'block' : 'none'};" />
-              <div style="display:flex;gap:6px;">
-                <label data-photo-label style="flex:1;padding:8px;border:1px dashed hsl(var(--border));border-radius:8px;font-size:12px;color:hsl(var(--muted-foreground));cursor:pointer;text-align:center;font-family:inherit;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:4px;background:transparent;">
-                  📎 ${existingImage ? 'Change photo' : 'Attach photo'}
-                  <input data-field="photoFile" type="file" accept="image/*" style="display:none;" />
-                </label>
-                <button data-action="removePhoto" style="padding:8px;border:1px solid hsl(var(--border));border-radius:8px;font-size:12px;color:hsl(var(--destructive));cursor:pointer;background:transparent;font-family:inherit;display:${existingImage ? 'block' : 'none'};">✕</button>
-              </div>
-            </div>
-          </div>
-          ${hasWebLink ? `
-          <div style="margin-top:10px;">
-            <label style="font-size:11px;font-weight:600;color:hsl(var(--muted-foreground));display:flex;align-items:center;gap:4px;margin-bottom:4px;">🔗 Web Link</label>
-            <input data-field="webLink" value="${escLink}" placeholder="https://example.com" style="width:100%;padding:8px 10px;border:1px solid hsl(var(--border));border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit;color:hsl(var(--foreground));background:hsl(var(--background));" />
-          </div>
-          ` : ''}
-          <div style="margin-top:10px;padding:6px 10px;background:hsl(var(--muted));border-radius:8px;font-size:11px;color:hsl(var(--muted-foreground));font-family:monospace;">${coordStr}</div>
-           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid hsl(var(--border));">
-            <button data-action="remove" style="background:none;border:none;color:hsl(var(--destructive));font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;font-family:inherit;">🗑 Remove</button>
-            <div style="display:flex;gap:6px;">
-              <button data-action="move" style="padding:6px 12px;background:hsl(var(--secondary));color:hsl(var(--secondary-foreground));border:1px solid hsl(var(--border));border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✥ Move</button>
-              <button data-action="save" style="padding:6px 18px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Done</button>
-            </div>
-           </div>
-        `;
-
-        const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '300px', closeOnClick: false });
-        popup.setDOMContent(popupContent);
-
-        popup.on('open', () => {
-          const saveBtn = popupContent.querySelector('[data-action="save"]') as HTMLButtonElement;
-          const removeBtn = popupContent.querySelector('[data-action="remove"]') as HTMLButtonElement;
-          const fileInput = popupContent.querySelector('[data-field="photoFile"]') as HTMLInputElement;
-          const photoPreview = popupContent.querySelector('[data-photo-preview]') as HTMLImageElement;
-          const removePhotoBtn = popupContent.querySelector('[data-action="removePhoto"]') as HTMLButtonElement;
-          // Track image edit intent explicitly so we can distinguish
-          // "user didn't touch the photo" (keep existing imageUrl) from
-          // "user cleared it" (wipe both fields) from "user picked a new
-          // file" (replace with pending data URL, queue re-upload).
-          let newImageDataUrl: string | undefined;
-          let imageCleared = false;
-
-          fileInput?.addEventListener('change', () => {
-            const file = fileInput.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-              newImageDataUrl = reader.result as string;
-              imageCleared = false;
-              if (photoPreview) {
-                photoPreview.src = newImageDataUrl;
-                photoPreview.style.display = 'block';
-              }
-              if (removePhotoBtn) removePhotoBtn.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-          });
-
-          removePhotoBtn?.addEventListener('click', () => {
-            newImageDataUrl = undefined;
-            imageCleared = true;
-            if (photoPreview) {
-              photoPreview.src = '';
-              photoPreview.style.display = 'none';
-            }
-            removePhotoBtn.style.display = 'none';
-          });
-
-          saveBtn?.addEventListener('click', () => {
-            const t = (popupContent.querySelector('[data-field="title"]') as HTMLInputElement).value;
-            const d = (popupContent.querySelector('[data-field="description"]') as HTMLTextAreaElement).value;
-            const linkEl = popupContent.querySelector('[data-field="webLink"]') as HTMLInputElement | null;
-            const link = linkEl?.value || '';
-            setPois((prev) =>
-              prev.map((p) => {
-                if (p.id !== poi.id) return p;
-                const base = { ...p, title: t, description: d, webLink: link || undefined };
-                if (imageCleared) {
-                  return { ...base, imageDataUrl: undefined, imageUrl: undefined };
-                }
-                if (newImageDataUrl) {
-                  // New image queued — drop stale imageUrl, let save path upload.
-                  return { ...base, imageDataUrl: newImageDataUrl, imageUrl: undefined };
-                }
-                // No image change — preserve whatever was there.
-                return base;
-              })
-            );
-            popup.remove();
-          });
-
-          removeBtn?.addEventListener('click', () => {
-            setPois((prev) => prev.filter((p) => p.id !== poi.id));
-            popup.remove();
-          });
-
-          const moveBtn = popupContent.querySelector('[data-action="move"]') as HTMLButtonElement;
-          moveBtn?.addEventListener('click', () => {
-            marker.setDraggable(true);
-            el.style.cursor = 'grabbing';
-            inner.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.4), 0 4px 12px rgba(0,0,0,0.3)';
-            popup.remove();
-            const onDragEnd = () => {
-              const lngLat = marker.getLngLat();
-              const snappedCoord = poiSnapToRoute ? snapToNearestRoute([lngLat.lng, lngLat.lat] as Coord, routes) : [lngLat.lng, lngLat.lat] as Coord;
-              marker.setLngLat(snappedCoord);
-              setPois((prev) =>
-                prev.map((p) =>
-                  p.id === poi.id
-                    ? { ...p, coordinates: snappedCoord }
-                    : p
-                )
-              );
-              marker.setDraggable(false);
-              el.style.cursor = 'pointer';
-              inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`;
-              marker.off('dragend', onDragEnd);
-            };
-            marker.on('dragend', onDragEnd);
-          });
+        el.addEventListener('mouseenter', () => {
+          inner.style.transform = 'scale(1.25)';
+          inner.style.boxShadow = `${selectionRing}0 4px 12px rgba(0,0,0,0.35)`;
+        });
+        el.addEventListener('mouseleave', () => {
+          inner.style.transform = 'scale(1)';
+          inner.style.boxShadow = `${selectionRing}0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`;
         });
 
-        const marker = new mapboxgl.Marker({ element: el, draggable: false })
+        // The DOM node Mapbox anchors our React popover into.
+        const popupHost = document.createElement('div');
+        popupHost.style.fontFamily = '"DM Sans", system-ui, sans-serif';
+
+        const popup = new mapboxgl.Popup({ offset: 14, maxWidth: '320px', closeOnClick: false });
+        popup.setDOMContent(popupHost);
+
+        popup.on('open', () => {
+          // Fresh React root per open — cheaper than keeping them
+          // around between interactions, and guarantees the popover
+          // reads the latest POI data from the closure.
+          const root = createRoot(popupHost);
+          popoverRootsRef.current.set(poi.id, root);
+          root.render(
+            <PoiEditPopover
+              poi={poi}
+              onSave={(patch) => {
+                setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, ...patch } : p)));
+              }}
+              onDelete={() => {
+                setPois((prev) => prev.filter((p) => p.id !== poi.id));
+                setSelectedPoiId(null);
+              }}
+              onClose={() => popup.remove()}
+            />
+          );
+        });
+
+        popup.on('close', () => {
+          const root = popoverRootsRef.current.get(poi.id);
+          if (root) {
+            // Defer unmount to the next tick — React complains if you
+            // unmount synchronously from within an event that was
+            // itself dispatched from React's render cycle.
+            setTimeout(() => root.unmount(), 0);
+            popoverRootsRef.current.delete(poi.id);
+          }
+        });
+
+        const marker = new mapboxgl.Marker({ element: el, draggable: true })
           .setLngLat(poi.coordinates)
           .setPopup(popup)
           .addTo(map);
+
+        // Click to select (the popup auto-opens via setPopup binding,
+        // but we also want to flag this POI as "selected" so keyboard
+        // delete works).
+        el.addEventListener('click', () => setSelectedPoiId(poi.id));
+
+        // Always-on drag handling. Close any open popup on drag start
+        // so it doesn't float stale above the marker, then on drag end
+        // snap-to-route if enabled and commit the new position.
+        marker.on('dragstart', () => {
+          popup.remove();
+          el.style.cursor = 'grabbing';
+        });
+        marker.on('dragend', () => {
+          const lngLat = marker.getLngLat();
+          const snapped = poiSnapToRoute
+            ? snapToNearestRoute([lngLat.lng, lngLat.lat] as Coord, routes)
+            : ([lngLat.lng, lngLat.lat] as Coord);
+          marker.setLngLat(snapped);
+          setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, coordinates: snapped } : p)));
+          el.style.cursor = 'grab';
+        });
+
         markersRef.current.push(marker);
       });
     };
@@ -1036,11 +980,22 @@ const RouteEditor = () => {
         return;
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Prefer deleting a selected POI over clearing the active route —
+        // matches the "click-to-select, Delete to remove" desktop editor
+        // convention. Falls through to route clear if nothing is selected.
+        if (selectedPoiId) {
+          setPois((prev) => prev.filter((p) => p.id !== selectedPoiId));
+          setSelectedPoiId(null);
+          setStatusText('Marker removed.');
+          return;
+        }
         clearActiveRoute();
         return;
       }
       if (e.key === 'Escape') {
         setPendingPoiType(null);
+        setKeepPoiTypeArmed(false);
+        setSelectedPoiId(null);
         return;
       }
       if (e.key === '?') {
@@ -1050,7 +1005,7 @@ const RouteEditor = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSave, undoLastWaypoint, clearActiveRoute]);
+  }, [handleSave, undoLastWaypoint, clearActiveRoute, selectedPoiId]);
 
   const activeDistance = activeRoute ? totalDistanceMiles(activeRoute.routeCoords) : 0;
 
@@ -1133,6 +1088,8 @@ const RouteEditor = () => {
                 }
                 setPendingPoiType(type);
               }}
+              keepPoiTypeArmed={keepPoiTypeArmed}
+              setKeepPoiTypeArmed={setKeepPoiTypeArmed}
               pois={pois}
               setPois={setPois}
               selectedBasemap={selectedBasemap}
