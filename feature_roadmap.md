@@ -13,15 +13,23 @@ reference.
 The landing page sells Pro. The product can't take money. Close that
 loop before anything else.
 
-- [ ] **Pick a pricing model.** Subscription (recommended) or
-  per-event. Locks in schema + checkout flow. Blocks everything below.
-- [ ] **Billing schema migration.** `profiles.plan`,
-  `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`.
-  Columns can land before Stripe integration — they cost nothing
-  unused. *Scaffolded, not live.*
-- [ ] **Stripe integration.** Checkout session, customer portal,
-  webhook handler in an edge function. Requires keys + product/price
-  setup in Stripe dashboard.
+**Pricing decision (locked 2026-04-09):** $49 per event, one-time,
+no subscription. Matches how race organizers actually think — "I'm
+running a 10K, I need a map, I'll pay for this 10K" — and avoids
+the dead-month churn problem seasonal SaaS always hits. Annual /
+team plans stay parked until we see large orgs running multiple
+events per season; that's a real signal, not a guess.
+
+- [ ] **Billing schema migration.** Pro is an *event* attribute, not
+  a user attribute. One migration: `events.paid_at TIMESTAMPTZ`,
+  `events.stripe_session_id TEXT`. The `public_events` view already
+  computes `plan` from `owner_is_paid` — swap that to
+  `paid_at IS NOT NULL`.
+- [ ] **Stripe integration.** Checkout session in payment mode (not
+  subscription), webhook handler for `checkout.session.completed`,
+  both in Supabase edge functions. Requires keys + a single $49
+  product/price in Stripe dashboard. **Blocked on external Stripe
+  account factors — resume the moment the account is live.**
 - [x] **Decide free-tier limits.** Set to 3 routes / 30 POIs. Sized so a
   typical small race (5K/10K/half trio, single aid-station set) fits
   entirely inside free. Marathon weekends and larger events hit Pro as

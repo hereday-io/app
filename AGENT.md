@@ -120,31 +120,38 @@ Do **not** design like:
 
 ## Business Model
 
-Current likely direction:
-- SaaS
+**Pricing model (locked 2026-04-09): per-event, $49 one-time, no
+subscription.** Free tier stays generous enough that small races
+(3 routes / 30 POIs) can publish without paying; Pro is unlocked
+per event when an organizer needs more routes, more POIs, or
+branding.
 
-Pricing direction:
-- Free tier
-- Paid tier
-- Future sponsor monetization
+The per-event model matches how race organizers actually think —
+they're running *an event*, not subscribing to a tool — and avoids
+the dead-month churn problem every seasonal SaaS hits. It also
+means no customer portal, no proration, no "is this user still
+paid?" lookups: Pro is an attribute on the event row, not the user.
+
+Annual plans and team/org billing stay parked until we see large
+organizations running multiple events per season. That's a real
+signal to revisit; until then, adding plans is a distraction.
 
 ### Free Tier
-May include:
-- Basic map builder
-- Simple route publishing
-- Limited POIs
-- Limited branding/customization
+- Full map builder
+- Up to 3 routes
+- Up to 30 POIs
+- "Made with Hereday" footer on public pages
+- No custom branding
 
-### Paid Tier
-May include:
-- Branded event pages
-- Logo/colors
-- Richer POIs
-- Multiple routes
-- Better sponsor features
-- More advanced sharing/publishing tools
+### Pro Tier ($49 per event)
+- Unlimited routes
+- Unlimited POIs
+- Logo + branded public page (corner / banner / both)
+- Hidden Hereday footer
+- Priority for future premium features as they ship
 
 ### Future Revenue Opportunities
+- Annual plan for large race operators (only if multi-event usage shows up)
 - Sponsor placements
 - Sponsor booth engagement
 - Location-based discounts/offers
