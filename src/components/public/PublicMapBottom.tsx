@@ -144,11 +144,6 @@ const PublicMapBottom = ({
       })
     : legendCategories;
 
-  // Sum visible route distances for the Start → Finish hero row.
-  const heroDistance = routes
-    .filter((r) => r.visible && !hiddenRouteIds.has(r.id))
-    .reduce((sum, r) => sum + totalDistanceMiles(r.routeCoords), 0);
-
   // ── Tabs ──────────────────────────────────────────────────────────
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     ...(hasRoute ? [{ id: 'elevation' as Tab, label: 'Elevation', icon: <Mountain className="w-3.5 h-3.5" /> }] : []),
@@ -396,22 +391,15 @@ const PublicMapBottom = ({
 
                   {/* Start → Finish hero row — rendered only when both
                       markers exist. Promotes the two most important POIs
-                      out of the category grid and puts them front-and-
-                      center with the total visible route distance. */}
+                      out of the category grid. Distances live on the
+                      route rows above, so we don't repeat them here. */}
                   {hasStart && hasFinish && (
-                    <div className="mb-3 flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                        <span className="text-base leading-none">{poiTone('start').emoji}</span>
-                        <span>Start</span>
-                        <span className="text-muted-foreground mx-1">→</span>
-                        <span className="text-base leading-none">{poiTone('finish').emoji}</span>
-                        <span>Finish</span>
-                      </div>
-                      {heroDistance > 0 && (
-                        <span className="text-[11px] text-muted-foreground font-medium">
-                          {heroDistance.toFixed(1)} mi
-                        </span>
-                      )}
+                    <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground">
+                      <span className="text-base leading-none">{poiTone('start').emoji}</span>
+                      <span>Start</span>
+                      <span className="text-muted-foreground mx-1">→</span>
+                      <span className="text-base leading-none">{poiTone('finish').emoji}</span>
+                      <span>Finish</span>
                     </div>
                   )}
 
