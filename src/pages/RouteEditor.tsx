@@ -50,6 +50,7 @@ const RouteEditor = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const scoutedMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const currentBasemapRef = useRef('light');
   // Track React roots mounted into Mapbox popup DOM nodes so we can
   // cleanly unmount them on popup close / marker rebuild and avoid
@@ -577,6 +578,8 @@ const RouteEditor = () => {
 
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
+      scoutedMarkersRef.current.forEach((m) => m.remove());
+      scoutedMarkersRef.current = [];
 
       // Mile markers for visible routes
       routes
@@ -700,6 +703,41 @@ const RouteEditor = () => {
 
         markersRef.current.push(marker);
       });
+
+      // Scouted POIs — rendered with a distinct "pending review" style
+      // (dashed amber ring + compass badge) so organizers can visually
+      // locate what they're about to accept or reject. Non-draggable,
+      // non-editable; all interaction flows through the review panel.
+      scoutedPois.forEach((poi) => {
+        const tone = poiTone(poi.type);
+        const el = document.createElement('div');
+        el.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;';
+        const inner = document.createElement('div');
+        inner.style.cssText = `width:30px;height:30px;border-radius:50%;background:${tone.dot};border:2.5px dashed #f59e0b;box-shadow:0 2px 8px rgba(245,158,11,0.45);display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none;animation:scoutPulse 2s ease-in-out infinite;`;
+        inner.textContent = tone.emoji;
+        // Small compass badge in the corner so the amber ring alone
+        // isn't the only signal that this is a scouted pin.
+        const badge = document.createElement('div');
+        badge.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:#f59e0b;color:white;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;border:1.5px solid white;pointer-events:none;';
+        badge.textContent = '!';
+        el.appendChild(inner);
+        el.appendChild(badge);
+        el.addEventListener('click', () => {
+          // Inlined rather than calling handleScoutedFlyTo so the
+          // render effect doesn't need that callback in its deps.
+          mapRef.current?.flyTo({
+            center: poi.coordinates,
+            zoom: 16,
+            duration: 800,
+            offset: [-176, 0],
+          });
+          setScoutReviewPanelOpen(true);
+        });
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat(poi.coordinates)
+          .addTo(map);
+        scoutedMarkersRef.current.push(marker);
+      });
     };
 
     if (map.isStyleLoaded()) {
@@ -713,7 +751,7 @@ const RouteEditor = () => {
     return () => {
       map.off('style.load', render);
     };
-  }, [routes, pois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
+  }, [routes, pois, scoutedPois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
 
   // Materializes any POI images that are still base64 data URLs into the
   // poi-images storage bucket. Returns a POI array safe to persist (no
