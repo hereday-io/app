@@ -1051,7 +1051,14 @@ const RouteEditor = () => {
   }, [eventId]);
 
   const handleScoutedFlyTo = useCallback((coord: [number, number]) => {
-    mapRef.current?.flyTo({ center: coord, zoom: 16, duration: 800 });
+    // Offset the target leftward so the POI lands in the visible map
+    // area instead of being covered by the review panel on the right.
+    mapRef.current?.flyTo({
+      center: coord,
+      zoom: 16,
+      duration: 800,
+      offset: [-176, 0],
+    });
   }, []);
 
   if (authLoading) {

@@ -1,8 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog';
-import { Check, Trash2, MapPin, Compass } from 'lucide-react';
+import { Check, Trash2, MapPin, Compass, X } from 'lucide-react';
 import type { RoutePoi } from '@/types/mapEditor';
 import { poiTone } from '@/lib/pois';
 
@@ -64,21 +61,34 @@ const ScoutReviewPanel = ({
     setConfirmingAcceptAll(false);
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Compass className="h-5 w-5 text-primary" />
-            Review scouted POIs
-          </DialogTitle>
-          <DialogDescription>
-            Accept to add a POI to your event, or reject to discard it. Click any
-            row to fly the map to its location.
-          </DialogDescription>
-        </DialogHeader>
+  if (!open) return null;
 
-        <div className="flex-1 overflow-y-auto -mx-6 px-6 space-y-2">
+  return (
+    <div
+      className="pointer-events-none fixed right-4 top-20 z-40 flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col"
+      style={{ maxHeight: 'calc(100vh - 6rem)' }}
+    >
+      <div className="pointer-events-auto flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+        <div className="shrink-0 flex items-start gap-2 px-4 py-3 border-b border-border">
+          <Compass className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-display font-bold text-foreground">
+              Review scouted POIs
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Click a row to fly the map to it.
+            </p>
+          </div>
+          <button
+            onClick={() => onOpenChange(false)}
+            className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            title="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {ordered.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
               Nothing to review.
@@ -89,11 +99,12 @@ const ScoutReviewPanel = ({
             return (
               <div
                 key={poi.id}
-                className="rounded-lg border border-border bg-card p-3 hover:border-primary/40 transition-colors"
+                className="rounded-lg border border-border bg-card p-3 hover:border-primary/60 hover:shadow-sm transition-all"
               >
                 <button
                   onClick={() => onFlyTo(poi.coordinates)}
-                  className="w-full text-left flex items-start gap-3"
+                  className="w-full text-left flex items-start gap-3 cursor-pointer group"
+                  title="Fly map to this POI"
                 >
                   <div className="shrink-0 w-9 h-9 rounded-full bg-muted flex items-center justify-center text-lg">
                     {tone.emoji}
@@ -143,7 +154,7 @@ const ScoutReviewPanel = ({
         </div>
 
         {ordered.length > 1 && (
-          <div className="shrink-0 pt-3 border-t border-border">
+          <div className="shrink-0 p-3 border-t border-border">
             {confirmingAcceptAll ? (
               <div className="flex items-center gap-2">
                 <p className="flex-1 text-xs text-muted-foreground">
@@ -172,8 +183,8 @@ const ScoutReviewPanel = ({
             )}
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 
