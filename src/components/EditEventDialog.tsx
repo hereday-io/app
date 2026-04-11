@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Radio } from 'lucide-react';
+import { CalendarIcon, Radio, Link as LinkIcon, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -28,7 +28,24 @@ interface EventData {
   event_date: string | null;
   tracking_start?: string | null;
   tracking_end?: string | null;
+  /** Optional so existing call sites don't break. When present, the
+   *  slug field surfaces as editable on drafts and read-only on
+   *  published events (live links must stay stable). */
+  status?: string;
+  slug?: string | null;
 }
+
+/** Normalize a user-typed slug candidate. Kept generous — we only
+ *  strip characters that would break a URL, we don't touch case or
+ *  length. Supabase's unique index handles collisions. */
+const normalizeSlug = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/(^-|-$)/g, '');
 
 interface EditEventDialogProps {
   open: boolean;
@@ -53,16 +70,23 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [date, setDate] = useState<Date>();
+  const [slug, setSlug] = useState('');
   const [trackingStart, setTrackingStart] = useState('');
   const [trackingEnd, setTrackingEnd] = useState('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+
+  // Published events lock the slug — once the organizer has shared the
+  // URL to runners, SMS threads, Instagram stories, and race-day QR
+  // codes, the one thing we cannot do is change it under them.
+  const slugLocked = event?.status === 'published';
 
   useEffect(() => {
     if (event) {
       setName(event.name);
       setCity(event.city ?? '');
       setDate(event.event_date ? new Date(event.event_date + 'T00:00:00') : undefined);
+      setSlug(event.slug ?? '');
       setTrackingStart(toLocalDatetime(event.tracking_start));
       setTrackingEnd(toLocalDatetime(event.tracking_end));
     }
@@ -78,20 +102,51 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!event || !name.trim()) return;
+
+    // Only push a slug change when the event is still a draft AND the
+    // normalized value actually differs from what's on the row. Zero-
+    // length slugs fall through — the DB has a NOT NULL constraint.
+    const normalizedSlug = normalizeSlug(slug);
+    const slugChanged =
+      !slugLocked &&
+      normalizedSlug.length > 0 &&
+      normalizedSlug !== (event.slug ?? '');
+    if (!slugLocked && slug.trim().length > 0 && normalizedSlug.length === 0) {
+      toast({ title: 'Slug must contain letters or numbers', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
 
-    const { error } = await supabase.from('events')
-      .update({
-        name: name.trim(),
-        city: city.trim() || null,
-        event_date: date ? format(date, 'yyyy-MM-dd') : null,
-        tracking_start: trackingStart ? new Date(trackingStart).toISOString() : null,
-        tracking_end: trackingEnd ? new Date(trackingEnd).toISOString() : null,
-      })
-      .eq('id', event.id);
+    type UpdatePayload = {
+      name: string;
+      city: string | null;
+      event_date: string | null;
+      tracking_start: string | null;
+      tracking_end: string | null;
+      slug?: string;
+    };
+    const payload: UpdatePayload = {
+      name: name.trim(),
+      city: city.trim() || null,
+      event_date: date ? format(date, 'yyyy-MM-dd') : null,
+      tracking_start: trackingStart ? new Date(trackingStart).toISOString() : null,
+      tracking_end: trackingEnd ? new Date(trackingEnd).toISOString() : null,
+    };
+    if (slugChanged) payload.slug = normalizedSlug;
+
+    const { error } = await supabase.from('events').update(payload).eq('id', event.id);
 
     if (error) {
-      toast({ title: 'Failed to update event', description: error.message, variant: 'destructive' });
+      // 23505 on slug means another event already owns this URL. Surface
+      // it as something the user can actually fix instead of a raw
+      // constraint error.
+      const isSlugCollision = slugChanged && (error as { code?: string }).code === '23505';
+      toast({
+        title: isSlugCollision ? 'That URL is already taken' : 'Failed to update event',
+        description: isSlugCollision ? 'Pick a different slug and try again.' : error.message,
+        variant: 'destructive',
+      });
     } else {
       toast({ title: 'Event updated' });
       onOpenChange(false);
@@ -153,7 +208,40 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
               </PopoverContent>
             </Popover>
           </div>
-          {/* Live Tracking Window */}
+          {/* Public URL slug — only editable while draft. Once the event
+              is published, this field becomes a read-only display so
+              the organizer never accidentally breaks a live share link. */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-event-slug" className="flex items-center gap-1.5">
+              <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              Public URL
+              {slugLocked && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full ml-1">
+                  <Lock className="h-2.5 w-2.5" />
+                  Locked
+                </span>
+              )}
+            </Label>
+            <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring overflow-hidden">
+              <span className="px-2.5 py-2 text-xs text-muted-foreground bg-muted/50 border-r border-border font-mono shrink-0">
+                /event/
+              </span>
+              <Input
+                id="edit-event-slug"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="spring-marathon-2026"
+                disabled={slugLocked}
+                className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none font-mono text-xs"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              {slugLocked
+                ? 'Slug is locked while the event is published — unpublish first to change it.'
+                : 'Letters, numbers, and dashes. Customize it before publishing — once live, changing it breaks shared links.'}
+            </p>
+          </div>
+
           {/* Live Tracking Window */}
           <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">

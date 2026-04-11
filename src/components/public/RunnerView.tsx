@@ -15,6 +15,7 @@ import MapBottomSheet from '@/components/map/MapBottomSheet';
 import PoiReadonlyPopover from '@/components/public/PoiReadonlyPopover';
 import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
+import PublicShareButton from '@/components/public/PublicShareButton';
 import TrackMeButton from '@/components/public/TrackMeButton';
 import { buildGpx, downloadGpx, gpxFilename } from '@/lib/gpx';
 import { logEvent } from '@/lib/analytics';
@@ -525,6 +526,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
             <ArrowLeft className="w-4 h-4" />
           </button>
           <SubscribeButton eventId={event.id} eventName={event.name} source="runner" />
+          <PublicShareButton eventId={event.id} eventName={event.name} source="runner" />
         </div>
 
         {/* Right group: Run/Watch toggle */}

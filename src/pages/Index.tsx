@@ -232,8 +232,42 @@ const Index = () => {
             No credit card required · Publish your first event in under 5 minutes
           </p>
 
-          {/* Hero map preview */}
+          {/* Hero map preview — static PNG gets an SVG overlay that animates
+              a stylized route drawing itself + POIs popping in on a loop.
+              Cheap substitute for a real Lottie — zero deps, ~0KB payload,
+              and it communicates the product's core verb ("draw a route")
+              in the first second above the fold. */}
           <div className="mt-14 relative mx-auto max-w-5xl">
+            {/* Scoped keyframes — keeping them inline so the hero is a
+                drop-in unit instead of polluting global CSS for a
+                single-use animation. */}
+            <style>{`
+              @keyframes heroDraw {
+                0%   { stroke-dashoffset: 2400; }
+                35%  { stroke-dashoffset: 0; }
+                90%  { stroke-dashoffset: 0; opacity: 1; }
+                100% { stroke-dashoffset: 0; opacity: 0; }
+              }
+              @keyframes heroPoiPop {
+                0%, 40%  { transform: scale(0); opacity: 0; }
+                50%      { transform: scale(1.25); opacity: 1; }
+                60%, 90% { transform: scale(1); opacity: 1; }
+                100%     { transform: scale(1); opacity: 0; }
+              }
+              .hero-route-path {
+                stroke-dasharray: 2400;
+                stroke-dashoffset: 2400;
+                animation: heroDraw 9s ease-in-out infinite;
+              }
+              .hero-poi {
+                transform-origin: center;
+                transform-box: fill-box;
+                animation: heroPoiPop 9s ease-in-out infinite;
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .hero-route-path, .hero-poi { animation: none; opacity: 1; stroke-dashoffset: 0; }
+              }
+            `}</style>
             <div className="rounded-2xl overflow-hidden border border-border shadow-2xl shadow-primary/10 bg-card">
               {/* Browser chrome */}
               <div className="bg-muted/70 border-b border-border px-4 py-3 flex items-center gap-2">
@@ -247,7 +281,7 @@ const Index = () => {
                   hereday.io/event/crystal-lake-5k
                 </div>
               </div>
-              {/* Map image */}
+              {/* Map image + animated overlay */}
               <div className="relative">
                 <img
                   src={heroMapUrl}
@@ -256,6 +290,51 @@ const Index = () => {
                   style={{ maxHeight: '460px' }}
                   loading="eager"
                 />
+                {/* SVG overlay draws a stylized polyline across the map
+                    while POI dots pop in. Pointer events stay off so the
+                    underlying image is still selectable / hoverable. */}
+                <svg
+                  viewBox="0 0 1200 460"
+                  preserveAspectRatio="xMidYMid slice"
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  aria-hidden
+                >
+                  {/* Soft halo under the animated stroke */}
+                  <path
+                    d="M 180 340 C 260 220, 400 160, 540 200 S 820 360, 980 260 S 1100 120, 1060 90"
+                    fill="none"
+                    stroke="hsl(var(--primary) / 0.25)"
+                    strokeWidth="14"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="hero-route-path"
+                  />
+                  {/* Primary stroke */}
+                  <path
+                    d="M 180 340 C 260 220, 400 160, 540 200 S 820 360, 980 260 S 1100 120, 1060 90"
+                    fill="none"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="hero-route-path"
+                  />
+                  {/* POI dots — pop in once the stroke has drawn through */}
+                  <g className="hero-poi" style={{ animationDelay: '0.4s' }}>
+                    <circle cx="180" cy="340" r="11" fill="white" stroke="hsl(var(--primary))" strokeWidth="3" />
+                    <text x="180" y="345" textAnchor="middle" fontSize="12" fontWeight="700" fill="hsl(var(--primary))">S</text>
+                  </g>
+                  <g className="hero-poi" style={{ animationDelay: '1.2s' }}>
+                    <circle cx="480" cy="200" r="10" fill="hsl(var(--brand))" stroke="white" strokeWidth="3" />
+                  </g>
+                  <g className="hero-poi" style={{ animationDelay: '2.0s' }}>
+                    <circle cx="760" cy="320" r="10" fill="hsl(var(--brand))" stroke="white" strokeWidth="3" />
+                  </g>
+                  <g className="hero-poi" style={{ animationDelay: '2.8s' }}>
+                    <circle cx="1060" cy="90" r="11" fill="white" stroke="hsl(var(--primary))" strokeWidth="3" />
+                    <text x="1060" y="95" textAnchor="middle" fontSize="12" fontWeight="700" fill="hsl(var(--primary))">F</text>
+                  </g>
+                </svg>
                 {/* Floating stat pill overlay */}
                 <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-card/95 backdrop-blur-md rounded-full px-3 py-1.5 text-xs font-medium shadow-lg ring-1 ring-black/5">
                   <div className="w-2 h-2 rounded-full bg-primary" />

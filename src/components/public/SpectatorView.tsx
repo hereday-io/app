@@ -15,6 +15,7 @@ import MapBottomSheet from '@/components/map/MapBottomSheet';
 import PoiReadonlyPopover from '@/components/public/PoiReadonlyPopover';
 import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
+import PublicShareButton from '@/components/public/PublicShareButton';
 import LiveRunnerMarkers from '@/components/public/LiveRunnerMarkers';
 import RunnerListPanel from '@/components/public/RunnerListPanel';
 import { useTrackingSubscription } from '@/hooks/useTrackingSubscription';
@@ -487,6 +488,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
             <ArrowLeft className="w-4 h-4" />
           </button>
           <SubscribeButton eventId={event.id} eventName={event.name} source="spectator" expanded />
+          <PublicShareButton eventId={event.id} eventName={event.name} source="spectator" />
         </div>
 
         {/* Right group: Run/Watch toggle */}

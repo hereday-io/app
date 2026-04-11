@@ -217,6 +217,9 @@ const EventPublic = () => {
         city={event.city}
         logoUrl={event.logo_url}
         brandingStyle={event.branding_style}
+        routes={event.routes}
+        routeCount={event.route_count}
+        poiCount={event.poi_count}
       />
     );
   }

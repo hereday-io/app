@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X } from 'lucide-react';
+import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import CitySearch from '@/components/editor/CitySearch';
@@ -59,6 +59,10 @@ const Dashboard = () => {
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
   const [analyticsEvent, setAnalyticsEvent] = useState<Event | null>(null);
   const [isPro, setIsPro] = useState(false);
+  // Pulled from profiles.display_name so the top-right avatar + welcome
+  // header stop showing the email slug. Falls back to user metadata (for
+  // the first render before profiles hydrates) then to the email prefix.
+  const [displayName, setDisplayName] = useState<string | null>(null);
   // Search + status filter — only surfaced once the list stops fitting
   // on one screen. A race-series organizer running 3+ events/year hits
   // this immediately; a first-timer with 1 event should never see it.
@@ -89,12 +93,14 @@ const Dashboard = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch user plan status
+  // Fetch user plan status + display name
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('is_paid, plan').eq('user_id', user.id).single()
+    supabase.from('profiles').select('is_paid, plan, display_name').eq('user_id', user.id).single()
       .then(({ data }) => {
-        if (data) setIsPro(data.plan === 'pro' || data.is_paid === true);
+        if (!data) return;
+        setIsPro(data.plan === 'pro' || data.is_paid === true);
+        if (data.display_name) setDisplayName(data.display_name);
       });
   }, [user]);
 
@@ -169,9 +175,17 @@ const Dashboard = () => {
     { label: 'Places', value: totalPois, icon: MapPinned, color: 'text-primary' },
   ];
 
-  const userInitials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : '?';
+  // Prefer display_name for initials so the avatar reads as the person,
+  // not the email slug. Two tokens → "KP"; one token → first two letters.
+  const userInitials = (() => {
+    if (displayName) {
+      const parts = displayName.trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return user?.email ? user.email.slice(0, 2).toUpperCase() : '?';
+  })();
+  const firstName = displayName?.trim().split(/\s+/)[0] ?? null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -198,7 +212,9 @@ const Dashboard = () => {
         {/* Welcome */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-display font-bold">Dashboard</h1>
+            <h1 className="text-2xl font-display font-bold">
+              {firstName ? `Welcome back, ${firstName}` : 'Dashboard'}
+            </h1>
             <p className="text-muted-foreground text-sm mt-1">Manage your event maps</p>
           </div>
           <div className="flex items-start gap-2">
@@ -227,8 +243,15 @@ const Dashboard = () => {
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setCreateOpen(true)} className="text-muted-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCreateOpen(true)}
+                  className="text-muted-foreground gap-1"
+                  title="More options (date, tracking, branding)"
+                >
                   Advanced
+                  <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
               </div>
               {/* City field slides in once a name is being typed — progressive

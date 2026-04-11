@@ -44,6 +44,11 @@ const ScoutPage = () => {
   const [dropSheetOpen, setDropSheetOpen] = useState(false);
   const [pendingCoord, setPendingCoord] = useState<[number, number] | null>(null);
   const [locating, setLocating] = useState(false);
+  // GPS accuracy in meters from the most recent geolocation fix. Lets
+  // the volunteer see at a glance whether "drop pin here" will land in
+  // the right spot — a 200m fix inside a stadium is useless data for
+  // the organizer and should come with a visible warning.
+  const [accuracyM, setAccuracyM] = useState<number | null>(null);
 
   // ── 1. Resolve the token ───────────────────────────────────────────────
   useEffect(() => {
@@ -199,7 +204,8 @@ const ScoutPage = () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        const { longitude, latitude } = pos.coords;
+        const { longitude, latitude, accuracy } = pos.coords;
+        setAccuracyM(accuracy);
         const map = mapRef.current;
         if (!map) return;
         map.flyTo({ center: [longitude, latitude], zoom: 17, duration: 800 });
@@ -284,6 +290,15 @@ const ScoutPage = () => {
         </div>
       </header>
 
+      {/* One-line explainer — first-time volunteers have zero context
+          for "scout mode". Shown above the map so it lands in the first
+          glance without covering it. */}
+      <div className="shrink-0 px-3 py-1.5 border-b border-border/60 bg-muted/40">
+        <p className="text-[11px] text-muted-foreground text-center leading-snug">
+          Drop pins for your organizer to review — no login needed.
+        </p>
+      </div>
+
       {/* Map + overlays */}
       <div className="flex-1 relative">
         <div ref={mapContainerRef} className="absolute inset-0" />
@@ -312,8 +327,31 @@ const ScoutPage = () => {
         </button>
       </div>
 
-      {/* Drop pin CTA */}
-      <div className="shrink-0 px-3 py-3 border-t border-border bg-card">
+      {/* Drop pin CTA + GPS quality indicator */}
+      <div className="shrink-0 px-3 py-3 border-t border-border bg-card space-y-2">
+        {accuracyM != null && (() => {
+          // Color-code the indicator so a bad fix is impossible to miss.
+          // Thresholds tuned to what actually matters on a race course:
+          //   ≤15m  → good enough to pin a water station precisely
+          //   ≤50m  → okay, the point will land within a city block
+          //   >50m  → don't trust it; pin will drift, warn loudly
+          const good = accuracyM <= 15;
+          const ok = accuracyM <= 50;
+          const tone = good
+            ? 'text-emerald-600 bg-emerald-500/10'
+            : ok
+              ? 'text-amber-600 bg-amber-500/10'
+              : 'text-destructive bg-destructive/10';
+          const label = good ? 'Good signal' : ok ? 'Okay signal' : 'Weak signal';
+          return (
+            <div className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-[11px] font-medium ${tone}`}>
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              <span>{label}</span>
+              <span className="opacity-70">· ±{Math.round(accuracyM)} m</span>
+              {!ok && <span className="opacity-70">— move outside if you can</span>}
+            </div>
+          );
+        })()}
         <button
           onClick={handleDropPin}
           className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm"

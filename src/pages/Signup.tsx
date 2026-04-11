@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,23 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowRight, Mail } from 'lucide-react';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 
+// Lightweight password strength heuristic. We deliberately skip zxcvbn
+// (~400KB gzip) — the goal is a live signal that nudges users toward
+// passwords longer than our 6-char minimum, not a bank-grade estimator.
+// Score 0-4: weak, fair, good, strong, excellent.
+const scorePassword = (pw: string): { score: 0 | 1 | 2 | 3 | 4; label: string } => {
+  if (!pw) return { score: 0, label: '' };
+  let points = 0;
+  if (pw.length >= 8) points++;
+  if (pw.length >= 12) points++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) points++;
+  if (/\d/.test(pw)) points++;
+  if (/[^A-Za-z0-9]/.test(pw)) points++;
+  const score = Math.min(4, points) as 0 | 1 | 2 | 3 | 4;
+  const labels = ['Too short', 'Weak', 'Fair', 'Good', 'Strong'];
+  return { score, label: labels[score] };
+};
+
 const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,6 +33,12 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const { toast } = useToast();
+
+  const strength = useMemo(() => scorePassword(password), [password]);
+  // Gate submission on both the Supabase minimum (6) and a meaningful
+  // strength signal — a 6-char all-lowercase password is technically
+  // valid but should at least prompt the user.
+  const passwordAcceptable = password.length >= 6;
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,11 +156,43 @@ const Signup = () => {
                   required
                   minLength={6}
                 />
+                {password.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex gap-1" aria-hidden>
+                      {[0, 1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-1 flex-1 rounded-full transition-colors ${
+                            i < strength.score
+                              ? strength.score <= 1
+                                ? 'bg-destructive'
+                                : strength.score === 2
+                                  ? 'bg-amber-500'
+                                  : strength.score === 3
+                                    ? 'bg-yellow-500'
+                                    : 'bg-emerald-500'
+                              : 'bg-muted'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {passwordAcceptable ? strength.label : 'At least 6 characters'}
+                      {passwordAcceptable && strength.score < 3 && (
+                        <span className="ml-1">— try mixing case, numbers, or symbols</span>
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || !passwordAcceptable}>
                 {loading ? 'Creating account…' : 'Create account'}
                 {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
+              <p className="text-[11px] text-muted-foreground text-center leading-snug">
+                By creating an account you agree to our{' '}
+                <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+              </p>
             </form>
           </CardContent>
         </Card>
