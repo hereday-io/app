@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -65,14 +65,17 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          paid_at: string | null
           plan: string
           poi_count: number
           pois: Json
           route_count: number
           routes: Json
+          scouted_pois: Json
           slug: string | null
           status: string
           stripe_payment_id: string | null
+          stripe_session_id: string | null
           tracking_end: string | null
           tracking_start: string | null
           updated_at: string
@@ -86,14 +89,17 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          paid_at?: string | null
           plan?: string
           poi_count?: number
           pois?: Json
           route_count?: number
           routes?: Json
+          scouted_pois?: Json
           slug?: string | null
           status?: string
           stripe_payment_id?: string | null
+          stripe_session_id?: string | null
           tracking_end?: string | null
           tracking_start?: string | null
           updated_at?: string
@@ -107,20 +113,68 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          paid_at?: string | null
           plan?: string
           poi_count?: number
           pois?: Json
           route_count?: number
           routes?: Json
+          scouted_pois?: Json
           slug?: string | null
           status?: string
           stripe_payment_id?: string | null
+          stripe_session_id?: string | null
           tracking_end?: string | null
           tracking_start?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      poi_volunteer_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          event_id: string
+          label: string | null
+          purpose: string
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          event_id: string
+          label?: string | null
+          purpose: string
+          revoked_at?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          event_id?: string
+          label?: string | null
+          purpose?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poi_volunteer_tokens_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poi_volunteer_tokens_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "public_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_events: {
         Row: {
@@ -310,6 +364,7 @@ export type Database = {
     }
     Functions: {
       event_owner_is_paid: { Args: { owner_id: string }; Returns: boolean }
+      get_event_analytics: { Args: { p_event_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
