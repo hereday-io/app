@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3 } from 'lucide-react';
+import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
 import CitySearch from '@/components/editor/CitySearch';
@@ -59,8 +59,29 @@ const Dashboard = () => {
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
   const [analyticsEvent, setAnalyticsEvent] = useState<Event | null>(null);
   const [isPro, setIsPro] = useState(false);
+  // Search + status filter — only surfaced once the list stops fitting
+  // on one screen. A race-series organizer running 3+ events/year hits
+  // this immediately; a first-timer with 1 event should never see it.
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'draft' | 'past'>('all');
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   const menuActionRef = useRef(false);
+
+  // Cmd/Ctrl-K focuses the dashboard search (same shortcut as Linear/Notion).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if (searchInputRef.current) {
+          e.preventDefault();
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -279,8 +300,28 @@ const Dashboard = () => {
           }
 
           const today = new Date().toISOString().split('T')[0];
-          const upcoming = events.filter((e) => !e.event_date || e.event_date >= today);
-          const past = events.filter((e) => e.event_date && e.event_date < today);
+          // Apply free-text + status filter before the upcoming/past split
+          // so both sections stay consistent. Query matches name, city, and
+          // slug — the three things organizers reach for to find an event.
+          const normalizedQuery = query.trim().toLowerCase();
+          const matchesQuery = (e: Event) => {
+            if (!normalizedQuery) return true;
+            const haystack = `${e.name} ${e.city ?? ''} ${e.slug ?? ''}`.toLowerCase();
+            return haystack.includes(normalizedQuery);
+          };
+          const matchesStatus = (e: Event) => {
+            if (statusFilter === 'all') return true;
+            if (statusFilter === 'live') return e.status === 'published' && (!e.event_date || e.event_date >= today);
+            if (statusFilter === 'draft') return e.status === 'draft';
+            if (statusFilter === 'past') return !!e.event_date && e.event_date < today;
+            return true;
+          };
+          const filtered = events.filter((e) => matchesQuery(e) && matchesStatus(e));
+          const upcoming = filtered.filter((e) => !e.event_date || e.event_date >= today);
+          const past = filtered.filter((e) => e.event_date && e.event_date < today);
+          const isFiltering = normalizedQuery.length > 0 || statusFilter !== 'all';
+          // Only surface the filter bar once the list is non-trivial.
+          const showFilterBar = events.length >= 4;
 
           const formatDate = (dateStr: string) =>
             new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -424,8 +465,80 @@ const Dashboard = () => {
             );
           };
 
+          const statusTabs: Array<{ key: typeof statusFilter; label: string }> = [
+            { key: 'all', label: 'All' },
+            { key: 'live', label: 'Live' },
+            { key: 'draft', label: 'Draft' },
+            { key: 'past', label: 'Past' },
+          ];
+
           return (
-            <div className="space-y-8">
+            <div className="space-y-6">
+              {showFilterBar && (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="relative w-full sm:max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      ref={searchInputRef}
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search events…"
+                      className="h-9 pl-9 pr-9"
+                    />
+                    {query && (
+                      <button
+                        type="button"
+                        onClick={() => setQuery('')}
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <kbd className="pointer-events-none absolute right-9 top-1/2 -translate-y-1/2 hidden md:inline-flex h-5 items-center rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
+                      ⌘K
+                    </kbd>
+                  </div>
+                  <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
+                    {statusTabs.map((tab) => {
+                      const active = statusFilter === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => setStatusFilter(tab.key)}
+                          className={`h-7 px-3 rounded-md font-medium transition-colors ${
+                            active
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {isFiltering && filtered.length === 0 && (
+                <Card className="border-border/60 border-dashed">
+                  <CardContent className="py-10 text-center">
+                    <Search className="h-8 w-8 mx-auto text-muted-foreground/40 mb-3" />
+                    <p className="text-sm font-medium text-foreground">No events match</p>
+                    <p className="text-xs text-muted-foreground mt-1">Try a different search or clear the filter.</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => { setQuery(''); setStatusFilter('all'); }}
+                    >
+                      Clear filters
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               {upcoming.length > 0 && (
                 <div>
                   <div className="flex items-center gap-3 mb-4">

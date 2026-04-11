@@ -83,22 +83,86 @@ interface PublicEventRow {
   has_ended: boolean | null;
 }
 
+// Google Encoded Polyline Algorithm (precision 5). Lets us stuff a full
+// route into a Mapbox static image URL without blowing past the ~8k URL
+// limit. Mirrors what google.maps.geometry.encoding.encodePath does.
+function encodePolyline(coords: Array<[number, number]>): string {
+  let output = '';
+  let prevLat = 0;
+  let prevLng = 0;
+  for (const [lng, lat] of coords) {
+    const latE5 = Math.round(lat * 1e5);
+    const lngE5 = Math.round(lng * 1e5);
+    const dLat = latE5 - prevLat;
+    const dLng = lngE5 - prevLng;
+    prevLat = latE5;
+    prevLng = lngE5;
+    for (let v of [dLat, dLng]) {
+      v = v < 0 ? ~(v << 1) : v << 1;
+      while (v >= 0x20) {
+        output += String.fromCharCode((0x20 | (v & 0x1f)) + 63);
+        v >>= 5;
+      }
+      output += String.fromCharCode(v + 63);
+    }
+  }
+  return output;
+}
+
+// Downsample a coord array to at most `maxPoints` by even-interval
+// picking. Keeps first and last (start/finish) unconditionally.
+function downsample(coords: Array<[number, number]>, maxPoints: number): Array<[number, number]> {
+  if (coords.length <= maxPoints) return coords;
+  const out: Array<[number, number]> = [];
+  const step = (coords.length - 1) / (maxPoints - 1);
+  for (let i = 0; i < maxPoints; i++) {
+    out.push(coords[Math.min(coords.length - 1, Math.round(i * step))]);
+  }
+  return out;
+}
+
 function buildMapboxImage(routes: unknown): string {
   if (!MAPBOX_TOKEN) return DEFAULT_OG_IMAGE;
   const routeList = Array.isArray(routes) ? (routes as Array<Record<string, unknown>>) : [];
   const firstRoute = routeList[0];
   if (!firstRoute) return DEFAULT_OG_IMAGE;
 
-  const coords =
+  // Prefer the snapped routeCoords (dense, follows roads); fall back to
+  // the raw waypoints if the snap never ran.
+  const rawCoords =
     (firstRoute.routeCoords as [number, number][] | undefined) ??
     (firstRoute.waypoints as [number, number][] | undefined) ??
     [];
-  const firstCoord = coords[0];
-  if (!firstCoord || firstCoord.length < 2) return DEFAULT_OG_IMAGE;
+  const coords = rawCoords.filter(
+    (c) => Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]),
+  );
+  if (coords.length === 0) return DEFAULT_OG_IMAGE;
 
-  const [lon, lat] = firstCoord;
-  const pin = `pin-l+ef4444(${lon},${lat})`;
-  return `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${pin}/${lon},${lat},12/1200x630@2x?access_token=${MAPBOX_TOKEN}`;
+  // Single-point route (pathological) — just drop a pin and call it done.
+  if (coords.length === 1) {
+    const [lon, lat] = coords[0];
+    const pin = `pin-l+ef4444(${lon},${lat})`;
+    return `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${pin}/${lon},${lat},13/1200x630@2x?access_token=${MAPBOX_TOKEN}`;
+  }
+
+  // Draw the polyline + start/finish pins, with the map auto-fitting
+  // to the route bounds. Downsample to keep the encoded URL well under
+  // Mapbox's 8192-char limit even for courses with thousands of points.
+  const sampled = downsample(coords, 120);
+  const encoded = encodePolyline(sampled);
+  // Mapbox expects the encoded polyline percent-encoded within the URL.
+  const path = `path-5+ef4444-0.9(${encodeURIComponent(encoded)})`;
+  const [startLng, startLat] = coords[0];
+  const [endLng, endLat] = coords[coords.length - 1];
+  const startPin = `pin-s-a+22c55e(${startLng},${startLat})`;
+  const finishPin = `pin-s-b+0ea5e9(${endLng},${endLat})`;
+  const overlays = `${path},${startPin},${finishPin}`;
+  const url = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${overlays}/auto/1200x630@2x?access_token=${MAPBOX_TOKEN}&padding=80`;
+
+  // Belt-and-suspenders: if we somehow blew through Mapbox's URL limit,
+  // fall back to the default image rather than surfacing a broken tag.
+  if (url.length > 8100) return DEFAULT_OG_IMAGE;
+  return url;
 }
 
 function buildDescription(row: PublicEventRow): string {
