@@ -6,6 +6,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { totalDistanceMiles, getSnappedRoute, getMileMarkers, snapToNearestRoute, ROUTE_COLORS, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone, POI_TYPES } from '@/lib/pois';
@@ -91,6 +92,14 @@ const RouteEditor = () => {
   const [scoutReviewPanelOpen, setScoutReviewPanelOpen] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
   const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>('idle');
+  // Countdown (seconds) until the next auto-retry of a failed save.
+  // Drives the "Retrying in Ns…" chip label. Null when no retry is
+  // pending — either never failed, already recovered, or we've run
+  // out of auto-retries and now need the user to click.
+  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
+  const retryAttemptRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const isDirtyRef = useRef(false);
   const initialLoadCompleteRef = useRef(false);
@@ -259,6 +268,40 @@ const RouteEditor = () => {
                   }
                 })
                 .catch(() => {});
+            } else {
+              // No route data, no city — don't leave the user staring at
+              // a continental zoom-4 view. Try the last editor center
+              // from localStorage first (instant, no prompt), then fall
+              // back to navigator.geolocation (async, requires consent).
+              // The continental default stays as the absolute last resort.
+              try {
+                const last = localStorage.getItem('hereday:lastEditorCenter');
+                if (last) {
+                  const parsed = JSON.parse(last) as { lng: number; lat: number };
+                  if (Number.isFinite(parsed.lng) && Number.isFinite(parsed.lat)) {
+                    map.jumpTo({ center: [parsed.lng, parsed.lat], zoom: 13 });
+                    return;
+                  }
+                }
+              } catch {
+                // Ignore parse errors — fall through to geolocation.
+              }
+              if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const m = mapRef.current;
+                    if (!m) return;
+                    m.jumpTo({
+                      center: [pos.coords.longitude, pos.coords.latitude],
+                      zoom: 13,
+                    });
+                  },
+                  () => {
+                    // Permission denied or unavailable — stay put.
+                  },
+                  { timeout: 5000, maximumAge: 60_000 },
+                );
+              }
             }
           };
           const map = mapRef.current;
@@ -295,7 +338,31 @@ const RouteEditor = () => {
     mapRef.current = map;
     map.once('load', () => setMapReady(true));
 
+    // Remember where the user last looked so the next cold-start of a
+    // new cityless event can warp there instead of a continental view.
+    // Debounced to keep the write cost minimal on repeated pan/zoom.
+    let persistCenterTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleMoveEnd = () => {
+      if (persistCenterTimer) clearTimeout(persistCenterTimer);
+      persistCenterTimer = setTimeout(() => {
+        try {
+          const c = map.getCenter();
+          if (map.getZoom() >= 8) {
+            localStorage.setItem(
+              'hereday:lastEditorCenter',
+              JSON.stringify({ lng: c.lng, lat: c.lat }),
+            );
+          }
+        } catch {
+          // localStorage unavailable — silently drop.
+        }
+      }, 500);
+    };
+    map.on('moveend', handleMoveEnd);
+
     return () => {
+      if (persistCenterTimer) clearTimeout(persistCenterTimer);
+      map.off('moveend', handleMoveEnd);
       map.remove();
       mapRef.current = null;
       setMapReady(false);
@@ -655,8 +722,8 @@ const RouteEditor = () => {
                 setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, ...patch } : p)));
               }}
               onDelete={() => {
-                setPois((prev) => prev.filter((p) => p.id !== poi.id));
-                setSelectedPoiId(null);
+                deletePoiWithUndo(poi.id);
+                popup.remove();
               }}
               onClose={() => popup.remove()}
             />
@@ -777,8 +844,29 @@ const RouteEditor = () => {
     return out;
   }, [user, eventId]);
 
+  // Clear any pending retry timers. Called on successful save, on
+  // fresh user edits (so a dirty state restarts the clock), and on
+  // unmount.
+  const clearRetryTimers = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setRetryCountdown(null);
+  }, []);
+
   const handleSave = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!eventId) return;
+    // A manual click (non-silent) should cancel any pending auto-retry
+    // — the user has decided to try now, not in 6s. Silent autosaves
+    // triggered by the retry logic itself obviously must not wipe
+    // their own scheduling; retryTimerRef has already fired by then
+    // so there's nothing to cancel.
+    if (!opts.silent) clearRetryTimers();
     setIsSaving(true);
     setSaveState('saving');
     if (!opts.silent) setStatusText('Saving...');
@@ -808,8 +896,41 @@ const RouteEditor = () => {
         toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
         setStatusText('Save failed.');
       }
+      // Auto-retry: 3s → 6s → 12s. After three strikes, leave the
+      // error chip in its clickable state so the user can take over.
+      // Every retry rolls through this same handler, so a recovery
+      // cleanly resets retryAttemptRef via the success branch below.
+      const attempt = retryAttemptRef.current + 1;
+      if (attempt <= 3) {
+        retryAttemptRef.current = attempt;
+        const delaySec = 3 * Math.pow(2, attempt - 1);
+        setRetryCountdown(delaySec);
+        // Visible 1hz countdown so the chip label feels alive instead
+        // of stuck. The actual retry fires off the stored timeout.
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = setInterval(() => {
+          setRetryCountdown((c) => (c !== null && c > 0 ? c - 1 : c));
+        }, 1000);
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null;
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
+          setRetryCountdown(null);
+          // Retry is always silent — we don't want a parade of toasts.
+          handleSave({ silent: true });
+        }, delaySec * 1000);
+      } else {
+        // Out of automatic retries. Clear the countdown so the chip
+        // switches back to "Save failed — retry" and waits for click.
+        setRetryCountdown(null);
+      }
     } else {
       isDirtyRef.current = false;
+      retryAttemptRef.current = 0;
+      clearRetryTimers();
       setSaveState('saved');
       setLastSavedAt(Date.now());
       if (!opts.silent) {
@@ -818,7 +939,7 @@ const RouteEditor = () => {
       }
     }
     setIsSaving(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, logoUrl, brandingStyle, trackingStart, trackingEnd, toast, materializePoiImages]);
+  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, logoUrl, brandingStyle, trackingStart, trackingEnd, toast, materializePoiImages, clearRetryTimers]);
 
   // ── Autosave ───────────────────────────────────────────────────────────
   // Mark dirty whenever editable state changes. The initialLoadCompleteRef
@@ -827,7 +948,17 @@ const RouteEditor = () => {
     if (!initialLoadCompleteRef.current) return;
     isDirtyRef.current = true;
     setSaveState('dirty');
-  }, [eventName, city, eventDate, routes, pois, scoutedPois, logoUrl, brandingStyle]);
+    // A fresh edit means whatever retry was queued is stale — the
+    // retry would have sent old state. Reset the attempt counter so
+    // the new dirty cycle gets its full 3-strike budget.
+    retryAttemptRef.current = 0;
+    clearRetryTimers();
+  }, [eventName, city, eventDate, routes, pois, scoutedPois, logoUrl, brandingStyle, clearRetryTimers]);
+
+  // Tear down any pending retry timers on unmount so they don't fire
+  // into a detached component and trigger a "setState on unmounted"
+  // warning (or worse, a ghost network call).
+  useEffect(() => () => clearRetryTimers(), [clearRetryTimers]);
 
   // Debounced autosave: whenever dirty, schedule a silent save in ~2s.
   useEffect(() => {
@@ -849,8 +980,76 @@ const RouteEditor = () => {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
+  // Delete a POI with an Undo toast. Both the popover trash button and
+  // the keyboard Delete/Backspace handler funnel through here so neither
+  // can destroy work with a single click. Matches the Gmail / Notion
+  // pattern — destructive, instantly reversible for 5s. The snapshot +
+  // original index are captured inside a functional setState so the
+  // callback is stable even when it's called from a stale closure
+  // (e.g. the Mapbox popup built during an earlier render).
+  const deletePoiWithUndo = useCallback((poiId: string) => {
+    let snapshot: RoutePoi | null = null;
+    let snapshotIndex = -1;
+    setPois((prev) => {
+      snapshotIndex = prev.findIndex((p) => p.id === poiId);
+      if (snapshotIndex < 0) return prev;
+      snapshot = prev[snapshotIndex];
+      return prev.filter((p) => p.id !== poiId);
+    });
+    setSelectedPoiId((curr) => (curr === poiId ? null : curr));
+    // Defer the toast a tick so the above state update flushes first —
+    // prevents the "setState during render" warning that can fire when
+    // deletePoiWithUndo is invoked from inside a React event inside a
+    // Mapbox popup.
+    setTimeout(() => {
+      if (!snapshot) return;
+      const restored: RoutePoi = snapshot;
+      const restoredIndex = snapshotIndex;
+      toast({
+        title: 'POI deleted',
+        description: restored.title || undefined,
+        action: (
+          <ToastAction
+            altText="Undo delete"
+            onClick={() => {
+              setPois((prev) => {
+                // Idempotent: if the same POI id is already back, skip.
+                if (prev.some((p) => p.id === restored.id)) return prev;
+                const next = [...prev];
+                next.splice(Math.min(restoredIndex, next.length), 0, restored);
+                return next;
+              });
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
+    }, 0);
+  }, [toast]);
+
+  // Pre-publish validation: an event must have at least one route with
+  // ≥2 waypoints before we expose it to the public. Without this, the
+  // share flow surfaces a blank map to the organizer's audience at the
+  // exact moment first impressions matter most. Unpublish (published →
+  // draft) is always allowed so the organizer can yank a live event
+  // regardless of its current content.
+  const canPublish = useMemo(
+    () => routes.some((r) => (r.waypoints?.length ?? 0) >= 2),
+    [routes],
+  );
+
   const handlePublish = useCallback(async () => {
     if (!eventId) return;
+    // Going live? Enforce validation. Unpublishing always allowed.
+    if (eventStatus !== 'published' && !canPublish) {
+      toast({
+        title: 'Draw a route first',
+        description: 'Your event needs at least one route with 2+ points before it can go live.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsPublishing(true);
     // Save first, then publish
     const newStatus = eventStatus === 'published' ? 'draft' : 'published';
@@ -1040,8 +1239,7 @@ const RouteEditor = () => {
         // matches the "click-to-select, Delete to remove" desktop editor
         // convention. Falls through to route clear if nothing is selected.
         if (selectedPoiId) {
-          setPois((prev) => prev.filter((p) => p.id !== selectedPoiId));
-          setSelectedPoiId(null);
+          deletePoiWithUndo(selectedPoiId);
           setStatusText('Marker removed.');
           return;
         }
@@ -1151,6 +1349,7 @@ const RouteEditor = () => {
         onSave={() => handleSave()}
         saveState={saveState}
         lastSavedAt={lastSavedAt}
+        retryCountdown={retryCountdown}
         onBack={() => navigate('/dashboard')}
         onUndo={undoLastWaypoint}
         onClearRoute={clearActiveRoute}
@@ -1162,6 +1361,8 @@ const RouteEditor = () => {
         onPublish={handlePublish}
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
+        canPublish={canPublish}
+        pendingScoutedCount={scoutedPois.length}
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
         eventId={eventId}
         sidebarOpen={sidebarOpen}

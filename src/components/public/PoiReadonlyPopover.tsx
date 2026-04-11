@@ -80,29 +80,32 @@ const PoiReadonlyPopover = ({ poi, onClose }: PoiReadonlyPopoverProps) => {
         </div>
       )}
 
-      {/* Action links — web link (if configured) and/or directions */}
+      {/* Action buttons — web link (if configured) and/or directions.
+          Directions is promoted to a full-width tappable button so cold,
+          gloved spectators trying to find parking at 6am can hit it
+          without pinching the text. */}
       {(hasWebLink || showDirections) && (
-        <div className="flex items-center gap-3 flex-wrap border-t border-border pt-2.5">
-          {hasWebLink && (
-            <a
-              href={poi.webLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Visit link
-            </a>
-          )}
+        <div className="flex flex-col gap-2 border-t border-border pt-2.5">
           {showDirections && (
             <a
               href={directionsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 active:scale-[0.98]"
             >
-              <Navigation className="h-3 w-3" />
-              Get directions
+              <Navigation className="h-4 w-4" />
+              Directions in Maps
+            </a>
+          )}
+          {hasWebLink && (
+            <a
+              href={poi.webLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary active:scale-[0.98]"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Visit link
             </a>
           )}
         </div>

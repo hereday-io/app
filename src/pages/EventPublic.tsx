@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import RunnerView from '@/components/public/RunnerView';
 import SpectatorView from '@/components/public/SpectatorView';
 import EventEndedView from '@/components/public/EventEndedView';
-import { MapPin, Calendar, Trophy, Eye } from 'lucide-react';
+import RolePickerSheet from '@/components/public/RolePickerSheet';
+import { MapPin, Calendar, Trophy, Eye, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WeatherForecast from '@/components/public/WeatherForecast';
 import { logEvent } from '@/lib/analytics';
@@ -34,9 +34,14 @@ const VIEW_MODE_KEY = 'hereday:publicViewMode';
 const EventPublic = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [loading, setLoading] = useState(true);
+  // Distinguish "event doesn't exist" (render the not-found card) from
+  // "the request failed" (render a retry card). Supabase returns PGRST116
+  // on .single() zero-rows, which we treat as not-found; anything else is
+  // a transport/RLS error and gets the retry path.
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
   // Map-first: land straight on the map. Remember the last role chosen so
   // returning visitors open the same view they used last time.
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -44,15 +49,54 @@ const EventPublic = () => {
     const saved = window.localStorage.getItem(VIEW_MODE_KEY);
     return saved === 'spectator' ? 'spectator' : 'runner';
   });
+  // First-visit role picker: show the floating sheet over the map until the
+  // user explicitly chooses (or dismisses, which implicitly picks spectator).
+  // Returning visitors — anyone with a stored role — skip the sheet entirely.
+  const [hasChosenRole, setHasChosenRole] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem(VIEW_MODE_KEY) !== null;
+  });
 
   const switchView = (mode: ViewMode) => {
     setViewMode(mode);
+    setHasChosenRole(true);
     if (event) logEvent('public_view', event.id, { mode, slug, switch: true });
     try { window.localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* ignore */ }
   };
 
+  const handleRolePick = (mode: ViewMode) => {
+    switchView(mode);
+  };
+  // Dismissing the sheet is an implicit "spectator" pick — it's the lower-
+  // commitment default for a cold QR visitor who may not even be running.
+  const handleRoleDismiss = () => {
+    switchView('spectator');
+  };
+
+  // Honor the OS theme on public pages. Organizer pages keep the app's
+  // default light theme; a cold visitor opening a link from an iPhone in
+  // dark mode gets a dark map without having to hunt for a toggle.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = (dark: boolean) => {
+      document.documentElement.classList.toggle('dark', dark);
+    };
+    apply(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => apply(e.matches);
+    mq.addEventListener?.('change', onChange);
+    return () => {
+      mq.removeEventListener?.('change', onChange);
+      // Restore the app default when navigating away from a public page.
+      document.documentElement.classList.remove('dark');
+    };
+  }, []);
+
   useEffect(() => {
     if (!slug) return;
+    let cancelled = false;
+    setLoading(true);
+    setFetchError(null);
     // Reads from the column-filtered public_events view so anon clients
     // never see user_id or draft events. See supabase/migrations for the
     // view definition.
@@ -62,8 +106,22 @@ const EventPublic = () => {
       .eq('slug', slug)
       .single()
       .then(({ data, error }) => {
-        if (error || !data) {
-          toast({ title: 'Event not found', description: 'This event may not be published yet.', variant: 'destructive' });
+        if (cancelled) return;
+        if (error) {
+          // PGRST116 = "no rows" → genuine not-found. Everything else
+          // (network blip, 5xx, RLS hiccup) is a recoverable error.
+          const notFound = (error as { code?: string }).code === 'PGRST116';
+          if (notFound) {
+            setEvent(null);
+            setFetchError(null);
+          } else {
+            setFetchError(error.message || 'Network error');
+          }
+          setLoading(false);
+          return;
+        }
+        if (!data) {
+          setEvent(null);
           setLoading(false);
           return;
         }
@@ -90,13 +148,49 @@ const EventPublic = () => {
           ended: row.has_ended ?? false,
         });
         setLoading(false);
+      }, (err) => {
+        // .then's second arg catches rejected promises (network failures
+        // the postgrest client surfaces as throws rather than { error }).
+        if (cancelled) return;
+        setFetchError((err as Error)?.message || 'Network error');
+        setLoading(false);
       });
-  }, [slug, toast]);
+    return () => {
+      cancelled = true;
+    };
+    // retryTick is intentionally a dep so clicking "Try again" re-runs
+    // the effect from the top with a fresh request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, retryTick]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground text-lg">Loading event…</div>
+      </div>
+    );
+  }
+
+  // Transport/5xx failure — distinct from "not found" so intermittent
+  // errors get a recoverable retry affordance instead of a dead-end page.
+  if (fetchError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <WifiOff className="h-6 w-6" />
+          </div>
+          <h2 className="text-lg font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
+            Couldn't load this event
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Check your connection and try again.
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            <Button onClick={() => setRetryTick((t) => t + 1)}>Try again</Button>
+            <Button variant="ghost" onClick={() => navigate('/')}>Go home</Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -129,21 +223,31 @@ const EventPublic = () => {
 
   if (viewMode === 'runner') {
     return (
-      <RunnerView
-        event={event}
-        onBack={() => navigate('/')}
-        onSwitchToSpectator={() => switchView('spectator')}
-      />
+      <>
+        <RunnerView
+          event={event}
+          onBack={() => navigate('/')}
+          onSwitchToSpectator={() => switchView('spectator')}
+        />
+        {!hasChosenRole && (
+          <RolePickerSheet onPick={handleRolePick} onDismiss={handleRoleDismiss} />
+        )}
+      </>
     );
   }
 
   if (viewMode === 'spectator') {
     return (
-      <SpectatorView
-        event={event}
-        onBack={() => navigate('/')}
-        onSwitchToRunner={() => switchView('runner')}
-      />
+      <>
+        <SpectatorView
+          event={event}
+          onBack={() => navigate('/')}
+          onSwitchToRunner={() => switchView('runner')}
+        />
+        {!hasChosenRole && (
+          <RolePickerSheet onPick={handleRolePick} onDismiss={handleRoleDismiss} />
+        )}
+      </>
     );
   }
 

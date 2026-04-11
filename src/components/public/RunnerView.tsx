@@ -6,6 +6,7 @@ import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { totalDistanceMiles, getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import { clusterPoisByPixels } from '@/lib/poiCluster';
+import { buildStartFinishMarkerEl, parseAutoStartFinishId } from '@/lib/mapMarkers';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Trophy, Eye, Maximize2, Download } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
@@ -297,12 +298,22 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
     const map = mapRef.current;
     if (!map) return;
 
-    const visiblePois = event.pois.filter(poi => {
-      if (poi.id.startsWith('auto-start-') || poi.id.startsWith('auto-finish-')) {
-        const routeId = poi.id.replace('auto-start-', '').replace('auto-finish-', '');
-        if (hiddenRouteIds.has(routeId)) return false;
+    // Split regular POIs from auto-placed start/finish. The latter
+    // skip clustering entirely and render with a dedicated, labelled
+    // treatment (F4 — UX_PATTERNS.md §Start/Finish "instantly
+    // recognizable"). Both lists drop POIs whose parent route is
+    // hidden via the layers panel.
+    const visiblePois: RoutePoi[] = [];
+    const startFinishPois: Array<{ poi: RoutePoi; kind: 'start' | 'finish'; routeColor: string }> = [];
+    event.pois.forEach((poi) => {
+      const sf = parseAutoStartFinishId(poi.id);
+      if (sf) {
+        if (hiddenRouteIds.has(sf.routeId)) return;
+        const route = event.routes.find((r) => r.id === sf.routeId);
+        startFinishPois.push({ poi, kind: sf.kind, routeColor: route?.color ?? '#1e293b' });
+        return;
       }
-      return true;
+      visiblePois.push(poi);
     });
 
     const buildSinglePoiMarker = (poi: RoutePoi) => {
@@ -407,10 +418,50 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       return new mapboxgl.Marker(el).setLngLat([lng, lat]).setPopup(popup);
     };
 
+    const buildStartFinishMarker = (poi: RoutePoi, kind: 'start' | 'finish', routeColor: string) => {
+      const el = buildStartFinishMarkerEl(kind, routeColor);
+      // Mount the shared read-only popover so taps still show whatever
+      // description the organizer typed. Same React-root lifecycle as
+      // the regular POI markers above.
+      const popupHost = document.createElement('div');
+      popupHost.style.fontFamily = '"DM Sans", system-ui, sans-serif';
+      const popup = new mapboxgl.Popup({ offset: 22, maxWidth: '320px', closeButton: false });
+      popup.setDOMContent(popupHost);
+      popup.on('open', () => {
+        const root = createRoot(popupHost);
+        popoverRootsRef.current.set(poi.id, root);
+        root.render(
+          <PoiReadonlyPopover
+            poi={poi}
+            onClose={() => popup.remove()}
+          />
+        );
+      });
+      popup.on('close', () => {
+        const root = popoverRootsRef.current.get(poi.id);
+        if (root) {
+          setTimeout(() => root.unmount(), 0);
+          popoverRootsRef.current.delete(poi.id);
+        }
+      });
+      return new mapboxgl.Marker(el).setLngLat(poi.coordinates).setPopup(popup);
+    };
+
     const render = () => {
       poiMarkersRef.current.forEach(m => m.remove());
       poiMarkersRef.current = [];
       poiMarkerByIdRef.current.clear();
+
+      // Start/Finish markers render unconditionally — no clustering,
+      // so a water station next door can never swallow them into an
+      // ambiguous "2 stops" pin.
+      startFinishPois.forEach(({ poi, kind, routeColor }) => {
+        const marker = buildStartFinishMarker(poi, kind, routeColor);
+        marker.addTo(map);
+        poiMarkersRef.current.push(marker);
+        poiMarkerByIdRef.current.set(poi.id, marker);
+      });
+
       const clusters = clusterPoisByPixels(visiblePois, map, 40);
       clusters.forEach((c) => {
         if (c.pois.length === 1) {
@@ -456,7 +507,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
         roots.clear();
       }, 0);
     };
-  }, [event.pois, hiddenRouteIds, highlightedPoiType]);
+  }, [event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
 
   return (
     <div className="h-dvh relative overflow-hidden bg-black">

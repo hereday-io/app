@@ -15,6 +15,16 @@ interface EditorTopBarProps {
   isSnapping: boolean;
   isPublishing?: boolean;
   isPublished?: boolean;
+  /** When false, the Publish button is disabled with an explanatory
+   *  tooltip. Set by RouteEditor based on pre-publish validation — we
+   *  refuse to put an empty event in front of the organizer's audience.
+   *  Ignored while `isPublished` is true (Live pill path handles its
+   *  own two-step unpublish flow). */
+  canPublish?: boolean;
+  /** Count of POIs dropped via scout links that haven't been reviewed
+   *  yet. Used to show an amber dot badge on the Compass button so the
+   *  icon alone stops being the only signal that work is waiting. */
+  pendingScoutedCount?: number;
   publicUrl?: string;
   eventId?: string | null;
   mapboxToken: string;
@@ -30,6 +40,11 @@ interface EditorTopBarProps {
   onToggleSidebar?: () => void;
   saveState?: 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
   lastSavedAt?: number | null;
+  /** Seconds until the next auto-retry of a failed save. When set and
+   *  saveState is 'error', the chip swaps "Save failed — retry" for
+   *  "Retrying in Ns…" so the user sees the recovery happening instead
+   *  of thinking the app has given up. */
+  retryCountdown?: number | null;
 }
 
 const EditorTopBar = ({
@@ -40,6 +55,8 @@ const EditorTopBar = ({
   isSnapping,
   isPublishing,
   isPublished,
+  canPublish = true,
+  pendingScoutedCount = 0,
   publicUrl,
   eventId,
   mapboxToken,
@@ -55,6 +72,7 @@ const EditorTopBar = ({
   onToggleSidebar,
   saveState = 'idle',
   lastSavedAt,
+  retryCountdown,
 }: EditorTopBarProps) => {
   const [sharePopoverOpen, setSharePopoverOpen] = useState(false);
   const [livePopoverOpen, setLivePopoverOpen] = useState(false);
@@ -157,20 +175,42 @@ const EditorTopBar = ({
         {mapboxToken && (
           <LocationSearch token={mapboxToken} onSelect={onLocationSelect} />
         )}
-        <Button variant="ghost" size="sm" onClick={onUndo} title="Undo last point" className="h-8 w-8 p-0">
+        {/* Icons collapse back to icon-only on narrow viewports; on ≥lg
+             screens the text labels surface power features (Tour, Scout)
+             that otherwise hide behind a hover tooltip nobody finds. */}
+        <Button variant="ghost" size="sm" onClick={onUndo} title="Undo last point" className="h-8 gap-1.5 px-2">
           <Undo2 className="h-4 w-4" />
+          <span className="hidden lg:inline text-xs">Undo</span>
         </Button>
-        <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear active route" className="h-8 w-8 p-0">
+        <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear active route" className="h-8 gap-1.5 px-2">
           <Trash2 className="h-4 w-4" />
+          <span className="hidden lg:inline text-xs">Clear</span>
         </Button>
         {onHelp && (
-          <Button variant="ghost" size="sm" onClick={onHelp} title="Show editor tour" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" onClick={onHelp} title="Show editor tour" className="h-8 gap-1.5 px-2">
             <HelpCircle className="h-4 w-4" />
+            <span className="hidden lg:inline text-xs">Tour</span>
           </Button>
         )}
         {onScoutLink && (
-          <Button variant="ghost" size="sm" onClick={onScoutLink} title="Scout mode link — drop POIs from your phone" className="h-8 w-8 p-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onScoutLink}
+            title="Scout mode link — drop POIs from your phone"
+            className="h-8 gap-1.5 px-2 relative"
+          >
             <Compass className="h-4 w-4" />
+            <span className="hidden lg:inline text-xs">Scout</span>
+            {/* Amber dot when scouted POIs are waiting for review.
+                Matches the banner pattern — the only surface signal for
+                pending volunteer work in the top chrome. */}
+            {pendingScoutedCount > 0 && (
+              <span
+                className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-amber-500 ring-1 ring-card"
+                aria-label={`${pendingScoutedCount} scouted POIs pending review`}
+              />
+            )}
           </Button>
         )}
         {/* Autosave status chip — doubles as a manual-save trigger */}
@@ -192,7 +232,11 @@ const EditorTopBar = ({
           {saveState === 'saving' ? (
             <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span className="hidden md:inline">Saving…</span></>
           ) : saveState === 'error' ? (
-            <><CloudOff className="h-3.5 w-3.5" /><span className="hidden md:inline">Save failed — retry</span></>
+            <><CloudOff className="h-3.5 w-3.5" /><span className="hidden md:inline">
+              {typeof retryCountdown === 'number' && retryCountdown > 0
+                ? `Retrying in ${retryCountdown}s…`
+                : 'Save failed — retry'}
+            </span></>
           ) : saveState === 'dirty' ? (
             <><Save className="h-3.5 w-3.5" /><span className="hidden md:inline">Unsaved — save now</span></>
           ) : (
@@ -305,7 +349,8 @@ const EditorTopBar = ({
             <Button
               size="sm"
               onClick={onPublish}
-              disabled={isPublishing}
+              disabled={isPublishing || !canPublish}
+              title={!canPublish ? 'Draw at least one route (2+ points) before publishing' : undefined}
               className="h-8 gap-1.5"
             >
               <Globe className="h-4 w-4" />

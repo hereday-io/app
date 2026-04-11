@@ -6,6 +6,7 @@ import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import { clusterPoisByPixels } from '@/lib/poiCluster';
+import { buildStartFinishMarkerEl, parseAutoStartFinishId } from '@/lib/mapMarkers';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Trophy, Eye, Maximize2 } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
@@ -270,13 +271,21 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
     const map = mapRef.current;
     if (!map) return;
 
-    // POIs that should be shown (auto start/finish belong to hidden routes → skip)
-    const visiblePois = event.pois.filter(poi => {
-      if (poi.id.startsWith('auto-start-') || poi.id.startsWith('auto-finish-')) {
-        const routeId = poi.id.replace('auto-start-', '').replace('auto-finish-', '');
-        if (hiddenRouteIds.has(routeId)) return false;
+    // Split regular POIs from auto-placed start/finish. Start/Finish
+    // skip clustering and get a dedicated labelled renderer (F4) so
+    // spectators can find the finish line at a glance. Hidden routes'
+    // start/finish and POIs are both dropped.
+    const visiblePois: RoutePoi[] = [];
+    const startFinishPois: Array<{ poi: RoutePoi; kind: 'start' | 'finish'; routeColor: string }> = [];
+    event.pois.forEach((poi) => {
+      const sf = parseAutoStartFinishId(poi.id);
+      if (sf) {
+        if (hiddenRouteIds.has(sf.routeId)) return;
+        const route = event.routes.find((r) => r.id === sf.routeId);
+        startFinishPois.push({ poi, kind: sf.kind, routeColor: route?.color ?? '#1e293b' });
+        return;
       }
-      return true;
+      visiblePois.push(poi);
     });
 
     const buildSinglePoiMarker = (poi: RoutePoi) => {
@@ -378,10 +387,47 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
       return new mapboxgl.Marker(el).setLngLat([lng, lat]).setPopup(popup);
     };
 
+    const buildStartFinishMarker = (poi: RoutePoi, kind: 'start' | 'finish', routeColor: string) => {
+      const el = buildStartFinishMarkerEl(kind, routeColor);
+      const popupHost = document.createElement('div');
+      popupHost.style.fontFamily = '"DM Sans", system-ui, sans-serif';
+      const popup = new mapboxgl.Popup({ offset: 22, maxWidth: '320px', closeButton: false });
+      popup.setDOMContent(popupHost);
+      popup.on('open', () => {
+        const root = createRoot(popupHost);
+        popoverRootsRef.current.set(poi.id, root);
+        root.render(
+          <PoiReadonlyPopover
+            poi={poi}
+            onClose={() => popup.remove()}
+          />
+        );
+      });
+      popup.on('close', () => {
+        const root = popoverRootsRef.current.get(poi.id);
+        if (root) {
+          setTimeout(() => root.unmount(), 0);
+          popoverRootsRef.current.delete(poi.id);
+        }
+      });
+      return new mapboxgl.Marker(el).setLngLat(poi.coordinates).setPopup(popup);
+    };
+
     const render = () => {
       poiMarkersRef.current.forEach(m => m.remove());
       poiMarkersRef.current = [];
       poiMarkerByIdRef.current.clear();
+
+      // Start/Finish render unconditionally — never clustered, always
+      // visible, route-colored so multi-route events are answerable at
+      // a glance ("where's the half-marathon finish?").
+      startFinishPois.forEach(({ poi, kind, routeColor }) => {
+        const marker = buildStartFinishMarker(poi, kind, routeColor);
+        marker.addTo(map);
+        poiMarkersRef.current.push(marker);
+        poiMarkerByIdRef.current.set(poi.id, marker);
+      });
+
       const clusters = clusterPoisByPixels(visiblePois, map, 44);
       clusters.forEach((c) => {
         if (c.pois.length === 1) {
@@ -423,7 +469,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
         roots.clear();
       }, 0);
     };
-  }, [event.pois, hiddenRouteIds, highlightedPoiType]);
+  }, [event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
 
   return (
     <div className="h-dvh relative overflow-hidden bg-black">
