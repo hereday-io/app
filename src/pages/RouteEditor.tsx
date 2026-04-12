@@ -456,7 +456,7 @@ const RouteEditor = () => {
   // Rubber-band preview line — dashed line from last waypoint to cursor
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReady || !map.isStyleLoaded()) return;
 
     const route = routes.find((r) => r.id === activeRouteId);
     const isDrawing = activeRouteId && !finishedRouteIds.has(activeRouteId) && !pendingPoiType && route && route.waypoints.length > 0;
@@ -471,28 +471,33 @@ const RouteEditor = () => {
       geometry: { type: 'LineString', coordinates: [] },
     };
 
-    if (!map.getSource(srcId)) {
-      map.addSource(srcId, { type: 'geojson', data: emptyLine });
-      map.addLayer({
-        id: layerId,
-        type: 'line',
-        source: srcId,
-        paint: {
-          'line-color': route?.color ?? '#3b82f6',
-          'line-width': 3,
-          'line-opacity': 0.5,
-          'line-dasharray': [3, 3],
-        },
-      });
-    } else {
-      // Update color to match active route
-      if (map.getLayer(layerId)) {
-        map.setPaintProperty(layerId, 'line-color', route?.color ?? '#3b82f6');
+    try {
+      if (!map.getSource(srcId)) {
+        map.addSource(srcId, { type: 'geojson', data: emptyLine });
+        map.addLayer({
+          id: layerId,
+          type: 'line',
+          source: srcId,
+          paint: {
+            'line-color': route?.color ?? '#3b82f6',
+            'line-width': 3,
+            'line-opacity': 0.5,
+            'line-dasharray': [3, 3],
+          },
+        });
+      } else {
+        // Update color to match active route
+        if (map.getLayer(layerId)) {
+          map.setPaintProperty(layerId, 'line-color', route?.color ?? '#3b82f6');
+        }
       }
-    }
 
-    if (!isDrawing) {
-      (map.getSource(srcId) as mapboxgl.GeoJSONSource)?.setData(emptyLine);
+      if (!isDrawing) {
+        (map.getSource(srcId) as mapboxgl.GeoJSONSource)?.setData(emptyLine);
+        return;
+      }
+    } catch {
+      // Style may have reloaded — source/layer will be recreated next run
       return;
     }
 
@@ -517,7 +522,7 @@ const RouteEditor = () => {
       const src = map.getSource(srcId) as mapboxgl.GeoJSONSource;
       if (src) src.setData(emptyLine);
     };
-  }, [activeRouteId, finishedRouteIds, pendingPoiType, routes]);
+  }, [activeRouteId, finishedRouteIds, pendingPoiType, routes, mapReady, selectedBasemap]);
 
   // Helper to auto-place start/finish POIs for a route
   const autoPlaceStartFinish = useCallback((routeId: string, waypoints: Coord[]) => {
@@ -681,19 +686,6 @@ const RouteEditor = () => {
         distance_mi: parseFloat(totalDistanceMiles(route.routeCoords).toFixed(2)),
       });
       setStatusText(`Route finished · ${totalDistanceMiles(route.routeCoords).toFixed(2)} mi — Start & Finish added`);
-
-      // Brief glow pulse on the route line to celebrate finishing
-      const layerId = `route-${activeRouteId}`;
-      if (map.getLayer(layerId)) {
-        map.setPaintProperty(layerId, 'line-width', 8);
-        map.setPaintProperty(layerId, 'line-opacity', 0.8);
-        setTimeout(() => {
-          if (map.getLayer(layerId)) {
-            map.setPaintProperty(layerId, 'line-width', 5);
-            map.setPaintProperty(layerId, 'line-opacity', 1);
-          }
-        }, 500);
-      }
     };
 
     map.on('click', onClick);
