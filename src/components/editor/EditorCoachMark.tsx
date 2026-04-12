@@ -7,9 +7,9 @@ interface EditorCoachMarkProps {
   /** Dismiss the draw hint once the user has placed their first waypoint. */
   hasRouteWaypoints: boolean;
   /** Show publish hint once a route is finished and event isn't published. */
-  hasFinishedRoute: boolean;
+  hasFinishedRoute?: boolean;
   /** Already published — suppress the publish hint. */
-  isPublished: boolean;
+  isPublished?: boolean;
 }
 
 /**

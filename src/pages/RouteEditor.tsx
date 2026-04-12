@@ -78,7 +78,6 @@ const RouteEditor = () => {
   const [snapToRoads, setSnapToRoads] = useState(true);
   const [poiSnapToRoute, setPoiSnapToRoute] = useState(true);
   const [isSnapping, setIsSnapping] = useState(false);
-  const isSnappingRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [statusText, setStatusText] = useState('Click on the map to start building your route.');
   const [isSaving, setIsSaving] = useState(false);
@@ -220,12 +219,7 @@ const RouteEditor = () => {
 
         const rawRoutes = data.routes as unknown;
         const loadedRoutes = Array.isArray(rawRoutes) && (rawRoutes as EventRoute[]).length > 0
-          ? (rawRoutes as EventRoute[]).map((r) => ({
-              ...r,
-              visible: r.visible ?? true,
-              waypoints: r.waypoints ?? [],
-              routeCoords: r.routeCoords ?? [],
-            }))
+          ? (rawRoutes as EventRoute[])
           : [makeRoute('5K Route', ROUTE_COLORS[0])];
         setRoutes(loadedRoutes);
         setActiveRouteId(loadedRoutes[0]?.id ?? '');
@@ -250,7 +244,6 @@ const RouteEditor = () => {
         // Defer one tick so the state updates above commit before the
         // autosave dirty-tracking effect starts observing.
         setTimeout(() => { initialLoadCompleteRef.current = true; }, 0);
-        logEvent('editor_opened', eventId);
 
         // Fit map to route data or geocode city — run after data is in hand,
         // whether or not the map style has finished loading yet.
@@ -411,31 +404,21 @@ const RouteEditor = () => {
       'position:absolute;pointer-events:none;z-index:50;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;background:hsl(var(--card));color:hsl(var(--foreground));border:1px solid hsl(var(--border));box-shadow:0 2px 8px rgba(0,0,0,0.15);opacity:0;transition:opacity 0.15s;';
     map.getContainer().appendChild(tooltip);
 
-    // Set cursor based on editor mode
-    const canvas = map.getCanvas();
-    if (pendingPoiType) {
-      canvas.style.cursor = 'copy';
-    } else if (activeRouteId && !finishedRouteIds.has(activeRouteId)) {
-      canvas.style.cursor = 'crosshair';
-    } else {
-      canvas.style.cursor = '';
-    }
-
     const onMouseMove = (e: mapboxgl.MapMouseEvent) => {
       const point = e.point;
       tooltip.style.left = `${point.x + 16}px`;
       tooltip.style.top = `${point.y - 12}px`;
 
       if (pendingPoiType) {
-        tooltip.textContent = `Click to drop a ${poiTone(pendingPoiType).label.toLowerCase()}`;
+        tooltip.textContent = `Click to place ${poiTone(pendingPoiType).label.toLowerCase()}`;
         tooltip.style.opacity = '1';
       } else if (activeRouteId && !finishedRouteIds.has(activeRouteId)) {
         const route = routes.find((r) => r.id === activeRouteId);
         const wpCount = route?.waypoints.length ?? 0;
         if (wpCount === 0) {
-          tooltip.textContent = 'Click the map to start drawing';
+          tooltip.textContent = 'Click to start your route';
         } else {
-          tooltip.textContent = 'Click to extend · double-click to finish';
+          tooltip.textContent = 'Click to add point · Double-click to finish';
         }
         tooltip.style.opacity = '1';
       } else {
@@ -454,80 +437,8 @@ const RouteEditor = () => {
       map.off('mousemove', onMouseMove);
       map.getContainer().removeEventListener('mouseleave', onMouseLeave);
       tooltip.remove();
-      canvas.style.cursor = '';
     };
   }, [activeRouteId, pendingPoiType, routes, finishedRouteIds]);
-
-  // Rubber-band preview line — dashed line from last waypoint to cursor
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady || !map.isStyleLoaded()) return;
-
-    const route = routes.find((r) => r.id === activeRouteId);
-    const isDrawing = activeRouteId && !finishedRouteIds.has(activeRouteId) && !pendingPoiType && route && route.waypoints.length > 0;
-
-    const srcId = 'rubber-band';
-    const layerId = 'rubber-band-line';
-
-    // Empty GeoJSON for initial / non-drawing state
-    const emptyLine: GeoJSON.Feature<GeoJSON.LineString> = {
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'LineString', coordinates: [] },
-    };
-
-    try {
-      if (!map.getSource(srcId)) {
-        map.addSource(srcId, { type: 'geojson', data: emptyLine });
-        map.addLayer({
-          id: layerId,
-          type: 'line',
-          source: srcId,
-          paint: {
-            'line-color': route?.color ?? '#3b82f6',
-            'line-width': 3,
-            'line-opacity': 0.5,
-            'line-dasharray': [3, 3],
-          },
-        });
-      } else {
-        // Update color to match active route
-        if (map.getLayer(layerId)) {
-          map.setPaintProperty(layerId, 'line-color', route?.color ?? '#3b82f6');
-        }
-      }
-
-      if (!isDrawing) {
-        (map.getSource(srcId) as mapboxgl.GeoJSONSource)?.setData(emptyLine);
-        return;
-      }
-    } catch {
-      // Style may have reloaded — source/layer will be recreated next run
-      return;
-    }
-
-    const lastWp = route.waypoints[route.waypoints.length - 1];
-
-    const onMove = (e: mapboxgl.MapMouseEvent) => {
-      const src = map.getSource(srcId) as mapboxgl.GeoJSONSource;
-      if (!src) return;
-      src.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: [lastWp, [e.lngLat.lng, e.lngLat.lat]],
-        },
-      });
-    };
-
-    map.on('mousemove', onMove);
-    return () => {
-      map.off('mousemove', onMove);
-      const src = map.getSource(srcId) as mapboxgl.GeoJSONSource;
-      if (src) src.setData(emptyLine);
-    };
-  }, [activeRouteId, finishedRouteIds, pendingPoiType, routes, mapReady, selectedBasemap]);
 
   // Helper to auto-place start/finish POIs for a route
   const autoPlaceStartFinish = useCallback((routeId: string, waypoints: Coord[]) => {
@@ -568,10 +479,6 @@ const RouteEditor = () => {
     map.doubleClickZoom.disable();
 
     const onClick = async (e: mapboxgl.MapMouseEvent) => {
-      // Block clicks while a snap API call is in-flight to prevent
-      // race conditions and double-queuing of waypoints.
-      if (isSnappingRef.current) return;
-
       const rawCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
 
       if (pendingPoiType) {
@@ -589,7 +496,7 @@ const RouteEditor = () => {
         // selected after each placement until the user presses Esc or
         // picks a different type.
         if (!keepPoiTypeArmed) setPendingPoiType(null);
-        setStatusText(keepPoiTypeArmed ? `${tone.label} dropped. Click to add another.` : `${tone.label} dropped.`);
+        setStatusText(keepPoiTypeArmed ? `${tone.label} placed. Click to add another.` : `${tone.label} placed.`);
         return;
       }
 
@@ -602,7 +509,6 @@ const RouteEditor = () => {
 
       const route = routes.find((r) => r.id === activeRouteId);
       if (!route) return;
-      if (route.waypoints.length === 0) logEvent('first_waypoint_placed', eventId);
       const nextWaypoints = [...route.waypoints, rawCoord];
 
       // ── Freeform: append coord directly ────────────────────────────────
@@ -642,7 +548,7 @@ const RouteEditor = () => {
         )
       );
 
-      setIsSnapping(true); isSnappingRef.current = true;
+      setIsSnapping(true);
       setStatusText('Snapping to roads...');
       try {
         const snappedSegment = await getSnappedRoute([prevWaypoint, rawCoord], mapboxToken);
@@ -672,7 +578,7 @@ const RouteEditor = () => {
         );
         setStatusText('Road snap failed, using straight line.');
       } finally {
-        setIsSnapping(false); isSnappingRef.current = false;
+        setIsSnapping(false);
       }
     };
 
@@ -686,10 +592,6 @@ const RouteEditor = () => {
       // Auto-place start & finish POIs
       autoPlaceStartFinish(activeRouteId, route.waypoints);
       setFinishedRouteIds((prev) => new Set(prev).add(activeRouteId));
-      logEvent('route_finished', eventId, {
-        waypoint_count: route.waypoints.length,
-        distance_mi: parseFloat(totalDistanceMiles(route.routeCoords).toFixed(2)),
-      });
       setStatusText(`Route finished · ${totalDistanceMiles(route.routeCoords).toFixed(2)} mi — Start & Finish added`);
     };
 
@@ -707,45 +609,38 @@ const RouteEditor = () => {
     if (!map) return;
 
     const render = () => {
-      // Guard: don't try to add layers/sources to an unloaded style
-      if (!map.isStyleLoaded()) return;
-
       // Clean up existing route layers/sources
       routes.forEach((route) => {
         const srcId = `route-${route.id}`;
-        try {
-          if (map.getLayer(srcId)) map.removeLayer(srcId);
-          if (map.getSource(srcId)) map.removeSource(srcId);
-        } catch { /* layer/source may have been removed by style reload */ }
+        if (map.getLayer(srcId)) map.removeLayer(srcId);
+        if (map.getSource(srcId)) map.removeSource(srcId);
       });
 
       routes
-        .filter((r) => r.visible !== false && r.routeCoords && r.routeCoords.length > 1)
+        .filter((r) => r.visible && r.routeCoords.length > 1)
         .forEach((route) => {
           const srcId = `route-${route.id}`;
-          try {
-            map.addSource(srcId, {
-              type: 'geojson',
-              data: {
-                type: 'Feature',
-                properties: {},
-                geometry: {
-                  type: 'LineString',
-                  coordinates: route.routeCoords,
-                },
+          map.addSource(srcId, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: route.routeCoords,
               },
-            });
-            map.addLayer({
-              id: srcId,
-              type: 'line',
-              source: srcId,
-              paint: {
-                'line-color': route.color,
-                'line-width': route.id === activeRouteId ? 5 : 3,
-                'line-opacity': route.id === activeRouteId ? 1 : 0.6,
-              },
-            });
-          } catch { /* source/layer may already exist after race */ }
+            },
+          });
+          map.addLayer({
+            id: srcId,
+            type: 'line',
+            source: srcId,
+            paint: {
+              'line-color': route.color,
+              'line-width': route.id === activeRouteId ? 5 : 3,
+              'line-opacity': route.id === activeRouteId ? 1 : 0.6,
+            },
+          });
         });
 
       markersRef.current.forEach((m) => m.remove());
@@ -771,28 +666,6 @@ const RouteEditor = () => {
             el.textContent = String(mile);
             const marker = new mapboxgl.Marker(el).setLngLat(coord).addTo(map);
             markersRef.current.push(marker);
-          });
-        });
-
-      // Waypoint dots — small circles at each waypoint so the user can
-      // see the points they placed. Last waypoint is slightly larger.
-      routes
-        .filter((r) => r.visible !== false && r.waypoints && r.waypoints.length > 0)
-        .forEach((route) => {
-          route.waypoints.forEach((wp, i) => {
-            try {
-              const isLast = i === route.waypoints.length - 1;
-              const size = isLast ? 10 : 6;
-              const el = document.createElement('div');
-              el.style.cssText = `
-                width: ${size}px; height: ${size}px; border-radius: 50%;
-                background: ${route.color}; border: 2px solid white;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-                pointer-events: none;
-              `;
-              const marker = new mapboxgl.Marker(el).setLngLat(wp).addTo(map);
-              markersRef.current.push(marker);
-            } catch { /* skip invalid waypoint coordinate */ }
           });
         });
 
@@ -893,12 +766,6 @@ const RouteEditor = () => {
           marker.setLngLat(snapped);
           setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, coordinates: snapped } : p)));
           el.style.cursor = 'grab';
-          // Elastic settle animation when snapping to route
-          if (poiSnapToRoute) {
-            inner.classList.remove('poi-snap-settle');
-            void inner.offsetWidth; // force reflow
-            inner.classList.add('poi-snap-settle');
-          }
         });
 
         markersRef.current.push(marker);
@@ -934,10 +801,13 @@ const RouteEditor = () => {
       });
     };
 
-    // Render now if style is ready, otherwise wait. The persistent
-    // style.load handler also covers basemap switches and the initial
-    // load if the style isn't ready yet.
-    if (map.isStyleLoaded()) render();
+    if (map.isStyleLoaded()) {
+      render();
+    } else {
+      map.once('style.load', render);
+    }
+
+    // Also re-render when style changes (basemap switch)
     map.on('style.load', render);
     return () => {
       map.off('style.load', render);
@@ -1136,7 +1006,7 @@ const RouteEditor = () => {
       const restored: RoutePoi = snapshot;
       const restoredIndex = snapshotIndex;
       toast({
-        title: 'Marker removed',
+        title: 'POI deleted',
         description: restored.title || undefined,
         action: (
           <ToastAction
@@ -1171,20 +1041,11 @@ const RouteEditor = () => {
 
   const handlePublish = useCallback(async () => {
     if (!eventId) return;
-    logEvent('publish_clicked', eventId, { current_status: eventStatus });
     // Going live? Enforce validation. Unpublishing always allowed.
-    if (eventStatus !== 'published' && !user?.email_confirmed_at) {
-      toast({
-        title: 'Verify your email to publish',
-        description: 'Check your inbox for a confirmation link, then try again.',
-        variant: 'destructive',
-      });
-      return;
-    }
     if (eventStatus !== 'published' && !canPublish) {
       toast({
         title: 'Draw a route first',
-        description: 'Draw a route with at least 2 points, then you can publish.',
+        description: 'Your event needs at least one route with 2+ points before it can go live.',
         variant: 'destructive',
       });
       return;
@@ -1231,11 +1092,10 @@ const RouteEditor = () => {
           description: 'Use the Share button to copy the public link.',
         });
         // Soft Pro upsell at the publish moment — only for free events.
-        // Skip on first-ever publish so the activation dopamine isn't
-        // interrupted. Show from the second publish onward.
-        const hasPublishedBefore = localStorage.getItem('hereday_has_published');
-        localStorage.setItem('hereday_has_published', '1');
-        if (eventPlan === 'free' && hasPublishedBefore) {
+        // A slight delay lets the toast land first so the modal feels
+        // like a follow-up, not a block. Republishing a pro event
+        // skips this entirely.
+        if (eventPlan === 'free') {
           setTimeout(() => setUpgradeModalTrigger('publish'), 600);
         }
       } else {
@@ -1257,22 +1117,6 @@ const RouteEditor = () => {
     setActiveRouteId(id);
     setStatusText('Route re-opened for editing.');
   }, []);
-
-  const handleFinishRoute = useCallback(() => {
-    if (!activeRouteId) return;
-    const route = routes.find((r) => r.id === activeRouteId);
-    if (!route || route.waypoints.length < 2) return;
-    autoPlaceStartFinish(activeRouteId, route.waypoints);
-    setFinishedRouteIds((prev) => new Set(prev).add(activeRouteId));
-    logEvent('route_finished', eventId, {
-      waypoint_count: route.waypoints.length,
-      distance_mi: parseFloat(totalDistanceMiles(route.routeCoords).toFixed(2)),
-      source: 'button',
-    });
-    setStatusText(`Route finished · ${totalDistanceMiles(route.routeCoords).toFixed(2)} mi — Start & Finish added`);
-  }, [activeRouteId, routes, autoPlaceStartFinish, eventId]);
-
-  const canFinishRoute = !!(activeRoute && activeRoute.waypoints.length >= 3 && !finishedRouteIds.has(activeRouteId));
 
   const isPaid = eventPlan === 'pro';
   const { canAddRoute, canAddPoi } = usePaywall({ isPaid });
@@ -1332,7 +1176,7 @@ const RouteEditor = () => {
 
     // Fallback for routes built before segmentCoordCounts was introduced
     if (snapToRoads && nextWaypoints.length >= 2) {
-      setIsSnapping(true); isSnappingRef.current = true;
+      setIsSnapping(true);
       try {
         const snapped = await getSnappedRoute(nextWaypoints, mapboxToken);
         setRoutes((prev) =>
@@ -1343,7 +1187,7 @@ const RouteEditor = () => {
           prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: nextWaypoints, routeCoords: nextWaypoints } : r))
         );
       } finally {
-        setIsSnapping(false); isSnappingRef.current = false;
+        setIsSnapping(false);
       }
     } else {
       setRoutes((prev) =>
@@ -1355,15 +1199,8 @@ const RouteEditor = () => {
 
   const clearActiveRoute = () => {
     if (!activeRoute) return;
-    // Cache route data for undo
-    const cachedWaypoints = [...activeRoute.waypoints];
-    const cachedCoords = [...activeRoute.routeCoords];
-    const cachedSegmentCounts = activeRoute.segmentCoordCounts ? [...activeRoute.segmentCoordCounts] : undefined;
-    const wasFinished = finishedRouteIds.has(activeRouteId);
-    const clearedRouteId = activeRouteId;
-
     setRoutes((prev) =>
-      prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: [], routeCoords: [], segmentCoordCounts: undefined } : r))
+      prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: [], routeCoords: [] } : r))
     );
     // Un-finish the route so the user can start drawing again
     setFinishedRouteIds((prev) => {
@@ -1372,33 +1209,6 @@ const RouteEditor = () => {
       return next;
     });
     setStatusText('Route cleared.');
-
-    if (cachedWaypoints.length > 0) {
-      toast({
-        title: 'Route cleared',
-        description: `${cachedWaypoints.length} waypoints removed`,
-        action: (
-          <ToastAction
-            altText="Undo clear"
-            onClick={() => {
-              setRoutes((prev) =>
-                prev.map((r) =>
-                  r.id === clearedRouteId
-                    ? { ...r, waypoints: cachedWaypoints, routeCoords: cachedCoords, segmentCoordCounts: cachedSegmentCounts }
-                    : r
-                )
-              );
-              if (wasFinished) {
-                setFinishedRouteIds((prev) => new Set(prev).add(clearedRouteId));
-              }
-              setStatusText('Route restored.');
-            }}
-          >
-            Undo
-          </ToastAction>
-        ),
-      });
-    }
   };
 
   // Keyboard shortcuts
@@ -1495,13 +1305,7 @@ const RouteEditor = () => {
     window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 768
   );
   if (isTouchDevice) {
-    return (
-      <MobileEditorGate
-        onBack={() => navigate('/dashboard')}
-        editorUrl={window.location.href}
-        userEmail={user?.email ?? undefined}
-      />
-    );
+    return <MobileEditorGate onBack={() => navigate('/dashboard')} />;
   }
 
   return (
@@ -1555,8 +1359,6 @@ const RouteEditor = () => {
         onHelp={() => setTourActive(true)}
         onScoutLink={() => setScoutLinkDialogOpen(true)}
         onPublish={handlePublish}
-        onFinishRoute={handleFinishRoute}
-        canFinishRoute={canFinishRoute}
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
         canPublish={canPublish}
@@ -1628,8 +1430,6 @@ const RouteEditor = () => {
             <EditorCoachMark
               userId={user.id}
               hasRouteWaypoints={routes.some((r) => r.waypoints.length > 0)}
-              hasFinishedRoute={finishedRouteIds.size > 0}
-              isPublished={eventStatus === 'published'}
             />
           )}
 
