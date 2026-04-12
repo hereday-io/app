@@ -55,9 +55,8 @@ with isolated testing.
 - [ ] **Visible waypoint dots.** 6-8px route-colored circles at each
   waypoint so clicks feel tangible. Guard `setLngLat` against invalid
   coordinates from legacy data.
-- [ ] **Cursor mode changes.** Crosshair while drawing, copy cursor
-  during POI placement, default when idle. Set via
-  `map.getCanvas().style.cursor`.
+- [x] **Cursor mode changes.** Crosshair while drawing, copy cursor
+  during POI placement, default when idle.
 - [ ] **Block clicks during snap.** `isSnappingRef` gate on the click
   handler to prevent race conditions when Mapbox Directions API is
   in-flight. Must ensure the ref resets in all error paths.

@@ -398,10 +398,19 @@ const RouteEditor = () => {
     return () => observer.disconnect();
   }, [mapReady]);
 
-  // Cursor tooltip that follows the mouse
+  // Cursor style + tooltip that follows the mouse
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+
+    const canvas = map.getCanvas();
+    if (pendingPoiType) {
+      canvas.style.cursor = 'copy';
+    } else if (activeRouteId && !finishedRouteIds.has(activeRouteId)) {
+      canvas.style.cursor = 'crosshair';
+    } else {
+      canvas.style.cursor = '';
+    }
 
     const tooltip = document.createElement('div');
     tooltip.style.cssText =
@@ -441,6 +450,7 @@ const RouteEditor = () => {
       map.off('mousemove', onMouseMove);
       map.getContainer().removeEventListener('mouseleave', onMouseLeave);
       tooltip.remove();
+      canvas.style.cursor = '';
     };
   }, [activeRouteId, pendingPoiType, routes, finishedRouteIds]);
 
