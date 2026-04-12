@@ -79,6 +79,17 @@ const EditorTopBar = ({
   lastSavedAt,
   retryCountdown,
 }: EditorTopBarProps) => {
+  // Force-show text labels on toolbar buttons for the first 3 editor
+  // sessions so new users discover Tour, Scout, Undo, etc. After 3
+  // sessions the labels collapse to icon-only on narrow viewports.
+  const [forceLabels] = useState(() => {
+    const key = 'hereday_editor_sessions';
+    const count = parseInt(localStorage.getItem(key) ?? '0', 10);
+    localStorage.setItem(key, String(count + 1));
+    return count < 3;
+  });
+  const labelClass = forceLabels ? 'inline text-xs' : 'hidden lg:inline text-xs';
+
   const [sharePopoverOpen, setSharePopoverOpen] = useState(false);
   const [livePopoverOpen, setLivePopoverOpen] = useState(false);
   const [unpublishConfirm, setUnpublishConfirm] = useState(false);
@@ -186,11 +197,11 @@ const EditorTopBar = ({
              that otherwise hide behind a hover tooltip nobody finds. */}
         <Button variant="ghost" size="sm" onClick={onUndo} title="Undo last point" className="h-8 gap-1.5 px-2">
           <Undo2 className="h-4 w-4" />
-          <span className="hidden lg:inline text-xs">Undo</span>
+          <span className={labelClass}>Undo</span>
         </Button>
         <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear this route" className="h-8 gap-1.5 px-2">
           <Trash2 className="h-4 w-4" />
-          <span className="hidden lg:inline text-xs">Clear</span>
+          <span className={labelClass}>Clear</span>
         </Button>
         {canFinishRoute && onFinishRoute && (
           <Button variant="default" size="sm" onClick={onFinishRoute} title="Finish this route" className="h-8 gap-1.5 px-2">
@@ -201,7 +212,7 @@ const EditorTopBar = ({
         {onHelp && (
           <Button variant="ghost" size="sm" onClick={onHelp} title="Take a quick tour" className="h-8 gap-1.5 px-2">
             <HelpCircle className="h-4 w-4" />
-            <span className="hidden lg:inline text-xs">Tour</span>
+            <span className={labelClass}>Tour</span>
           </Button>
         )}
         {onScoutLink && (
@@ -213,7 +224,7 @@ const EditorTopBar = ({
             className="h-8 gap-1.5 px-2 relative"
           >
             <Compass className="h-4 w-4" />
-            <span className="hidden lg:inline text-xs">Scout</span>
+            <span className={labelClass}>Scout</span>
             {/* Amber dot when scouted POIs are waiting for review.
                 Matches the banner pattern — the only surface signal for
                 pending volunteer work in the top chrome. */}

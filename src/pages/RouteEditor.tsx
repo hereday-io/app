@@ -78,6 +78,7 @@ const RouteEditor = () => {
   const [snapToRoads, setSnapToRoads] = useState(true);
   const [poiSnapToRoute, setPoiSnapToRoute] = useState(true);
   const [isSnapping, setIsSnapping] = useState(false);
+  const isSnappingRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [statusText, setStatusText] = useState('Click on the map to start building your route.');
   const [isSaving, setIsSaving] = useState(false);
@@ -557,6 +558,10 @@ const RouteEditor = () => {
     map.doubleClickZoom.disable();
 
     const onClick = async (e: mapboxgl.MapMouseEvent) => {
+      // Block clicks while a snap API call is in-flight to prevent
+      // race conditions and double-queuing of waypoints.
+      if (isSnappingRef.current) return;
+
       const rawCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
 
       if (pendingPoiType) {
@@ -627,7 +632,7 @@ const RouteEditor = () => {
         )
       );
 
-      setIsSnapping(true);
+      setIsSnapping(true); isSnappingRef.current = true;
       setStatusText('Snapping to roads...');
       try {
         const snappedSegment = await getSnappedRoute([prevWaypoint, rawCoord], mapboxToken);
@@ -657,7 +662,7 @@ const RouteEditor = () => {
         );
         setStatusText('Road snap failed, using straight line.');
       } finally {
-        setIsSnapping(false);
+        setIsSnapping(false); isSnappingRef.current = false;
       }
     };
 
@@ -676,6 +681,19 @@ const RouteEditor = () => {
         distance_mi: parseFloat(totalDistanceMiles(route.routeCoords).toFixed(2)),
       });
       setStatusText(`Route finished · ${totalDistanceMiles(route.routeCoords).toFixed(2)} mi — Start & Finish added`);
+
+      // Brief glow pulse on the route line to celebrate finishing
+      const layerId = `route-${activeRouteId}`;
+      if (map.getLayer(layerId)) {
+        map.setPaintProperty(layerId, 'line-width', 8);
+        map.setPaintProperty(layerId, 'line-opacity', 0.8);
+        setTimeout(() => {
+          if (map.getLayer(layerId)) {
+            map.setPaintProperty(layerId, 'line-width', 5);
+            map.setPaintProperty(layerId, 'line-opacity', 1);
+          }
+        }, 500);
+      }
     };
 
     map.on('click', onClick);
@@ -793,6 +811,7 @@ const RouteEditor = () => {
         const selectionRing = isSelected ? '0 0 0 3px hsl(var(--primary) / 0.4), ' : '';
         inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:${selectionRing}0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease, box-shadow 0.2s;pointer-events:none;`;
         inner.textContent = tone.emoji;
+        inner.classList.add('poi-drop-in');
         el.appendChild(inner);
         el.addEventListener('mouseenter', () => {
           inner.style.transform = 'scale(1.25)';
@@ -869,6 +888,12 @@ const RouteEditor = () => {
           marker.setLngLat(snapped);
           setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, coordinates: snapped } : p)));
           el.style.cursor = 'grab';
+          // Elastic settle animation when snapping to route
+          if (poiSnapToRoute) {
+            inner.classList.remove('poi-snap-settle');
+            void inner.offsetWidth; // force reflow
+            inner.classList.add('poi-snap-settle');
+          }
         });
 
         markersRef.current.push(marker);
@@ -1305,7 +1330,7 @@ const RouteEditor = () => {
 
     // Fallback for routes built before segmentCoordCounts was introduced
     if (snapToRoads && nextWaypoints.length >= 2) {
-      setIsSnapping(true);
+      setIsSnapping(true); isSnappingRef.current = true;
       try {
         const snapped = await getSnappedRoute(nextWaypoints, mapboxToken);
         setRoutes((prev) =>
@@ -1316,7 +1341,7 @@ const RouteEditor = () => {
           prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: nextWaypoints, routeCoords: nextWaypoints } : r))
         );
       } finally {
-        setIsSnapping(false);
+        setIsSnapping(false); isSnappingRef.current = false;
       }
     } else {
       setRoutes((prev) =>
@@ -1468,7 +1493,13 @@ const RouteEditor = () => {
     window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 768
   );
   if (isTouchDevice) {
-    return <MobileEditorGate onBack={() => navigate('/dashboard')} />;
+    return (
+      <MobileEditorGate
+        onBack={() => navigate('/dashboard')}
+        editorUrl={window.location.href}
+        userEmail={user?.email ?? undefined}
+      />
+    );
   }
 
   return (
@@ -1595,6 +1626,8 @@ const RouteEditor = () => {
             <EditorCoachMark
               userId={user.id}
               hasRouteWaypoints={routes.some((r) => r.waypoints.length > 0)}
+              hasFinishedRoute={finishedRouteIds.size > 0}
+              isPublished={eventStatus === 'published'}
             />
           )}
 

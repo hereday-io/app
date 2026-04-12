@@ -223,45 +223,20 @@ const Dashboard = () => {
           <div className="flex items-start gap-2">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Input
-                    value={quickName}
-                    onChange={(e) => setQuickName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleQuickCreate();
-                      }
-                    }}
-                    placeholder="Name your next event…"
-                    disabled={quickCreating}
-                    className="h-10 w-60 pr-10"
-                  />
-                  <button
-                    onClick={handleQuickCreate}
-                    disabled={!quickName.trim() || quickCreating}
-                    title="Create event (Enter)"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-md bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCreateOpen(true)}
-                  className="text-muted-foreground gap-1"
-                  title="More options (date, tracking, branding)"
-                >
-                  Advanced
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              {/* City field slides in once a name is being typed — progressive
-                  disclosure so the empty dashboard stays uncluttered, but the
-                  editor never lands on a continental zoom-4 view. */}
-              {quickName.trim().length > 0 && (
-                <div className="w-60 animate-in fade-in slide-in-from-top-1 duration-200">
+                <Input
+                  value={quickName}
+                  onChange={(e) => setQuickName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleQuickCreate();
+                    }
+                  }}
+                  placeholder="Name your next event…"
+                  disabled={quickCreating}
+                  className="h-10 w-48"
+                />
+                <div className="w-44">
                   {mapboxToken ? (
                     <CitySearch
                       value={quickCity}
@@ -270,19 +245,37 @@ const Dashboard = () => {
                         setQuickCityCenter(center);
                       }}
                       token={mapboxToken}
-                      placeholder="Where? (city — optional)"
+                      placeholder="City"
                     />
                   ) : (
                     <Input
                       value={quickCity}
                       onChange={(e) => setQuickCity(e.target.value)}
-                      placeholder="Where? (city — optional)"
+                      placeholder="City"
                       disabled={quickCreating}
                       className="h-10"
                     />
                   )}
                 </div>
-              )}
+                <button
+                  onClick={handleQuickCreate}
+                  disabled={!quickName.trim() || quickCreating}
+                  title="Create event (Enter)"
+                  className="h-10 w-10 shrink-0 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCreateOpen(true)}
+                  className="text-muted-foreground gap-1"
+                  title="Add date, location, or tracking"
+                >
+                  Advanced
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -316,10 +309,20 @@ const Dashboard = () => {
                   <p className="text-muted-foreground text-sm mb-4">
                     Create your first event and start drawing your course.
                   </p>
-                  <Button onClick={() => setCreateOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Event
-                  </Button>
+                  <div className="flex flex-col items-center gap-3">
+                    <Button onClick={() => setCreateOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Event
+                    </Button>
+                    <a
+                      href="/event/crystal-lake-5k-demo"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Or explore a sample event →
+                    </a>
+                  </div>
                 </CardContent>
               </Card>
             );
