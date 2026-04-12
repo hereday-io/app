@@ -115,23 +115,6 @@ const RouteEditor = () => {
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
   const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | null>(null);
-  // Refs that the rubber-band mousemove handler reads so the render
-  // effect doesn't need these values in its dependency array.
-  const snapToRoadsRef = useRef(snapToRoads);
-  const finishedRouteIdsRef = useRef(finishedRouteIds);
-  const pendingPoiTypeRef = useRef(pendingPoiType);
-  const routesRef = useRef(routes);
-  const activeRouteIdRef = useRef(activeRouteId);
-  const mapboxTokenRef = useRef(mapboxToken);
-  useEffect(() => {
-    snapToRoadsRef.current = snapToRoads;
-    finishedRouteIdsRef.current = finishedRouteIds;
-    pendingPoiTypeRef.current = pendingPoiType;
-    routesRef.current = routes;
-    activeRouteIdRef.current = activeRouteId;
-    mapboxTokenRef.current = mapboxToken;
-  });
-
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -639,10 +622,6 @@ const RouteEditor = () => {
       });
       renderedRouteIdsRef.current = currentIds;
 
-      // Clean up rubber-band preview
-      if (map.getLayer('rubber-band')) map.removeLayer('rubber-band');
-      if (map.getSource('rubber-band')) map.removeSource('rubber-band');
-
       routes
         .filter((r) => r.visible && r.routeCoords.length > 1)
         .forEach((route) => {
@@ -669,25 +648,6 @@ const RouteEditor = () => {
             },
           });
         });
-
-      // Rubber-band preview — always create with empty data. The
-      // mousemove handler populates it only while actively drawing.
-      // Keeping this unconditional avoids any conditional code paths
-      // that could throw and prevent the rest of render() from running.
-      try {
-        map.addSource('rubber-band', {
-          type: 'geojson',
-          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
-        });
-        map.addLayer({
-          id: 'rubber-band',
-          type: 'line',
-          source: 'rubber-band',
-          paint: { 'line-color': '#3b82f6', 'line-width': 3, 'line-opacity': 0.5, 'line-dasharray': [3, 3] },
-        });
-      } catch {
-        // Source/layer may already exist in edge cases — safe to ignore
-      }
 
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
@@ -855,73 +815,8 @@ const RouteEditor = () => {
 
     // Also re-render when style changes (basemap switch)
     map.on('style.load', render);
-
-    // Rubber-band mousemove: reads all state from refs so this handler
-    // doesn't add deps to the render effect. Updates the always-present
-    // rubber-band source only while actively drawing.
-    let snapTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const onRubberBandMove = (e: mapboxgl.MapMouseEvent) => {
-      const src = map.getSource('rubber-band') as mapboxgl.GeoJSONSource | undefined;
-      if (!src) return;
-
-      const rid = activeRouteIdRef.current;
-      const rts = routesRef.current;
-      const finished = finishedRouteIdsRef.current;
-      const pending = pendingPoiTypeRef.current;
-
-      // Only show rubber-band while actively drawing
-      if (!rid || finished.has(rid) || pending) {
-        src.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
-        return;
-      }
-
-      const ar = rts.find((r) => r.id === rid);
-      const lastWp = ar?.waypoints[ar.waypoints.length - 1];
-      if (!lastWp) {
-        src.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
-        return;
-      }
-
-      const cursor: Coord = [e.lngLat.lng, e.lngLat.lat];
-
-      // Update line color to match active route
-      try { map.setPaintProperty('rubber-band', 'line-color', ar!.color); } catch {}
-
-      // Show straight dashed line immediately
-      src.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: [lastWp, cursor] },
-      });
-
-      // In snap mode, debounce a road-snap preview
-      if (snapToRoadsRef.current) {
-        if (snapTimer) clearTimeout(snapTimer);
-        snapTimer = setTimeout(async () => {
-          try {
-            const snapped = await getSnappedRoute([lastWp, cursor], mapboxTokenRef.current);
-            const currentSrc = map.getSource('rubber-band') as mapboxgl.GeoJSONSource | undefined;
-            if (currentSrc) {
-              currentSrc.setData({
-                type: 'Feature',
-                properties: {},
-                geometry: { type: 'LineString', coordinates: snapped },
-              });
-            }
-          } catch {
-            // Fall back to straight line (already shown)
-          }
-        }, 300);
-      }
-    };
-
-    map.on('mousemove', onRubberBandMove);
-
     return () => {
       map.off('style.load', render);
-      map.off('mousemove', onRubberBandMove);
-      if (snapTimer) clearTimeout(snapTimer);
     };
   }, [routes, pois, scoutedPois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
 
