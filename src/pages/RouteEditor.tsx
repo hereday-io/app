@@ -59,6 +59,8 @@ const RouteEditor = () => {
   const popoverRootsRef = useRef<Map<string, Root>>(new Map());
 
   const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  // Track route IDs that have Mapbox layers so we can clean up deleted routes
+  const renderedRouteIdsRef = useRef<Set<string>>(new Set());
 
 
   const [eventName, setEventName] = useState('Untitled Event');
@@ -609,12 +611,16 @@ const RouteEditor = () => {
     if (!map) return;
 
     const render = () => {
-      // Clean up existing route layers/sources
-      routes.forEach((route) => {
-        const srcId = `route-${route.id}`;
+      // Clean up existing route layers/sources — include previously
+      // rendered IDs so deleted routes get removed from the map.
+      const currentIds = new Set(routes.map((r) => r.id));
+      const allIds = new Set([...currentIds, ...renderedRouteIdsRef.current]);
+      allIds.forEach((id) => {
+        const srcId = `route-${id}`;
         if (map.getLayer(srcId)) map.removeLayer(srcId);
         if (map.getSource(srcId)) map.removeSource(srcId);
       });
+      renderedRouteIdsRef.current = currentIds;
 
       routes
         .filter((r) => r.visible && r.routeCoords.length > 1)
@@ -1138,6 +1144,14 @@ const RouteEditor = () => {
     const next = remaining.length > 0 ? remaining : [makeRoute('5K Route', ROUTE_COLORS[0])];
     setRoutes(next);
     if (activeRouteId === id) setActiveRouteId(next[0].id);
+    // Remove auto-placed start/finish POIs for this route
+    setPois((prev) => prev.filter((p) => !p.id.startsWith(`auto-start-${id}`) && !p.id.startsWith(`auto-finish-${id}`)));
+    // Clear finished state
+    setFinishedRouteIds((prev) => {
+      const next2 = new Set(prev);
+      next2.delete(id);
+      return next2;
+    });
   };
 
   const undoLastWaypoint = useCallback(async () => {
