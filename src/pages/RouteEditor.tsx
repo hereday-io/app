@@ -442,6 +442,105 @@ const RouteEditor = () => {
     };
   }, [activeRouteId, pendingPoiType, routes, finishedRouteIds]);
 
+  // Rubber-band preview line — shows the projected path from last
+  // waypoint to the cursor. In snap mode, debounces a Directions API
+  // call so the preview follows the road. In freeform mode, draws a
+  // straight dashed line immediately.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !map.isStyleLoaded()) return;
+
+    const route = routes.find((r) => r.id === activeRouteId);
+    const isDrawing = activeRouteId && !finishedRouteIds.has(activeRouteId) && !pendingPoiType && route && route.waypoints.length > 0;
+
+    const srcId = 'rubber-band';
+    const layerId = 'rubber-band-line';
+    const color = route?.color ?? '#3b82f6';
+
+    const emptyLine: GeoJSON.Feature<GeoJSON.LineString> = {
+      type: 'Feature', properties: {},
+      geometry: { type: 'LineString', coordinates: [] },
+    };
+
+    // Ensure source/layer exist
+    try {
+      if (!map.getSource(srcId)) {
+        map.addSource(srcId, { type: 'geojson', data: emptyLine });
+        map.addLayer({
+          id: layerId, type: 'line', source: srcId,
+          paint: { 'line-color': color, 'line-width': 3, 'line-opacity': 0.5, 'line-dasharray': [3, 3] },
+        });
+      } else if (map.getLayer(layerId)) {
+        map.setPaintProperty(layerId, 'line-color', color);
+      }
+    } catch { return; }
+
+    if (!isDrawing) {
+      try { (map.getSource(srcId) as mapboxgl.GeoJSONSource)?.setData(emptyLine); } catch {}
+      return;
+    }
+
+    const lastWp = route.waypoints[route.waypoints.length - 1];
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let abortController: AbortController | null = null;
+    // Cache the latest snapped preview so we keep showing it between
+    // debounced API calls instead of flashing back to a straight line.
+    let lastSnappedCoords: Coord[] | null = null;
+
+    const setSrc = (coords: Coord[]) => {
+      try {
+        const src = map.getSource(srcId) as mapboxgl.GeoJSONSource;
+        if (src) src.setData({
+          type: 'Feature', properties: {},
+          geometry: { type: 'LineString', coordinates: coords },
+        });
+      } catch {}
+    };
+
+    const onMove = (e: mapboxgl.MapMouseEvent) => {
+      const cursor: Coord = [e.lngLat.lng, e.lngLat.lat];
+
+      if (!snapToRoads) {
+        // Freeform: instant straight line
+        lastSnappedCoords = null;
+        setSrc([lastWp, cursor]);
+        return;
+      }
+
+      // Snap mode: show last snapped result extended to cursor, then
+      // debounce a fresh API call for the actual road path.
+      if (lastSnappedCoords) {
+        setSrc([...lastSnappedCoords, cursor]);
+      } else {
+        setSrc([lastWp, cursor]);
+      }
+
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (abortController) abortController.abort();
+
+      debounceTimer = setTimeout(async () => {
+        abortController = new AbortController();
+        try {
+          const snapped = await getSnappedRoute([lastWp, cursor], mapboxToken);
+          if (!abortController.signal.aborted) {
+            lastSnappedCoords = snapped;
+            setSrc(snapped);
+          }
+        } catch {
+          // API failed — keep showing the straight line
+        }
+      }, 150);
+    };
+
+    map.on('mousemove', onMove);
+    return () => {
+      map.off('mousemove', onMove);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (abortController) abortController.abort();
+      try { (map.getSource(srcId) as mapboxgl.GeoJSONSource)?.setData(emptyLine); } catch {}
+    };
+  }, [activeRouteId, finishedRouteIds, pendingPoiType, routes, snapToRoads, mapReady, selectedBasemap, mapboxToken]);
+
   // Helper to auto-place start/finish POIs for a route
   const autoPlaceStartFinish = useCallback((routeId: string, waypoints: Coord[]) => {
     if (waypoints.length < 2) return;
