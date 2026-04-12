@@ -786,7 +786,7 @@ const RouteEditor = () => {
           popup.remove();
           el.style.cursor = 'grabbing';
         });
-        marker.on('dragend', () => {
+        marker.on('dragend', async () => {
           const lngLat = marker.getLngLat();
           const snapped = poiSnapToRoute
             ? snapToNearestRoute([lngLat.lng, lngLat.lat] as Coord, routes)
@@ -794,6 +794,43 @@ const RouteEditor = () => {
           marker.setLngLat(snapped);
           setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, coordinates: snapped } : p)));
           el.style.cursor = 'grab';
+
+          // If this is an auto-placed Start or Finish, update the
+          // route's first/last waypoint and re-snap the affected segment.
+          const startMatch = poi.id.match(/^auto-start-(.+)$/);
+          const finishMatch = poi.id.match(/^auto-finish-(.+)$/);
+          const routeId = startMatch?.[1] ?? finishMatch?.[1];
+          if (routeId) {
+            setRoutes((prev) => prev.map((r) => {
+              if (r.id !== routeId || r.waypoints.length < 2) return r;
+              const wps = [...r.waypoints];
+              if (startMatch) wps[0] = snapped;
+              if (finishMatch) wps[wps.length - 1] = snapped;
+              // Trigger async re-snap below; update waypoints immediately
+              return { ...r, waypoints: wps };
+            }));
+            // Re-snap the full route with the updated endpoint
+            const route = routes.find((r) => r.id === routeId);
+            if (route && route.waypoints.length >= 2) {
+              const wps = [...route.waypoints];
+              if (startMatch) wps[0] = snapped;
+              if (finishMatch) wps[wps.length - 1] = snapped;
+              try {
+                setIsSnapping(true);
+                const newCoords = await getSnappedRoute(wps, mapboxToken);
+                setRoutes((prev) => prev.map((r) =>
+                  r.id === routeId ? { ...r, waypoints: wps, routeCoords: newCoords } : r
+                ));
+              } catch {
+                // Fallback: use waypoints as straight-line coords
+                setRoutes((prev) => prev.map((r) =>
+                  r.id === routeId ? { ...r, waypoints: wps, routeCoords: wps } : r
+                ));
+              } finally {
+                setIsSnapping(false);
+              }
+            }
+          }
         });
 
         markersRef.current.push(marker);
