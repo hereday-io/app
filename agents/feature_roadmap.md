@@ -47,9 +47,11 @@ The features themselves are correct — the bug was in how they interacted
 with Mapbox GL's source/layer lifecycle. Re-implement one at a time
 with isolated testing.
 
-- [ ] **Rubber-band preview line.** Dashed line from last waypoint to
-  cursor during drawing. Must guard against unloaded map style and
-  recover after basemap switches (`style.load` wipes custom sources).
+- [x] ~~**Rubber-band preview line.**~~ Removed — four separate
+  implementations all caused the same rendering regression (routes
+  and POIs stop loading on existing projects). The Mapbox GL
+  source/layer lifecycle in RouteEditor.tsx is too fragile for an
+  additional dynamic source. Not worth the risk.
 - [ ] **Visible waypoint dots.** 6-8px route-colored circles at each
   waypoint so clicks feel tangible. Guard `setLngLat` against invalid
   coordinates from legacy data.
@@ -69,10 +71,8 @@ with isolated testing.
 - [ ] **Email verification gate on publish.** Let unverified email
   users access dashboard + editor immediately; only gate the Publish
   action on `email_confirmed_at`.
-- [ ] **POI drop-in animation.** Bounce animation on marker placement.
-  Must apply CSS class AFTER the element is attached to the DOM via
-  Mapbox's `.addTo(map)`, not before (detached elements don't run
-  CSS animations — `animation-fill-mode: both` leaves them invisible).
+- [x] **POI drop-in animation.** Bounce animation on marker placement.
+  Class applied AFTER `.addTo(map)` via `newPoiIdRef` gating.
 
 ## Next — "make it come back" (next 2 months)
 

@@ -61,6 +61,8 @@ const RouteEditor = () => {
   const elevMarkerRef = useRef<mapboxgl.Marker | null>(null);
   // Track route IDs that have Mapbox layers so we can clean up deleted routes
   const renderedRouteIdsRef = useRef<Set<string>>(new Set());
+  // ID of a just-placed POI so the render effect can apply the drop-in animation
+  const newPoiIdRef = useRef<string | null>(null);
 
 
   const [eventName, setEventName] = useState('Untitled Event');
@@ -493,6 +495,7 @@ const RouteEditor = () => {
           description: '',
           coordinates: coord,
         };
+        newPoiIdRef.current = newPoi.id;
         setPois((prev) => [...prev, newPoi]);
         // Shift-click on the picker arms batch mode — the type stays
         // selected after each placement until the user presses Esc or
@@ -751,6 +754,14 @@ const RouteEditor = () => {
           .setLngLat(poi.coordinates)
           .setPopup(popup)
           .addTo(map);
+
+        // Apply bounce animation AFTER .addTo(map) — detached elements
+        // don't run CSS animations, so the class must be added once the
+        // marker is in the DOM.
+        if (newPoiIdRef.current === poi.id) {
+          el.classList.add('poi-drop-in');
+          newPoiIdRef.current = null;
+        }
 
         // Click to select (the popup auto-opens via setPopup binding,
         // but we also want to flag this POI as "selected" so keyboard
