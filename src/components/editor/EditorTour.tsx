@@ -12,32 +12,32 @@ export interface TourStep {
 const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="sidebar-routes"]',
-    title: '1. Routes Panel',
-    content: 'Manage your routes here. You can add multiple routes, rename them, and change colors.',
+    title: 'Your routes live here',
+    content: 'Add routes, name them, and pick colors. Most events start with one.',
     placement: 'right',
   },
   {
     target: '[data-tour="map-area"]',
-    title: '2. Draw on the Map',
-    content: 'Click anywhere on the map to add waypoints. Your route will snap to roads by default.',
+    title: 'Draw your course',
+    content: 'Click to place points — your route follows the road automatically.',
     placement: 'left',
   },
   {
     target: '[data-tour="snap-toggle"]',
-    title: '3. Snap to Roads',
-    content: 'Toggle between road-snapping mode and freeform drawing for off-road courses.',
+    title: 'Road mode vs. off-road',
+    content: 'On by default: your route hugs the road. Turn it off for trails or cross-country.',
     placement: 'right',
   },
   {
     target: '[data-tour="poi-section"]',
-    title: '4. Points of Interest',
-    content: 'Click a POI type, then click the map to place it. Add water stations, parking, start/finish, and more.',
+    title: 'Drop markers',
+    content: 'Pick a type, click the map. Water stations, parking, aid — whatever runners need to find.',
     placement: 'right',
   },
   {
     target: '[data-tour="save-button"]',
-    title: '5. Save Your Work',
-    content: 'Don\'t forget to save! You can return to edit anytime from the dashboard.',
+    title: 'You\'re covered',
+    content: 'Your work autosaves. Come back anytime from the dashboard.',
     placement: 'bottom',
   },
 ];

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { logEvent } from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +35,11 @@ const Signup = () => {
   const [sent, setSent] = useState(false);
   const { toast } = useToast();
 
+  const viewedRef = useRef(false);
+  useEffect(() => {
+    if (!viewedRef.current) { viewedRef.current = true; logEvent('signup_page_viewed'); }
+  }, []);
+
   const strength = useMemo(() => scorePassword(password), [password]);
   // Gate submission on both the Supabase minimum (6) and a meaningful
   // strength signal — a 6-char all-lowercase password is technically
@@ -56,10 +62,26 @@ const Signup = () => {
     if (error) {
       toast({ title: 'Signup failed', description: error.message, variant: 'destructive' });
     } else {
+      logEvent('signup_form_submitted', null, { method: 'email' });
       setSent(true);
     }
     setLoading(false);
   };
+
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const handleResend = useCallback(async () => {
+    if (resendCooldown > 0) return;
+    await supabase.auth.resend({ type: 'signup', email });
+    setResendCooldown(60);
+    toast({ title: 'Confirmation email resent' });
+  }, [email, resendCooldown, toast]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
 
   if (sent) {
     return (
@@ -74,17 +96,37 @@ const Signup = () => {
               <div className="space-y-2">
                 <h2 className="text-xl font-display font-bold text-foreground">Check your email</h2>
                 <p className="text-sm text-muted-foreground">
-                  We sent a confirmation link to <strong className="text-foreground">{email}</strong>.
-                  Click it to activate your account and you'll land straight on your dashboard.
+                  We sent a link to <strong className="text-foreground">{email}</strong>.
+                  Tap it to confirm and you're in.
                 </p>
               </div>
-              <p className="text-xs text-muted-foreground pt-2">
-                Didn't get it? Check your spam folder, or{' '}
+              <div className="flex flex-col gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResend}
+                  disabled={resendCooldown > 0}
+                  className="mx-auto"
+                >
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend email'}
+                </Button>
+                <div className="relative my-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">or</span>
+                  </div>
+                </div>
+                <GoogleSignInButton />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Not seeing it? Check spam, or{' '}
                 <button
                   onClick={() => setSent(false)}
                   className="text-primary hover:underline font-medium"
                 >
-                  try a different email
+                  try another email
                 </button>.
               </p>
             </CardContent>
@@ -103,13 +145,13 @@ const Signup = () => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
           <img src="/hereday-logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
-          <p className="text-muted-foreground">Create your organizer account</p>
+          <p className="text-muted-foreground">Create your account</p>
         </div>
 
         <Card className="border-border/60 shadow-lg">
           <CardHeader className="pb-4">
             <CardTitle className="font-display text-xl">Get started</CardTitle>
-            <CardDescription>Start mapping your events in minutes</CardDescription>
+            <CardDescription>You'll be drawing routes in two minutes</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 mb-4">

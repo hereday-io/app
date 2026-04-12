@@ -91,6 +91,9 @@ const Dashboard = () => {
     if (!authLoading && !user) {
       navigate('/login');
     }
+    if (!authLoading && user) {
+      logEvent('dashboard_viewed');
+    }
   }, [user, authLoading, navigate]);
 
   // Fetch user plan status + display name
@@ -311,7 +314,7 @@ const Dashboard = () => {
                   <MapPinned className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
                   <h3 className="font-display font-semibold text-lg mb-1">No events yet</h3>
                   <p className="text-muted-foreground text-sm mb-4">
-                    Create your first event to start mapping routes and points of interest.
+                    Create your first event and start drawing your course.
                   </p>
                   <Button onClick={() => setCreateOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />

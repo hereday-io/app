@@ -112,7 +112,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       normalizedSlug.length > 0 &&
       normalizedSlug !== (event.slug ?? '');
     if (!slugLocked && slug.trim().length > 0 && normalizedSlug.length === 0) {
-      toast({ title: 'Slug must contain letters or numbers', variant: 'destructive' });
+      toast({ title: 'URL must contain letters or numbers', variant: 'destructive' });
       return;
     }
 
@@ -144,7 +144,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       const isSlugCollision = slugChanged && (error as { code?: string }).code === '23505';
       toast({
         title: isSlugCollision ? 'That URL is already taken' : 'Failed to update event',
-        description: isSlugCollision ? 'Pick a different slug and try again.' : error.message,
+        description: isSlugCollision ? 'Try a different URL.' : error.message,
         variant: 'destructive',
       });
     } else {
@@ -237,8 +237,8 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
             </div>
             <p className="text-[11px] text-muted-foreground leading-snug">
               {slugLocked
-                ? 'Slug is locked while the event is published — unpublish first to change it.'
-                : 'Letters, numbers, and dashes. Customize it before publishing — once live, changing it breaks shared links.'}
+                ? 'URL is locked while live — unpublish to change it.'
+                : 'Customize your URL before publishing. Once live, changing it breaks any links you\'ve shared.'}
             </p>
           </div>
 

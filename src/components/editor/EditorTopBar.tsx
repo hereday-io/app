@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
 import ShareQrCode from '@/components/editor/ShareQrCode';
+import { logEvent } from '@/lib/analytics';
 
 interface EditorTopBarProps {
   eventName: string;
@@ -36,6 +37,8 @@ interface EditorTopBarProps {
   onHelp?: () => void;
   onScoutLink?: () => void;
   onPublish?: () => void;
+  onFinishRoute?: () => void;
+  canFinishRoute?: boolean;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   saveState?: 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
@@ -68,6 +71,8 @@ const EditorTopBar = ({
   onHelp,
   onScoutLink,
   onPublish,
+  onFinishRoute,
+  canFinishRoute,
   sidebarOpen,
   onToggleSidebar,
   saveState = 'idle',
@@ -99,6 +104,7 @@ const EditorTopBar = ({
   const handleCopy = () => {
     if (!publicUrl) return;
     navigator.clipboard.writeText(publicUrl);
+    logEvent('share_link_copied', eventId ?? null, { source: 'editor_topbar' });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -182,12 +188,18 @@ const EditorTopBar = ({
           <Undo2 className="h-4 w-4" />
           <span className="hidden lg:inline text-xs">Undo</span>
         </Button>
-        <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear active route" className="h-8 gap-1.5 px-2">
+        <Button variant="ghost" size="sm" onClick={onClearRoute} title="Clear this route" className="h-8 gap-1.5 px-2">
           <Trash2 className="h-4 w-4" />
           <span className="hidden lg:inline text-xs">Clear</span>
         </Button>
+        {canFinishRoute && onFinishRoute && (
+          <Button variant="default" size="sm" onClick={onFinishRoute} title="Finish this route" className="h-8 gap-1.5 px-2">
+            <Check className="h-4 w-4" />
+            <span className="text-xs">Finish route</span>
+          </Button>
+        )}
         {onHelp && (
-          <Button variant="ghost" size="sm" onClick={onHelp} title="Show editor tour" className="h-8 gap-1.5 px-2">
+          <Button variant="ghost" size="sm" onClick={onHelp} title="Take a quick tour" className="h-8 gap-1.5 px-2">
             <HelpCircle className="h-4 w-4" />
             <span className="hidden lg:inline text-xs">Tour</span>
           </Button>
@@ -197,7 +209,7 @@ const EditorTopBar = ({
             variant="ghost"
             size="sm"
             onClick={onScoutLink}
-            title="Scout mode link — drop POIs from your phone"
+            title="Scout link — let volunteers drop pins from their phone"
             className="h-8 gap-1.5 px-2 relative"
           >
             <Compass className="h-4 w-4" />
@@ -218,7 +230,7 @@ const EditorTopBar = ({
           onClick={onSave}
           disabled={isSaving}
           data-tour="save-button"
-          title="All changes autosave · click to save now"
+          title="Autosaved · click to save now"
           className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md text-xs font-medium transition-colors ${
             saveState === 'error'
               ? 'text-destructive hover:bg-destructive/10'
@@ -350,7 +362,7 @@ const EditorTopBar = ({
               size="sm"
               onClick={onPublish}
               disabled={isPublishing || !canPublish}
-              title={!canPublish ? 'Draw at least one route (2+ points) before publishing' : undefined}
+              title={!canPublish ? 'Draw a route first — you need at least 2 points to publish' : undefined}
               className="h-8 gap-1.5"
             >
               <Globe className="h-4 w-4" />

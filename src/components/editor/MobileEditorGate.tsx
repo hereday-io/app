@@ -18,15 +18,14 @@ const MobileEditorGate = ({ onBack }: MobileEditorGateProps) => {
         <Monitor className="h-8 w-8" />
       </div>
       <div className="space-y-2 max-w-sm">
-        <h1 className="text-2xl font-display font-bold text-foreground">Editor is desktop-only</h1>
+        <h1 className="text-2xl font-display font-bold text-foreground">Open this on a computer</h1>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Drawing routes and placing points of interest needs the precision of a
-          mouse or trackpad. Please open this page on a laptop or desktop to edit
-          your event.
+          The route editor needs a mouse or trackpad. Open this link on a laptop
+          or desktop and pick up right where you left off.
         </p>
       </div>
       <p className="text-xs text-muted-foreground">
-        Participants can view your published events on any device.
+        Your published event works great on phones — editing is the only part that needs a bigger screen.
       </p>
       <Button variant="outline" onClick={onBack} className="mt-2">
         <ArrowLeft className="h-4 w-4 mr-2" />

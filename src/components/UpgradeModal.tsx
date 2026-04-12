@@ -22,19 +22,19 @@ interface UpgradeModalProps {
 
 const FEATURES = [
   { icon: Route, text: `Unlimited routes per event (free: ${PAYWALL_LIMITS.routes})` },
-  { icon: MapPin, text: `Unlimited points of interest (free: ${PAYWALL_LIMITS.pois})` },
+  { icon: MapPin, text: `Unlimited markers (free: ${PAYWALL_LIMITS.pois})` },
   { icon: ImageIcon, text: 'Custom event branding — logo & banner' },
   { icon: Crown, text: 'Priority support' },
 ];
 
 const TRIGGER_COPY: Record<string, { headline: string; sub: string }> = {
   routes: {
-    headline: "You've reached the route limit",
+    headline: 'Need more routes?',
     sub: `Free events include up to ${PAYWALL_LIMITS.routes} routes. Unlock this event for unlimited routes — perfect for marathon weekends and multi-day festivals.`,
   },
   pois: {
-    headline: "You've reached the POI limit",
-    sub: `Free events include ${PAYWALL_LIMITS.pois} points of interest. Unlock this event to add as many water stations, parking spots, and more as you need.`,
+    headline: 'Need more markers?',
+    sub: `Free events include ${PAYWALL_LIMITS.pois} markers. Unlock this event to add as many water stations, parking spots, and more as you need.`,
   },
   branding: {
     headline: 'Custom branding is a Pro feature',

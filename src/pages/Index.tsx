@@ -131,7 +131,7 @@ const steps = [
     number: '02',
     title: 'Draw the course',
     description:
-      'Click to place waypoints — they snap to roads automatically. Drop water stations and POIs along the way.',
+      'Click to place waypoints — they snap to roads automatically. Drop water stations and markers along the way.',
   },
   {
     number: '03',

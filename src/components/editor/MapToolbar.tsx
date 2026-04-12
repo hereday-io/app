@@ -48,7 +48,7 @@ const MapToolbar = ({ snapToRoads, setSnapToRoads, pendingPoiType, setPendingPoi
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {snapToRoads ? 'Snap to roads (on)' : 'Freeform mode'}
+            {snapToRoads ? 'Following roads (click to go off-road)' : 'Off-road mode (click to follow roads)'}
           </TooltipContent>
         </Tooltip>
 
@@ -67,12 +67,12 @@ const MapToolbar = ({ snapToRoads, setSnapToRoads, pendingPoiType, setPendingPoi
                 {pendingPoiType ? poiTone(pendingPoiType).emoji : '📍'}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Add point of interest</TooltipContent>
+            <TooltipContent side="right">Drop a marker</TooltipContent>
           </Tooltip>
 
           {poiOpen && (
             <div className="absolute left-full top-0 ml-2 bg-card/95 backdrop-blur border border-border rounded-lg shadow-lg p-1.5 w-56">
-              <p className="text-xs font-medium text-muted-foreground px-2.5 py-1.5">Place a marker</p>
+              <p className="text-xs font-medium text-muted-foreground px-2.5 py-1.5">Drop a marker</p>
               {POI_TYPES.map((type) => {
                 const tone = poiTone(type);
                 const isActive = pendingPoiType === type;

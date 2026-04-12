@@ -234,7 +234,7 @@ const RouteBuilderToolbar = ({
             <button
               onClick={onAddRoute}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              title={!isPaid && routes.length >= PAYWALL_LIMITS.routes ? 'Upgrade to add more routes' : 'Add route'}
+              title={!isPaid && routes.length >= PAYWALL_LIMITS.routes ? 'Free plan: 3 routes. Upgrade for more' : 'Add route'}
             >
               {!isPaid && routes.length >= PAYWALL_LIMITS.routes
                 ? <Crown className="h-3.5 w-3.5 text-amber-500" />
@@ -259,7 +259,7 @@ const RouteBuilderToolbar = ({
               }`}
             >
               <span className="text-sm">{poiSnapToRoute ? '🧲' : '📌'}</span>
-              {poiSnapToRoute ? 'Snap to route' : 'Free placement'}
+              {poiSnapToRoute ? 'Snap to nearest route' : 'Place anywhere'}
             </button>
           </div>
 
