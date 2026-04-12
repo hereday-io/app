@@ -6,7 +6,7 @@ import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { totalDistanceMiles, getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import { clusterPoisByPixels } from '@/lib/poiCluster';
-import { buildStartFinishMarkerEl, parseAutoStartFinishId } from '@/lib/mapMarkers';
+import { parseAutoStartFinishId } from '@/lib/mapMarkers';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Trophy, Eye, Maximize2, Download } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
@@ -299,21 +299,13 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
     const map = mapRef.current;
     if (!map) return;
 
-    // Split regular POIs from auto-placed start/finish. The latter
-    // skip clustering entirely and render with a dedicated, labelled
-    // treatment (F4 — UX_PATTERNS.md §Start/Finish "instantly
-    // recognizable"). Both lists drop POIs whose parent route is
-    // hidden via the layers panel.
+    // All POIs — including start/finish — go through the same
+    // clustering pass so they merge cleanly when zoomed out.
+    // Hidden routes' POIs are dropped.
     const visiblePois: RoutePoi[] = [];
-    const startFinishPois: Array<{ poi: RoutePoi; kind: 'start' | 'finish'; routeColor: string }> = [];
     event.pois.forEach((poi) => {
       const sf = parseAutoStartFinishId(poi.id);
-      if (sf) {
-        if (hiddenRouteIds.has(sf.routeId)) return;
-        const route = event.routes.find((r) => r.id === sf.routeId);
-        startFinishPois.push({ poi, kind: sf.kind, routeColor: route?.color ?? '#1e293b' });
-        return;
-      }
+      if (sf && hiddenRouteIds.has(sf.routeId)) return;
       visiblePois.push(poi);
     });
 
@@ -377,7 +369,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       const container = document.createElement('div');
       container.style.cssText = "font-family:'DM Sans',system-ui,sans-serif;width:240px;";
       container.innerHTML = `
-        <div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">${pois.length} stops here</div>
+        <div style="font-size:10px;color:hsl(var(--muted-foreground));font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">${pois.length} stops here</div>
       `;
       const list = document.createElement('div');
       list.style.cssText = 'display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;';
@@ -388,22 +380,17 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
         const tone = poiTone(poi.type);
         const row = document.createElement('button');
         row.type = 'button';
-        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;border:1px solid #f1f5f9;border-radius:10px;background:white;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.12s;';
-        row.onmouseenter = () => { row.style.background = '#f8fafc'; };
-        row.onmouseleave = () => { row.style.background = 'white'; };
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;border:1px solid hsl(var(--border));border-radius:10px;background:hsl(var(--card));cursor:pointer;text-align:left;font-family:inherit;transition:background 0.12s;';
+        row.onmouseenter = () => { row.style.background = 'hsl(var(--secondary))'; };
+        row.onmouseleave = () => { row.style.background = 'hsl(var(--card))'; };
         row.innerHTML = `
           <div style="width:28px;height:28px;border-radius:50%;background:${tone.dot};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.15);">${tone.emoji}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${tone.label}</div>
-            <div style="font-size:13px;font-weight:600;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${poi.title || tone.label}</div>
+            <div style="font-size:10px;color:hsl(var(--muted-foreground));font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${tone.label}</div>
+            <div style="font-size:13px;font-weight:600;color:hsl(var(--card-foreground));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${poi.title || tone.label}</div>
           </div>
         `;
         row.addEventListener('click', () => {
-          // Queue the target POI so the post-moveend render can open
-          // its popup once the cluster has broken apart, then close
-          // this cluster popup and zoom in. The cluster distance is
-          // 40px so bumping zoom by ~2 levels typically separates
-          // stacked markers — enough to reveal the one tapped.
           pendingPoiPopupRef.current = poi.id;
           popup.remove();
           map.flyTo({
@@ -419,49 +406,10 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       return new mapboxgl.Marker(el).setLngLat([lng, lat]).setPopup(popup);
     };
 
-    const buildStartFinishMarker = (poi: RoutePoi, kind: 'start' | 'finish', routeColor: string) => {
-      const el = buildStartFinishMarkerEl(kind, routeColor);
-      // Mount the shared read-only popover so taps still show whatever
-      // description the organizer typed. Same React-root lifecycle as
-      // the regular POI markers above.
-      const popupHost = document.createElement('div');
-      popupHost.style.fontFamily = '"DM Sans", system-ui, sans-serif';
-      const popup = new mapboxgl.Popup({ offset: 22, maxWidth: '320px', closeButton: false });
-      popup.setDOMContent(popupHost);
-      popup.on('open', () => {
-        const root = createRoot(popupHost);
-        popoverRootsRef.current.set(poi.id, root);
-        root.render(
-          <PoiReadonlyPopover
-            poi={poi}
-            onClose={() => popup.remove()}
-          />
-        );
-      });
-      popup.on('close', () => {
-        const root = popoverRootsRef.current.get(poi.id);
-        if (root) {
-          setTimeout(() => root.unmount(), 0);
-          popoverRootsRef.current.delete(poi.id);
-        }
-      });
-      return new mapboxgl.Marker(el).setLngLat(poi.coordinates).setPopup(popup);
-    };
-
     const render = () => {
       poiMarkersRef.current.forEach(m => m.remove());
       poiMarkersRef.current = [];
       poiMarkerByIdRef.current.clear();
-
-      // Start/Finish markers render unconditionally — no clustering,
-      // so a water station next door can never swallow them into an
-      // ambiguous "2 stops" pin.
-      startFinishPois.forEach(({ poi, kind, routeColor }) => {
-        const marker = buildStartFinishMarker(poi, kind, routeColor);
-        marker.addTo(map);
-        poiMarkersRef.current.push(marker);
-        poiMarkerByIdRef.current.set(poi.id, marker);
-      });
 
       const clusters = clusterPoisByPixels(visiblePois, map, 40);
       clusters.forEach((c) => {

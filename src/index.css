@@ -124,6 +124,21 @@
   }
 }
 
+/* Theme-aware Mapbox popups — the library ships a hard-coded white
+   background + white arrow tip. Override both so POI popovers match
+   the app's light/dark mode. */
+.mapboxgl-popup-content {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 14px;
+}
+.mapboxgl-popup-tip {
+  border-top-color: hsl(var(--card));
+  border-bottom-color: hsl(var(--card));
+}
+
 /* Pulse used by scouted-POI markers on the editor map to draw the
    organizer's attention to pins that need review. */
 @keyframes scoutPulse {

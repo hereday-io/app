@@ -117,25 +117,14 @@ const MapBottomSheet = ({
     return acc;
   }, {});
 
-  // Has-start / has-finish drive the pinned hero row above the
-  // category grid — start and finish are the two markers runners need
-  // to spot at a glance, and burying them in a 3-col grid violates
-  // the "must be instantly recognizable" rule in UX_PATTERNS.md.
-  const hasStart  = (grouped.start  || 0) > 0;
-  const hasFinish = (grouped.finish || 0) > 0;
-
-  // Group POI types by category, skipping start/finish (rendered as
-  // hero) and empty categories. Within each category we preserve the
-  // canonical order from `poisByCategory()` and filter to only the
-  // types that are actually placed on this event.
+  // Group POI types by category, filtering to only the types that
+  // are actually placed on this event. Start/finish now render as
+  // regular POI chips in the "On course" section.
   const grouping = poisByCategory();
   const legendCategories = POI_CATEGORY_ORDER
     .map((cat) => ({
       cat,
-      types: grouping[cat].filter((t) => {
-        if (t === 'start' || t === 'finish') return false;
-        return (grouped[t] || 0) > 0;
-      }),
+      types: grouping[cat].filter((t) => (grouped[t] || 0) > 0),
     }))
     .filter((g) => g.types.length > 0);
 
@@ -395,20 +384,6 @@ const MapBottomSheet = ({
                     </div>
                   )}
 
-                  {/* Start → Finish hero row — rendered only when both
-                      markers exist. Promotes the two most important POIs
-                      out of the category grid. Distances live on the
-                      route rows above, so we don't repeat them here. */}
-                  {hasStart && hasFinish && (
-                    <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground">
-                      <span className="text-base leading-none">{poiTone('start').emoji}</span>
-                      <span>Start</span>
-                      <span className="text-muted-foreground mx-1">→</span>
-                      <span className="text-base leading-none">{poiTone('finish').emoji}</span>
-                      <span>Finish</span>
-                    </div>
-                  )}
-
                   {/* Grouped POI categories — one labeled section per
                       category that actually has markers. Emoji match the
                       on-map markers so scanning the legend maps 1:1 with
@@ -470,7 +445,7 @@ const MapBottomSheet = ({
                     </p>
                   )}
 
-                  {routes.length === 0 && orderedLegendCategories.length === 0 && !hasStart && !hasFinish && (
+                  {routes.length === 0 && orderedLegendCategories.length === 0 && (
                     <p className="text-sm text-muted-foreground py-3 text-center">No routes or places to show.</p>
                   )}
                 </div>
