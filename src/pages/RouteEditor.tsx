@@ -403,11 +403,12 @@ const RouteEditor = () => {
     const map = mapRef.current;
     if (!map) return;
 
+    // Custom 32×32 crosshair — the native CSS `crosshair` is tiny on
+    // most OSes. SVG data-URI with a 1.5px stroke, centered at 16,16.
+    const crosshairSvg = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Cline x1='16' y1='4' x2='16' y2='28' stroke='%23222' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='16' x2='28' y2='16' stroke='%23222' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='16' r='3' fill='none' stroke='%23222' stroke-width='1.5'/%3E%3C/svg%3E") 16 16, crosshair`;
     const canvas = map.getCanvas();
-    if (pendingPoiType) {
-      canvas.style.cursor = 'copy';
-    } else if (activeRouteId && !finishedRouteIds.has(activeRouteId)) {
-      canvas.style.cursor = 'crosshair';
+    if (pendingPoiType || (activeRouteId && !finishedRouteIds.has(activeRouteId))) {
+      canvas.style.cursor = crosshairSvg;
     } else {
       canvas.style.cursor = '';
     }
