@@ -220,7 +220,12 @@ const RouteEditor = () => {
 
         const rawRoutes = data.routes as unknown;
         const loadedRoutes = Array.isArray(rawRoutes) && (rawRoutes as EventRoute[]).length > 0
-          ? (rawRoutes as EventRoute[])
+          ? (rawRoutes as EventRoute[]).map((r) => ({
+              ...r,
+              visible: r.visible ?? true,
+              waypoints: r.waypoints ?? [],
+              routeCoords: r.routeCoords ?? [],
+            }))
           : [makeRoute('5K Route', ROUTE_COLORS[0])];
         setRoutes(loadedRoutes);
         setActiveRouteId(loadedRoutes[0]?.id ?? '');
@@ -702,38 +707,45 @@ const RouteEditor = () => {
     if (!map) return;
 
     const render = () => {
+      // Guard: don't try to add layers/sources to an unloaded style
+      if (!map.isStyleLoaded()) return;
+
       // Clean up existing route layers/sources
       routes.forEach((route) => {
         const srcId = `route-${route.id}`;
-        if (map.getLayer(srcId)) map.removeLayer(srcId);
-        if (map.getSource(srcId)) map.removeSource(srcId);
+        try {
+          if (map.getLayer(srcId)) map.removeLayer(srcId);
+          if (map.getSource(srcId)) map.removeSource(srcId);
+        } catch { /* layer/source may have been removed by style reload */ }
       });
 
       routes
-        .filter((r) => r.visible && r.routeCoords.length > 1)
+        .filter((r) => r.visible !== false && r.routeCoords && r.routeCoords.length > 1)
         .forEach((route) => {
           const srcId = `route-${route.id}`;
-          map.addSource(srcId, {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: route.routeCoords,
+          try {
+            map.addSource(srcId, {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: route.routeCoords,
+                },
               },
-            },
-          });
-          map.addLayer({
-            id: srcId,
-            type: 'line',
-            source: srcId,
-            paint: {
-              'line-color': route.color,
-              'line-width': route.id === activeRouteId ? 5 : 3,
-              'line-opacity': route.id === activeRouteId ? 1 : 0.6,
-            },
-          });
+            });
+            map.addLayer({
+              id: srcId,
+              type: 'line',
+              source: srcId,
+              paint: {
+                'line-color': route.color,
+                'line-width': route.id === activeRouteId ? 5 : 3,
+                'line-opacity': route.id === activeRouteId ? 1 : 0.6,
+              },
+            });
+          } catch { /* source/layer may already exist after race */ }
         });
 
       markersRef.current.forEach((m) => m.remove());
@@ -765,20 +777,22 @@ const RouteEditor = () => {
       // Waypoint dots — small circles at each waypoint so the user can
       // see the points they placed. Last waypoint is slightly larger.
       routes
-        .filter((r) => r.visible && r.waypoints.length > 0)
+        .filter((r) => r.visible !== false && r.waypoints && r.waypoints.length > 0)
         .forEach((route) => {
           route.waypoints.forEach((wp, i) => {
-            const isLast = i === route.waypoints.length - 1;
-            const size = isLast ? 10 : 6;
-            const el = document.createElement('div');
-            el.style.cssText = `
-              width: ${size}px; height: ${size}px; border-radius: 50%;
-              background: ${route.color}; border: 2px solid white;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-              pointer-events: none;
-            `;
-            const marker = new mapboxgl.Marker(el).setLngLat(wp).addTo(map);
-            markersRef.current.push(marker);
+            try {
+              const isLast = i === route.waypoints.length - 1;
+              const size = isLast ? 10 : 6;
+              const el = document.createElement('div');
+              el.style.cssText = `
+                width: ${size}px; height: ${size}px; border-radius: 50%;
+                background: ${route.color}; border: 2px solid white;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                pointer-events: none;
+              `;
+              const marker = new mapboxgl.Marker(el).setLngLat(wp).addTo(map);
+              markersRef.current.push(marker);
+            } catch { /* skip invalid waypoint coordinate */ }
           });
         });
 
@@ -920,13 +934,10 @@ const RouteEditor = () => {
       });
     };
 
-    if (map.isStyleLoaded()) {
-      render();
-    } else {
-      map.once('style.load', render);
-    }
-
-    // Also re-render when style changes (basemap switch)
+    // Render now if style is ready, otherwise wait. The persistent
+    // style.load handler also covers basemap switches and the initial
+    // load if the style isn't ready yet.
+    if (map.isStyleLoaded()) render();
     map.on('style.load', render);
     return () => {
       map.off('style.load', render);
