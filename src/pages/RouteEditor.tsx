@@ -115,10 +115,6 @@ const RouteEditor = () => {
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
   const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | null>(null);
-  // Ref mirrors for rubber-band mousemove handler (avoids adding to render deps)
-  const snapToRoadsRef = useRef(snapToRoads);
-  useEffect(() => { snapToRoadsRef.current = snapToRoads; }, [snapToRoads]);
-
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -626,10 +622,6 @@ const RouteEditor = () => {
       });
       renderedRouteIdsRef.current = currentIds;
 
-      // Clean up rubber-band preview from previous render
-      if (map.getLayer('rubber-band')) map.removeLayer('rubber-band');
-      if (map.getSource('rubber-band')) map.removeSource('rubber-band');
-
       routes
         .filter((r) => r.visible && r.routeCoords.length > 1)
         .forEach((route) => {
@@ -656,32 +648,6 @@ const RouteEditor = () => {
             },
           });
         });
-
-      // Rubber-band preview line from last waypoint to cursor while drawing
-      const activeRoute = routes.find((r) => r.id === activeRouteId);
-      const isDrawing = activeRouteId && activeRoute && !finishedRouteIds.has(activeRouteId) && !pendingPoiType;
-      const lastWp = activeRoute?.waypoints[activeRoute.waypoints.length - 1];
-      if (isDrawing && lastWp) {
-        map.addSource('rubber-band', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: { type: 'LineString', coordinates: [lastWp, lastWp] },
-          },
-        });
-        map.addLayer({
-          id: 'rubber-band',
-          type: 'line',
-          source: 'rubber-band',
-          paint: {
-            'line-color': activeRoute.color,
-            'line-width': 3,
-            'line-opacity': 0.5,
-            'line-dasharray': [3, 3],
-          },
-        });
-      }
 
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
@@ -849,58 +815,10 @@ const RouteEditor = () => {
 
     // Also re-render when style changes (basemap switch)
     map.on('style.load', render);
-
-    // Rubber-band mousemove: updates the preview line source as the cursor moves.
-    // In snap mode, debounces a Directions API call so the preview follows roads.
-    let snapTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const onRubberBandMove = (e: mapboxgl.MapMouseEvent) => {
-      const src = map.getSource('rubber-band') as mapboxgl.GeoJSONSource | undefined;
-      if (!src) return;
-
-      const ar = routes.find((r) => r.id === activeRouteId);
-      const lw = ar?.waypoints[ar.waypoints.length - 1];
-      if (!lw) return;
-
-      const cursor: Coord = [e.lngLat.lng, e.lngLat.lat];
-
-      // Show straight dashed line immediately
-      src.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: [lw, cursor] },
-      });
-
-      // In snap mode, debounce a road-snap preview
-      if (snapToRoadsRef.current) {
-        if (snapTimer) clearTimeout(snapTimer);
-        snapTimer = setTimeout(async () => {
-          try {
-            const snapped = await getSnappedRoute([lw, cursor], mapboxToken);
-            // Verify the source still exists (effect may have re-run)
-            const currentSrc = map.getSource('rubber-band') as mapboxgl.GeoJSONSource | undefined;
-            if (currentSrc) {
-              currentSrc.setData({
-                type: 'Feature',
-                properties: {},
-                geometry: { type: 'LineString', coordinates: snapped },
-              });
-            }
-          } catch {
-            // Silently fall back to straight line
-          }
-        }, 300);
-      }
-    };
-
-    map.on('mousemove', onRubberBandMove);
-
     return () => {
       map.off('style.load', render);
-      map.off('mousemove', onRubberBandMove);
-      if (snapTimer) clearTimeout(snapTimer);
     };
-  }, [routes, pois, scoutedPois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType, finishedRouteIds, pendingPoiType]);
+  }, [routes, pois, scoutedPois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
 
   // Materializes any POI images that are still base64 data URLs into the
   // poi-images storage bucket. Returns a POI array safe to persist (no
