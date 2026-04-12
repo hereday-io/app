@@ -803,7 +803,6 @@ const RouteEditor = () => {
         const selectionRing = isSelected ? '0 0 0 3px hsl(var(--primary) / 0.4), ' : '';
         inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:${selectionRing}0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:${isHighlighted ? 14 : 12}px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease, box-shadow 0.2s;pointer-events:none;`;
         inner.textContent = tone.emoji;
-        inner.classList.add('poi-drop-in');
         el.appendChild(inner);
         el.addEventListener('mouseenter', () => {
           inner.style.transform = 'scale(1.25)';
