@@ -755,11 +755,11 @@ const RouteEditor = () => {
           .setPopup(popup)
           .addTo(map);
 
-        // Apply bounce animation AFTER .addTo(map) — detached elements
-        // don't run CSS animations, so the class must be added once the
-        // marker is in the DOM.
+        // Apply bounce animation to the inner circle, NOT the outer el.
+        // Mapbox positions el via CSS transform — animating transform on
+        // el would override that and send the marker to the top-left.
         if (newPoiIdRef.current === poi.id) {
-          el.classList.add('poi-drop-in');
+          inner.classList.add('poi-drop-in');
           newPoiIdRef.current = null;
         }
 
