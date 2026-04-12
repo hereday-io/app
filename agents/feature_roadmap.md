@@ -60,8 +60,8 @@ with isolated testing.
 - [ ] **Block clicks during snap.** `isSnappingRef` gate on the click
   handler to prevent race conditions when Mapbox Directions API is
   in-flight. Must ensure the ref resets in all error paths.
-- [ ] **Route clear undo toast.** Cache cleared route data, show undo
-  toast matching the existing POI delete pattern.
+- [x] **Route clear undo toast.** Snapshots waypoints, routeCoords,
+  finished state, and auto start/finish POIs. Restores all on undo.
 - [ ] **Finish route button.** "Finish route" in the topbar after 3+
   waypoints as an alternative to double-click.
 - [ ] **First-publish upsell suppression.** Skip the `UpgradeModal`

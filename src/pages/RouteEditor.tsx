@@ -1235,9 +1235,23 @@ const RouteEditor = () => {
 
   const clearActiveRoute = () => {
     if (!activeRoute) return;
-    setRoutes((prev) =>
-      prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: [], routeCoords: [] } : r))
+
+    // Snapshot for undo
+    const snapshot = { ...activeRoute };
+    const wasFinished = finishedRouteIds.has(activeRouteId);
+    const removedPois = pois.filter((p) =>
+      p.id.startsWith(`auto-start-${activeRouteId}`) || p.id.startsWith(`auto-finish-${activeRouteId}`)
     );
+
+    setRoutes((prev) =>
+      prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: [], routeCoords: [], segmentCoordCounts: undefined } : r))
+    );
+    // Remove auto-placed start/finish POIs for this route
+    if (removedPois.length > 0) {
+      setPois((prev) => prev.filter((p) =>
+        !p.id.startsWith(`auto-start-${activeRouteId}`) && !p.id.startsWith(`auto-finish-${activeRouteId}`)
+      ));
+    }
     // Un-finish the route so the user can start drawing again
     setFinishedRouteIds((prev) => {
       const next = new Set(prev);
@@ -1245,6 +1259,34 @@ const RouteEditor = () => {
       return next;
     });
     setStatusText('Route cleared.');
+
+    setTimeout(() => {
+      toast({
+        title: 'Route cleared',
+        description: snapshot.name || undefined,
+        action: (
+          <ToastAction
+            altText="Undo clear"
+            onClick={() => {
+              setRoutes((prev) =>
+                prev.map((r) => (r.id === snapshot.id
+                  ? { ...r, waypoints: snapshot.waypoints, routeCoords: snapshot.routeCoords, segmentCoordCounts: snapshot.segmentCoordCounts }
+                  : r))
+              );
+              if (removedPois.length > 0) {
+                setPois((prev) => [...prev, ...removedPois]);
+              }
+              if (wasFinished) {
+                setFinishedRouteIds((prev) => new Set(prev).add(snapshot.id));
+              }
+              setStatusText(`Route restored · ${totalDistanceMiles(snapshot.routeCoords).toFixed(2)} mi`);
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
+    }, 0);
   };
 
   // Keyboard shortcuts
