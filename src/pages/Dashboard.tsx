@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X } from 'lucide-react';
+import { Eye, Users, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, Route, MapPinned } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
 
@@ -46,6 +46,9 @@ const Dashboard = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  // Per-event analytics totals for dashboard stat cards
+  const [viewsByEvent, setViewsByEvent] = useState<Record<string, number>>({});
+  const [subsByEvent, setSubsByEvent] = useState<Record<string, number>>({});
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
@@ -106,8 +109,33 @@ const Dashboard = () => {
       .select('*')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
-    setEvents(data ?? []);
+    const evts = (data ?? []) as unknown as Event[];
+    setEvents(evts);
     setLoading(false);
+
+    // Fetch page views + subscribers per event for dashboard stats
+    const ids = evts.map((e) => e.id);
+    if (ids.length > 0) {
+      supabase
+        .from('product_events')
+        .select('event_id')
+        .eq('event_type', 'public_view')
+        .in('event_id', ids)
+        .then(({ data: views }) => {
+          const map: Record<string, number> = {};
+          views?.forEach((v) => { map[v.event_id] = (map[v.event_id] || 0) + 1; });
+          setViewsByEvent(map);
+        });
+      supabase
+        .from('event_subscribers')
+        .select('event_id')
+        .in('event_id', ids)
+        .then(({ data: subs }) => {
+          const map: Record<string, number> = {};
+          subs?.forEach((s) => { map[s.event_id] = (map[s.event_id] || 0) + 1; });
+          setSubsByEvent(map);
+        });
+    }
   }, [user]);
 
   const toggleStatus = async (event: Event) => {
@@ -120,10 +148,26 @@ const Dashboard = () => {
     fetchEvents();
   }, [fetchEvents]);
 
-  const publishedCount = events.filter((e) => e.status === 'published').length;
-  const draftCount = events.filter((e) => e.status === 'draft').length;
-  const totalRoutes = events.reduce((sum, e) => sum + e.route_count, 0);
-  const totalPois = events.reduce((sum, e) => sum + e.poi_count, 0);
+  // Filter helpers used by both stats and event list
+  const today = new Date().toISOString().split('T')[0];
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchesQuery = (e: Event) => {
+    if (!normalizedQuery) return true;
+    return `${e.name} ${e.city ?? ''} ${e.slug ?? ''}`.toLowerCase().includes(normalizedQuery);
+  };
+  const matchesStatus = (e: Event) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'live') return e.status === 'published' && (!e.event_date || e.event_date >= today);
+    if (statusFilter === 'draft') return e.status === 'draft';
+    if (statusFilter === 'past') return !!e.event_date && e.event_date < today;
+    return true;
+  };
+  const filtered = events.filter((e) => matchesQuery(e) && matchesStatus(e));
+
+  const publishedCount = filtered.filter((e) => e.status === 'published').length;
+  const draftCount = filtered.filter((e) => e.status === 'draft').length;
+  const totalViews = filtered.reduce((sum, e) => sum + (viewsByEvent[e.id] ?? 0), 0);
+  const totalSubs = filtered.reduce((sum, e) => sum + (subsByEvent[e.id] ?? 0), 0);
 
   if (authLoading || loading) {
     return (
@@ -136,8 +180,8 @@ const Dashboard = () => {
   const stats = [
     { label: 'Published', value: publishedCount, icon: Globe, color: 'text-emerald-500' },
     { label: 'Drafts', value: draftCount, icon: FileText, color: 'text-muted-foreground' },
-    { label: 'Routes', value: totalRoutes, icon: Route, color: 'text-primary' },
-    { label: 'Places', value: totalPois, icon: MapPinned, color: 'text-primary' },
+    { label: 'Page Views', value: totalViews, icon: Eye, color: 'text-primary' },
+    { label: 'Subscribers', value: totalSubs, icon: Users, color: 'text-emerald-500' },
   ];
 
   // Prefer display_name for initials so the avatar reads as the person,
@@ -236,24 +280,6 @@ const Dashboard = () => {
             );
           }
 
-          const today = new Date().toISOString().split('T')[0];
-          // Apply free-text + status filter before the upcoming/past split
-          // so both sections stay consistent. Query matches name, city, and
-          // slug — the three things organizers reach for to find an event.
-          const normalizedQuery = query.trim().toLowerCase();
-          const matchesQuery = (e: Event) => {
-            if (!normalizedQuery) return true;
-            const haystack = `${e.name} ${e.city ?? ''} ${e.slug ?? ''}`.toLowerCase();
-            return haystack.includes(normalizedQuery);
-          };
-          const matchesStatus = (e: Event) => {
-            if (statusFilter === 'all') return true;
-            if (statusFilter === 'live') return e.status === 'published' && (!e.event_date || e.event_date >= today);
-            if (statusFilter === 'draft') return e.status === 'draft';
-            if (statusFilter === 'past') return !!e.event_date && e.event_date < today;
-            return true;
-          };
-          const filtered = events.filter((e) => matchesQuery(e) && matchesStatus(e));
           const upcoming = filtered.filter((e) => !e.event_date || e.event_date >= today);
           const past = filtered.filter((e) => e.event_date && e.event_date < today);
           const isFiltering = normalizedQuery.length > 0 || statusFilter !== 'all';
