@@ -218,6 +218,25 @@ const Dashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
+        {/* Email verification banner — non-blocking */}
+        {user && !user.email_confirmed_at && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40 px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              <strong>Verify your email to publish.</strong> We sent a confirmation link to {user.email}.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-xs border-amber-300 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+              onClick={async () => {
+                await supabase.auth.resend({ type: 'signup', email: user.email! });
+                toast({ title: 'Confirmation email resent' });
+              }}
+            >
+              Resend
+            </Button>
+          </div>
+        )}
         {/* Welcome */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

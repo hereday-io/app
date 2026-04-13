@@ -67,9 +67,9 @@ with isolated testing.
 - [ ] **First-publish upsell suppression.** Skip the `UpgradeModal`
   on the user's first-ever publish so the activation moment isn't
   interrupted. Show from second publish onward.
-- [ ] **Email verification gate on publish.** Let unverified email
-  users access dashboard + editor immediately; only gate the Publish
-  action on `email_confirmed_at`.
+- [x] **Email verification gate on publish.** Unverified users go
+  straight to dashboard + editor. Publish blocked until verified.
+  Banner on dashboard with resend button.
 - [x] **POI drop-in animation.** Bounce animation on marker placement.
   Class applied AFTER `.addTo(map)` via `newPoiIdRef` gating.
 

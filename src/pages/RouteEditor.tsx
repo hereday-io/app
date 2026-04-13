@@ -1128,6 +1128,15 @@ const RouteEditor = () => {
 
   const handlePublish = useCallback(async () => {
     if (!eventId) return;
+    // Block publishing for unverified email users
+    if (eventStatus !== 'published' && user && !user.email_confirmed_at) {
+      toast({
+        title: 'Verify your email to publish',
+        description: 'Check your inbox for the confirmation link, then try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
     // Going live? Enforce validation. Unpublishing always allowed.
     if (eventStatus !== 'published' && !canPublish) {
       toast({
