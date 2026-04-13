@@ -52,9 +52,8 @@ with isolated testing.
   and POIs stop loading on existing projects). The Mapbox GL
   source/layer lifecycle in RouteEditor.tsx is too fragile for an
   additional dynamic source. Not worth the risk.
-- [ ] **Visible waypoint dots.** 6-8px route-colored circles at each
-  waypoint so clicks feel tangible. Guard `setLngLat` against invalid
-  coordinates from legacy data.
+- [x] ~~**Visible waypoint dots.**~~ Removed — caused same rendering
+  issues as rubber-band. Not worth the risk.
 - [x] **Cursor mode changes.** Crosshair while drawing, copy cursor
   during POI placement, default when idle.
 - [ ] **Block clicks during snap.** `isSnappingRef` gate on the click
