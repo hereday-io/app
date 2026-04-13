@@ -63,9 +63,6 @@ with isolated testing.
   finished state, and auto start/finish POIs. Restores all on undo.
 - [x] **Finish route button.** "Finish route" in the topbar after 3+
   waypoints as an alternative to double-click.
-- [ ] **First-publish upsell suppression.** Skip the `UpgradeModal`
-  on the user's first-ever publish so the activation moment isn't
-  interrupted. Show from second publish onward.
 - [x] **Email verification gate on publish.** Unverified users go
   straight to dashboard + editor. Publish blocked until verified.
   Banner on dashboard with resend button.
@@ -86,8 +83,8 @@ organizer.
   per event, default OG image for home + routeless events. Note: SPA
   crawlers without JS still won't see these; SSR/prerender is a later
   call if it becomes a real SEO bottleneck.
-- [ ] **Sitemap from `public_events`.** Free SEO traffic to every
-  published event.
+- [x] **Sitemap from `public_events`.** Free SEO traffic to every
+  published event. Edge function + robots.txt already deployed.
 - [ ] **Email capture on spectator view.** Collect addresses before
   you build notifications. `event_subscribers(event_id, email)`.
   *Note: the photographer POI plan in Later subsumes this — the

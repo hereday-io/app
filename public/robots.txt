@@ -13,7 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-# Sitemap is served from the Supabase edge function. When a custom
-# domain / CDN lands, rewrite /sitemap.xml to this URL so crawlers
-# (and search-console submissions) find it at the canonical path.
-Sitemap: https://vbhpvboccvufdkujgnmd.supabase.co/functions/v1/sitemap
+Sitemap: https://hereday.io/sitemap.xml
