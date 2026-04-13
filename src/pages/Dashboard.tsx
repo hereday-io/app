@@ -12,11 +12,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, ChevronDown } from 'lucide-react';
+import { Route, MapPinned, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
-import CitySearch from '@/components/editor/CitySearch';
-import { useMapboxToken } from '@/hooks/useMapboxToken';
+
 import EditEventDialog from '@/components/EditEventDialog';
 import DeleteEventDialog from '@/components/DeleteEventDialog';
 import DuplicateEventDialog from '@/components/DuplicateEventDialog';
@@ -45,15 +44,6 @@ const Dashboard = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [quickName, setQuickName] = useState('');
-  // City is collected inline in the quick-create flow so the editor
-  // lands on the organizer's actual map instead of a continental zoom-4
-  // view. The second field slides in once the user starts typing a
-  // name, keeping the empty-state affordance compact.
-  const [quickCity, setQuickCity] = useState('');
-  const [quickCityCenter, setQuickCityCenter] = useState<[number, number] | null>(null);
-  const [quickCreating, setQuickCreating] = useState(false);
-  const { token: mapboxToken } = useMapboxToken();
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
@@ -117,36 +107,6 @@ const Dashboard = () => {
     setEvents(data ?? []);
     setLoading(false);
   }, [user]);
-
-  const handleQuickCreate = async () => {
-    const name = quickName.trim();
-    if (!name || !user || quickCreating) return;
-    setQuickCreating(true);
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.random().toString(36).slice(2, 7);
-    const trimmedCity = quickCity.trim();
-    const { data, error } = await supabase
-      .from('events')
-      .insert({ user_id: user.id, name, slug, city: trimmedCity || null })
-      .select('id')
-      .single();
-    setQuickCreating(false);
-    if (error || !data) {
-      toast({ title: 'Failed to create event', description: error?.message, variant: 'destructive' });
-      return;
-    }
-    logEvent('event_created', data.id, { source: 'dashboard_quick' });
-    setQuickName('');
-    setQuickCity('');
-    setQuickCityCenter(null);
-    // Pass the geocoded center so the editor can jump straight to the
-    // city at zoom 13 instead of waiting to geocode the city string.
-    const params = new URLSearchParams({ id: data.id });
-    if (quickCityCenter) {
-      params.set('lng', String(quickCityCenter[0]));
-      params.set('lat', String(quickCityCenter[1]));
-    }
-    navigate(`/editor?${params.toString()}`);
-  };
 
   const toggleStatus = async (event: Event) => {
     const newStatus = event.status === 'published' ? 'draft' : 'published';
@@ -220,64 +180,10 @@ const Dashboard = () => {
             </h1>
             <p className="text-muted-foreground text-sm mt-1">Manage your event maps</p>
           </div>
-          <div className="flex items-start gap-2">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Input
-                  value={quickName}
-                  onChange={(e) => setQuickName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleQuickCreate();
-                    }
-                  }}
-                  placeholder="Name your next event…"
-                  disabled={quickCreating}
-                  className="h-10 w-48"
-                />
-                <div className="w-44">
-                  {mapboxToken ? (
-                    <CitySearch
-                      value={quickCity}
-                      onChange={(val, center) => {
-                        setQuickCity(val);
-                        setQuickCityCenter(center);
-                      }}
-                      token={mapboxToken}
-                      placeholder="City"
-                    />
-                  ) : (
-                    <Input
-                      value={quickCity}
-                      onChange={(e) => setQuickCity(e.target.value)}
-                      placeholder="City"
-                      disabled={quickCreating}
-                      className="h-10"
-                    />
-                  )}
-                </div>
-                <button
-                  onClick={handleQuickCreate}
-                  disabled={!quickName.trim() || quickCreating}
-                  title="Create event (Enter)"
-                  className="h-10 w-10 shrink-0 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCreateOpen(true)}
-                  className="text-muted-foreground gap-1"
-                  title="Add date, location, or tracking"
-                >
-                  Advanced
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
+          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Event
+          </Button>
         </div>
 
         {/* Stats — only shown once there's something to count */}
