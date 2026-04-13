@@ -795,39 +795,61 @@ const RouteEditor = () => {
           setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, coordinates: snapped } : p)));
           el.style.cursor = 'grab';
 
-          // If this is an auto-placed Start or Finish, update the
-          // route's first/last waypoint and re-snap the affected segment.
+          // If this is an auto-placed Start or Finish, update only the
+          // affected endpoint waypoint and re-snap just that one segment.
           const startMatch = poi.id.match(/^auto-start-(.+)$/);
           const finishMatch = poi.id.match(/^auto-finish-(.+)$/);
           const routeId = startMatch?.[1] ?? finishMatch?.[1];
           if (routeId) {
-            setRoutes((prev) => prev.map((r) => {
-              if (r.id !== routeId || r.waypoints.length < 2) return r;
-              const wps = [...r.waypoints];
-              if (startMatch) wps[0] = snapped;
-              if (finishMatch) wps[wps.length - 1] = snapped;
-              // Trigger async re-snap below; update waypoints immediately
-              return { ...r, waypoints: wps };
-            }));
-            // Re-snap the full route with the updated endpoint
             const route = routes.find((r) => r.id === routeId);
             if (route && route.waypoints.length >= 2) {
               const wps = [...route.waypoints];
-              if (startMatch) wps[0] = snapped;
-              if (finishMatch) wps[wps.length - 1] = snapped;
-              try {
-                setIsSnapping(true);
-                const newCoords = await getSnappedRoute(wps, mapboxToken);
-                setRoutes((prev) => prev.map((r) =>
-                  r.id === routeId ? { ...r, waypoints: wps, routeCoords: newCoords } : r
-                ));
-              } catch {
-                // Fallback: use waypoints as straight-line coords
-                setRoutes((prev) => prev.map((r) =>
-                  r.id === routeId ? { ...r, waypoints: wps, routeCoords: wps } : r
-                ));
-              } finally {
-                setIsSnapping(false);
+              const counts = route.segmentCoordCounts ? [...route.segmentCoordCounts] : null;
+
+              if (startMatch) {
+                wps[0] = snapped;
+                // Re-snap only the first segment (wp[0] → wp[1])
+                try {
+                  setIsSnapping(true);
+                  const seg = await getSnappedRoute([snapped, wps[1]], mapboxToken);
+                  // Replace the first segment's coords, keep the rest
+                  const firstSegLen = counts?.[1] ?? 1;
+                  const rest = route.routeCoords.slice(firstSegLen);
+                  const newCoords = [...seg, ...rest.slice(1)];
+                  const newCounts = counts ? [seg.length, ...counts.slice(2)] : undefined;
+                  setRoutes((prev) => prev.map((r) =>
+                    r.id === routeId ? { ...r, waypoints: wps, routeCoords: newCoords, segmentCoordCounts: newCounts } : r
+                  ));
+                } catch {
+                  setRoutes((prev) => prev.map((r) =>
+                    r.id === routeId ? { ...r, waypoints: wps } : r
+                  ));
+                } finally {
+                  setIsSnapping(false);
+                }
+              }
+
+              if (finishMatch) {
+                wps[wps.length - 1] = snapped;
+                // Re-snap only the last segment (wp[n-2] → wp[n-1])
+                try {
+                  setIsSnapping(true);
+                  const seg = await getSnappedRoute([wps[wps.length - 2], snapped], mapboxToken);
+                  // Replace the last segment's coords, keep the rest
+                  const lastSegLen = counts?.[counts.length - 1] ?? 1;
+                  const rest = route.routeCoords.slice(0, route.routeCoords.length - lastSegLen);
+                  const newCoords = [...rest, ...seg.slice(rest.length > 0 ? 1 : 0)];
+                  const newCounts = counts ? [...counts.slice(0, -1), seg.length] : undefined;
+                  setRoutes((prev) => prev.map((r) =>
+                    r.id === routeId ? { ...r, waypoints: wps, routeCoords: newCoords, segmentCoordCounts: newCounts } : r
+                  ));
+                } catch {
+                  setRoutes((prev) => prev.map((r) =>
+                    r.id === routeId ? { ...r, waypoints: wps } : r
+                  ));
+                } finally {
+                  setIsSnapping(false);
+                }
               }
             }
           }
