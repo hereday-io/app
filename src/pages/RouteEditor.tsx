@@ -117,13 +117,6 @@ const RouteEditor = () => {
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
   const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | null>(null);
-  // Refs for values read inside async drag handlers (avoids adding
-  // them to the render effect deps which would cause marker rebuilds).
-  const snapToRoadsRef = useRef(snapToRoads);
-  const mapboxTokenRef = useRef(mapboxToken);
-  useEffect(() => { snapToRoadsRef.current = snapToRoads; }, [snapToRoads]);
-  useEffect(() => { mapboxTokenRef.current = mapboxToken; }, [mapboxToken]);
-
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -696,90 +689,6 @@ const RouteEditor = () => {
           });
         });
 
-      // Waypoint dots — only visible on the active route while drawing.
-      // Draggable so the user can adjust individual waypoints; on drop
-      // we re-snap the two adjacent segments.
-      const activeRt = routes.find((r) => r.id === activeRouteId);
-      if (activeRt && !finishedRouteIds.has(activeRouteId) && activeRt.waypoints.length > 0) {
-        activeRt.waypoints.forEach((wp, idx) => {
-          if (!wp || !Array.isArray(wp) || wp.length < 2 || !isFinite(wp[0]) || !isFinite(wp[1])) return;
-          const el = document.createElement('div');
-          el.style.cssText = `width:10px;height:10px;border-radius:50%;background:${activeRt.color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:grab;`;
-          const marker = new mapboxgl.Marker({ element: el, draggable: true })
-            .setLngLat(wp)
-            .addTo(map);
-          marker.on('dragstart', () => { el.style.cursor = 'grabbing'; });
-          marker.on('dragend', async () => {
-            el.style.cursor = 'grab';
-            const lngLat = marker.getLngLat();
-            const newCoord: Coord = [lngLat.lng, lngLat.lat];
-            // Use closure values — the render effect rebuilds markers
-            // when routes change, so these are current enough.
-            const rt = activeRt;
-            const wps = [...rt.waypoints];
-            wps[idx] = newCoord;
-
-            // Re-snap adjacent segments
-            const snap = snapToRoadsRef.current;
-            const token = mapboxTokenRef.current;
-            let newCoords = [...rt.routeCoords];
-            const counts = rt.segmentCoordCounts ? [...rt.segmentCoordCounts] : null;
-
-            if (snap && wps.length >= 2) {
-              try {
-                setIsSnapping(true);
-                // Compute coord offsets from segmentCoordCounts
-                const offsets: number[] = [0];
-                if (counts) {
-                  let sum = 0;
-                  for (const c of counts) { sum += c; offsets.push(sum); }
-                }
-
-                // Re-snap the segment before this waypoint (idx-1 → idx)
-                if (idx > 0) {
-                  const seg = await getSnappedRoute([wps[idx - 1], newCoord], token);
-                  if (counts && offsets.length > idx) {
-                    const start = offsets[idx - 1] || 0;
-                    const end = offsets[idx] || start + 1;
-                    newCoords = [...newCoords.slice(0, start), ...seg, ...newCoords.slice(end)];
-                    // Update count and recalculate offsets
-                    const diff = seg.length - (end - start);
-                    if (counts[idx - 1] !== undefined) counts[idx - 1] = seg.length;
-                    // Adjust subsequent offsets
-                    for (let i = idx; i < offsets.length; i++) offsets[i] += diff;
-                  }
-                }
-
-                // Re-snap the segment after this waypoint (idx → idx+1)
-                if (idx < wps.length - 1) {
-                  const seg = await getSnappedRoute([newCoord, wps[idx + 1]], token);
-                  if (counts && offsets.length > idx + 1) {
-                    const start = offsets[idx] || 0;
-                    const end = offsets[idx + 1] || start + 1;
-                    newCoords = [...newCoords.slice(0, start), ...seg, ...newCoords.slice(end)];
-                    if (counts[idx] !== undefined) counts[idx] = seg.length;
-                  }
-                }
-              } catch {
-                // Fallback: just update waypoints, keep existing coords
-              } finally {
-                setIsSnapping(false);
-              }
-            } else if (!snap) {
-              // Freeform: the waypoints ARE the coords
-              newCoords = wps;
-            }
-
-            setRoutes((prev) => prev.map((r) =>
-              r.id === activeRouteId
-                ? { ...r, waypoints: wps, routeCoords: newCoords, segmentCoordCounts: counts ?? r.segmentCoordCounts }
-                : r
-            ));
-          });
-          markersRef.current.push(marker);
-        });
-      }
-
       // POI markers — hide auto start/finish if their route is hidden.
       // Markers are always draggable now (see plan step 6) — the
       // separate "Move" button is gone. Click opens the React popover
@@ -990,7 +899,7 @@ const RouteEditor = () => {
     return () => {
       map.off('style.load', render);
     };
-  }, [routes, pois, scoutedPois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType, finishedRouteIds]);
+  }, [routes, pois, scoutedPois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
 
   // Materializes any POI images that are still base64 data URLs into the
   // poi-images storage bucket. Returns a POI array safe to persist (no
