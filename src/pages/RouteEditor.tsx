@@ -604,7 +604,7 @@ const RouteEditor = () => {
 
     const onDblClick = (e: mapboxgl.MapMouseEvent) => {
       e.preventDefault();
-      if (!activeRouteId || isSnappingRef.current) return;
+      if (!activeRouteId) return;
 
       const route = routes.find((r) => r.id === activeRouteId);
       if (!route || route.waypoints.length < 2) return;
