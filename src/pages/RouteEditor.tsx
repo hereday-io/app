@@ -1502,6 +1502,13 @@ const RouteEditor = () => {
         pendingScoutedCount={scoutedPois.length}
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
         eventId={eventId}
+        canFinishRoute={!!activeRoute && activeRoute.waypoints.length >= 3 && !finishedRouteIds.has(activeRouteId)}
+        onFinishRoute={() => {
+          if (!activeRoute || activeRoute.waypoints.length < 2) return;
+          autoPlaceStartFinish(activeRouteId, activeRoute.waypoints);
+          setFinishedRouteIds((prev) => new Set(prev).add(activeRouteId));
+          setStatusText(`Route finished · ${totalDistanceMiles(activeRoute.routeCoords).toFixed(2)} mi — Start & Finish added`);
+        }}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />

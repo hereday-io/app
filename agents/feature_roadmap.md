@@ -62,7 +62,7 @@ with isolated testing.
   in-flight. Must ensure the ref resets in all error paths.
 - [x] **Route clear undo toast.** Snapshots waypoints, routeCoords,
   finished state, and auto start/finish POIs. Restores all on undo.
-- [ ] **Finish route button.** "Finish route" in the topbar after 3+
+- [x] **Finish route button.** "Finish route" in the topbar after 3+
   waypoints as an alternative to double-click.
 - [ ] **First-publish upsell suppression.** Skip the `UpgradeModal`
   on the user's first-ever publish so the activation moment isn't
