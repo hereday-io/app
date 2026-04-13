@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Radio } from 'lucide-react';
+import { Radio, Crown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +31,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
   const [trackingStart, setTrackingStart] = useState('');
   const [trackingEnd, setTrackingEnd] = useState('');
   const [saving, setSaving] = useState(false);
+  const [wantsPro, setWantsPro] = useState(false);
   const { toast } = useToast();
   const { token: mapboxToken } = useMapboxToken();
 
@@ -60,18 +61,42 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
 
     if (error || !data) {
       toast({ title: 'Failed to create event', description: error?.message, variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+
+    // If the user selected Pro, attempt to redirect to Stripe checkout.
+    // When PAYMENTS_LIVE is false in UpgradeModal, this path creates the
+    // event and navigates to the editor — the upgrade will be available
+    // from the editor's UpgradeModal once Stripe is configured.
+    if (wantsPro && data.id) {
+      try {
+        const { data: checkout, error: checkoutErr } = await supabase.functions.invoke('create-checkout', {
+          body: { eventId: data.id, returnUrl: window.location.origin },
+        });
+        if (!checkoutErr && checkout?.url) {
+          // Stripe checkout will redirect back; don't navigate to editor
+          window.location.href = checkout.url;
+          return;
+        }
+      } catch {
+        // Stripe not live yet — fall through to normal flow
+      }
+      toast({ title: 'Event created', description: 'Pro upgrade will be available once payments go live.' });
     } else {
       toast({ title: 'Event created' });
-      const center = cityCenter;
-      setName('');
-      setCity('');
-      setCityCenter(null);
-      setDate('');
-      setTrackingStart('');
-      setTrackingEnd('');
-      onOpenChange(false);
-      onCreated(data.id, center);
     }
+
+    const center = cityCenter;
+    setName('');
+    setCity('');
+    setCityCenter(null);
+    setDate('');
+    setTrackingStart('');
+    setTrackingEnd('');
+    setWantsPro(false);
+    onOpenChange(false);
+    onCreated(data.id, center);
     setSaving(false);
   };
 
@@ -167,6 +192,25 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
                   </div>
                 </div>
               </>
+            ) : wantsPro ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="h-3.5 w-3.5 text-amber-600" />
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Pro upgrade selected</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWantsPro(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  You'll be taken to checkout after creating this event. Live tracking, unlimited routes & markers, and custom branding included.
+                </p>
+              </>
             ) : (
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground leading-snug">
@@ -177,7 +221,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
                   size="sm"
                   variant="outline"
                   className="shrink-0 text-xs border-primary text-primary hover:bg-primary/10"
-                  onClick={() => window.open('/#pricing', '_blank')}
+                  onClick={() => setWantsPro(true)}
                 >
                   Upgrade to Pro
                 </Button>
@@ -189,8 +233,8 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !name.trim()}>
-              {saving ? 'Creating…' : 'Create Event'}
+            <Button type="submit" disabled={saving || !name.trim()} className={wantsPro ? 'gap-2 bg-amber-600 hover:bg-amber-700' : ''}>
+              <>{wantsPro && <Crown className="h-3.5 w-3.5" />}{saving ? 'Creating…' : wantsPro ? 'Create & Upgrade — $49' : 'Create Event'}</>
             </Button>
           </div>
         </form>
