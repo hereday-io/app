@@ -214,6 +214,10 @@ volume grows).
 
 ## Parking lot — don't build until a paying user asks
 
+- Native runner app (PWA or Expo) — solves background GPS, permission
+  friction, and screen-lock killing `watchPosition` in Safari. Scope
+  to runner tracking only; organizer tools and spectator view stay web.
+  Build once live tracking is driving Pro upgrades.
 - Multi-day events
 - Teams / organizations (multi-admin)
 - Race timing integration
