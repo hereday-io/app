@@ -570,7 +570,7 @@ const Dashboard = () => {
         onOpenChange={(open) => !open && setEditEvent(null)}
         event={editEvent}
         onUpdated={fetchEvents}
-        isPro={isPro}
+        isPro={!!editEvent?.paid_at}
       />
 
       <DeleteEventDialog
