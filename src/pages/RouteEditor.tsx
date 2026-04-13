@@ -82,6 +82,7 @@ const RouteEditor = () => {
   const [snapToRoads, setSnapToRoads] = useState(true);
   const [poiSnapToRoute, setPoiSnapToRoute] = useState(true);
   const [isSnapping, setIsSnapping] = useState(false);
+  const isSnappingRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [statusText, setStatusText] = useState('Click on the map to start building your route.');
   const [isSaving, setIsSaving] = useState(false);
@@ -556,6 +557,7 @@ const RouteEditor = () => {
       // ── Snap mode: snap only the new segment and append ─────────────────
       // This preserves any freeform segments already drawn and avoids
       // re-snapping the whole route when the user switches modes mid-draw.
+      if (isSnappingRef.current) return;
       const prevWaypoint = route.waypoints[route.waypoints.length - 1];
 
       setRoutes((prev) =>
@@ -564,6 +566,7 @@ const RouteEditor = () => {
         )
       );
 
+      isSnappingRef.current = true;
       setIsSnapping(true);
       setStatusText('Snapping to roads...');
       try {
@@ -594,13 +597,14 @@ const RouteEditor = () => {
         );
         setStatusText('Road snap failed, using straight line.');
       } finally {
+        isSnappingRef.current = false;
         setIsSnapping(false);
       }
     };
 
     const onDblClick = (e: mapboxgl.MapMouseEvent) => {
       e.preventDefault();
-      if (!activeRouteId) return;
+      if (!activeRouteId || isSnappingRef.current) return;
 
       const route = routes.find((r) => r.id === activeRouteId);
       if (!route || route.waypoints.length < 2) return;
@@ -810,6 +814,7 @@ const RouteEditor = () => {
                 wps[0] = snapped;
                 // Re-snap only the first segment (wp[0] → wp[1])
                 try {
+                  isSnappingRef.current = true;
                   setIsSnapping(true);
                   const seg = await getSnappedRoute([snapped, wps[1]], mapboxToken);
                   // Replace the first segment's coords, keep the rest
@@ -825,6 +830,7 @@ const RouteEditor = () => {
                     r.id === routeId ? { ...r, waypoints: wps } : r
                   ));
                 } finally {
+                  isSnappingRef.current = false;
                   setIsSnapping(false);
                 }
               }
@@ -833,6 +839,7 @@ const RouteEditor = () => {
                 wps[wps.length - 1] = snapped;
                 // Re-snap only the last segment (wp[n-2] → wp[n-1])
                 try {
+                  isSnappingRef.current = true;
                   setIsSnapping(true);
                   const seg = await getSnappedRoute([wps[wps.length - 2], snapped], mapboxToken);
                   // Replace the last segment's coords, keep the rest
@@ -848,6 +855,7 @@ const RouteEditor = () => {
                     r.id === routeId ? { ...r, waypoints: wps } : r
                   ));
                 } finally {
+                  isSnappingRef.current = false;
                   setIsSnapping(false);
                 }
               }
@@ -1280,6 +1288,7 @@ const RouteEditor = () => {
 
     // Fallback for routes built before segmentCoordCounts was introduced
     if (snapToRoads && nextWaypoints.length >= 2) {
+      isSnappingRef.current = true;
       setIsSnapping(true);
       try {
         const snapped = await getSnappedRoute(nextWaypoints, mapboxToken);
@@ -1291,6 +1300,7 @@ const RouteEditor = () => {
           prev.map((r) => (r.id === activeRouteId ? { ...r, waypoints: nextWaypoints, routeCoords: nextWaypoints } : r))
         );
       } finally {
+        isSnappingRef.current = false;
         setIsSnapping(false);
       }
     } else {

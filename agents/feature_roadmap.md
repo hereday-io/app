@@ -56,9 +56,9 @@ with isolated testing.
   issues as rubber-band. Not worth the risk.
 - [x] **Cursor mode changes.** Crosshair while drawing, copy cursor
   during POI placement, default when idle.
-- [ ] **Block clicks during snap.** `isSnappingRef` gate on the click
+- [x] **Block clicks during snap.** `isSnappingRef` gate on the click
   handler to prevent race conditions when Mapbox Directions API is
-  in-flight. Must ensure the ref resets in all error paths.
+  in-flight. Ref resets in all error paths (finally blocks).
 - [x] **Route clear undo toast.** Snapshots waypoints, routeCoords,
   finished state, and auto start/finish POIs. Restores all on undo.
 - [x] **Finish route button.** "Finish route" in the topbar after 3+
