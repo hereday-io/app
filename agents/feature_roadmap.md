@@ -85,14 +85,12 @@ organizer.
   call if it becomes a real SEO bottleneck.
 - [x] **Sitemap from `public_events`.** Free SEO traffic to every
   published event. Edge function + robots.txt already deployed.
-- [ ] **Email capture on spectator view.** Collect addresses before
-  you build notifications. `event_subscribers(event_id, email)`.
-  *Note: the photographer POI plan in Later subsumes this — the
-  gallery popover is the forcing function for giving up an email
-  ("notify me when my photos go up"). Ship this standalone only if
-  photo galleries slip.*
-- [ ] **Bulk cleanup migration.** Legacy base64 POI images + orphaned
-  logo files in storage buckets. Flagged in the DB audit.
+- [x] **Email capture on spectator view.** `event_subscribers` table
+  + `SubscribeButton` component live on runner view, spectator view,
+  and event ended page. Source attribution tracks conversion by surface.
+- [x] **Bulk cleanup migration.** No legacy base64 data remains —
+  normal editor saves already materialized all images. Orphaned
+  storage files on event delete deferred until scale warrants it.
 
 ## Later — "make it sticky" (3-6 months, after Tier 0 is done)
 
@@ -169,9 +167,53 @@ builds infrastructure the next one reuses.
   function on fetch. Notification emails when photos go up are
   parked until the capture table has real volume. ~2 weeks.
 
+### Organizer-to-subscriber messaging
+
+The `event_subscribers` table already collects email addresses across
+three surfaces (runner view, spectator view, event ended page). This
+plan turns that list into a communication channel organizers control.
+
+- [ ] **Email provider integration.** Connect a transactional email
+  service (Resend, Postmark, or SendGrid) via Supabase edge function.
+  Single `send-event-update` function that accepts `eventId`, `subject`,
+  `body` (plain text + simple HTML), validates the caller owns the
+  event, queries `event_subscribers` for that event (excluding
+  `unsubscribed_at IS NOT NULL`), and sends in batch. Rate-limit:
+  max 1 send per event per 24h to prevent spam. Hereday-branded
+  template with event name, organizer's logo, and unsubscribe link.
+
+- [ ] **Unsubscribe flow (legally required).** Signed-token URL in
+  every email footer → `/unsubscribe/:token` page that sets
+  `unsubscribed_at` on the `event_subscribers` row. No login required.
+  Edge function to generate + verify HMAC tokens from
+  `(subscriber_id, event_id)`. Must ship before or with the first
+  send — CAN-SPAM / GDPR non-negotiable.
+
+- [ ] **Dashboard compose UI.** "Send update" button on each event
+  card (or in event detail panel). Opens a compose dialog: subject
+  line, body textarea with markdown preview, subscriber count shown,
+  confirm step before send ("This will email X subscribers"). Show
+  send history with timestamps so organizers know what they've sent.
+
+- [ ] **Pro gating.** Free events: collect subscribers (already works),
+  view count on dashboard (already works), but cannot send. Pro events:
+  full send capability. This makes subscriber messaging a Pro
+  differentiator — organizers collect emails for free, but need Pro
+  to actually reach them. Pitch: "Your participants already signed up.
+  Upgrade to talk to them."
+
+**Use cases:** course changes before race day, weather alerts, post-race
+photo gallery announcements, "registration for next year is open",
+sponsor shoutouts. Each of these is a reason for the organizer to come
+back to Hereday between events — retention, not just activation.
+
+**What to watch:** deliverability reputation (start with a verified
+sending domain on hereday.io), bounce handling (mark hard-bounced
+addresses), and abuse prevention (rate limits + content review if
+volume grows).
+
 ## Parking lot — don't build until a paying user asks
 
-- Notifications / push
 - Multi-day events
 - Teams / organizations (multi-admin)
 - Race timing integration
