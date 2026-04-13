@@ -318,10 +318,9 @@ const Dashboard = () => {
                         ? <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">Live</span>
                         : <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">Draft</span>
                       }
-                      {event.paid_at
-                        ? <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full">Pro</span>
-                        : <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded-full">Free</span>
-                      }
+                      {event.paid_at && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full">Pro</span>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-0.5 truncate">
                       {event.city ?? 'No city set'}
