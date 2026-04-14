@@ -85,6 +85,12 @@ const Signup = () => {
           <CardContent>
             <div className="space-y-3 mb-4">
               <GoogleSignInButton />
+              <p className="text-[11px] text-muted-foreground text-center leading-snug">
+                By creating an account you agree to our{' '}
+                <Link to="/terms" className="underline hover:text-foreground">Terms of Service</Link>{' '}
+                and{' '}
+                <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+              </p>
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border" />
@@ -160,10 +166,6 @@ const Signup = () => {
                 {loading ? 'Creating account…' : 'Create account'}
                 {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
-              <p className="text-[11px] text-muted-foreground text-center leading-snug">
-                By creating an account you agree to our{' '}
-                <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
-              </p>
             </form>
           </CardContent>
         </Card>

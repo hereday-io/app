@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0;padding:0;background-color:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F9FAFB;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;">
+            <tr>
+              <td align="center" style="padding:28px 32px 8px;">
+                <img src="https://hereday.io/hereday-logo.png" alt="Hereday" width="160" style="display:block;height:auto;max-width:160px;" />
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 32px 8px;">
+                <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Your sign-in link</h1>
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+                  Click the button below to sign in to Hereday. This link will expire in one hour.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:8px 32px 16px;">
+                <a href="{{ .ConfirmationURL }}"
+                   style="display:inline-block;background-color:#0F766E;color:#FFFFFF;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:6px;">
+                  Sign in to Hereday
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 16px;">
+                <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#6B7280;">
+                  If the button doesn't work, copy and paste this link into your browser:
+                </p>
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#0F766E;word-break:break-all;">
+                  {{ .ConfirmationURL }}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 24px;">
+                <p style="margin:0;font-size:15px;line-height:1.6;color:#374151;">
+                  — Team Hereday
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 32px 24px;border-top:1px solid #F3F4F6;">
+                <p style="margin:0;font-size:12px;line-height:1.6;color:#9CA3AF;">
+                  Didn't request this link? You can safely ignore this email — your account stays secure.
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:16px 0 0;font-size:12px;color:#9CA3AF;">
+            &copy; Hereday LLC &middot; Made for race organizers
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
