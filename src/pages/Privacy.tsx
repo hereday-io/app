@@ -184,8 +184,9 @@ const Privacy = () => {
           <img src="/hereday-logo.png" alt="Hereday" className="h-16 w-auto -my-3 opacity-70" />
           <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Hereday. All rights reserved.</p>
           <div className="flex gap-4 text-xs text-muted-foreground">
+            <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+            <Link to="/refund" className="hover:text-foreground transition-colors">Refunds</Link>
             <Link to="/login" className="hover:text-foreground transition-colors">Sign in</Link>
-            <Link to="/signup" className="hover:text-foreground transition-colors">Sign up</Link>
           </div>
         </div>
       </footer>

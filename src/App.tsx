@@ -14,6 +14,8 @@ import RouteEditor from "./pages/RouteEditor.tsx";
 import ScoutPage from "./pages/ScoutPage.tsx";
 import EventPublic from "./pages/EventPublic.tsx";
 import Privacy from "./pages/Privacy.tsx";
+import Terms from "./pages/Terms.tsx";
+import Refund from "./pages/Refund.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -36,6 +38,8 @@ const App = () => (
             <Route path="/scout/:token" element={<ScoutPage />} />
             <Route path="/event/:slug" element={<EventPublic />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/refund" element={<Refund />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
