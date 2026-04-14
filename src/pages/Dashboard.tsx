@@ -12,7 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Eye, Users, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, Route, MapPinned } from 'lucide-react';
+import { Eye, Users, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, Route, MapPinned, ListChecks } from 'lucide-react';
+import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
 
@@ -66,6 +67,9 @@ const Dashboard = () => {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   const menuActionRef = useRef(false);
+  // Which event is currently generating a PDF — gates the button state
+  // and prevents double-clicks while @react-pdf/renderer is loading.
+  const [pdfLoadingEventId, setPdfLoadingEventId] = useState<string | null>(null);
 
   // Cmd/Ctrl-K focuses the dashboard search (same shortcut as Linear/Notion).
   useEffect(() => {
@@ -143,6 +147,52 @@ const Dashboard = () => {
     await supabase.from('events').update({ status: newStatus }).eq('id', event.id);
     fetchEvents();
   };
+
+  // Lazy-imports @react-pdf/renderer on click so it stays out of the
+  // main Dashboard bundle. `event.routes` / `event.pois` come off the
+  // raw row via `.select('*')` and aren't typed on the lightweight
+  // `Event` interface here — cast locally rather than expanding the
+  // shared shape.
+  const handleDownloadChecklist = useCallback(async (event: Event) => {
+    if (pdfLoadingEventId) return;
+    setPdfLoadingEventId(event.id);
+    logEvent('checklist_pdf_downloaded', event.id, { plan: event.paid_at ? 'pro' : 'free' });
+    try {
+      const { renderRaceDayChecklistPdf } = await import('@/lib/pdf/generateRaceDayChecklist');
+      const row = event as unknown as { routes?: EventRoute[]; pois?: RoutePoi[] };
+      const blob = await renderRaceDayChecklistPdf({
+        event: {
+          id: event.id,
+          name: event.name,
+          city: event.city,
+          event_date: event.event_date,
+          slug: event.slug,
+          paid_at: event.paid_at ?? null,
+          routes: row.routes ?? [],
+          pois: row.pois ?? [],
+        },
+        organizer: { displayName, email: user?.email ?? null },
+        publicBaseUrl: window.location.origin,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${event.name.replace(/[^\w\-]+/g, '-') || 'event'}-race-day-checklist.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to generate checklist', err);
+      toast({
+        title: 'Could not generate checklist',
+        description: 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setPdfLoadingEventId(null);
+    }
+  }, [pdfLoadingEventId, displayName, user, toast]);
 
   useEffect(() => {
     fetchEvents();
@@ -385,6 +435,27 @@ const Dashboard = () => {
                       >
                         <Copy className="h-3.5 w-3.5" />
                         Duplicate for {nextYearLabel}
+                      </Button>
+                    )}
+
+                    {/* Race-day checklist — upcoming + draft events. Past events
+                        already have a "Duplicate for next year" button in the same
+                        row so they skip it; the checklist's moment of value is
+                        before race day, not after. */}
+                    {!opts.isPast && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pdfLoadingEventId === event.id}
+                        className="h-8 hidden sm:inline-flex items-center gap-1.5 border-primary/40 text-primary hover:bg-primary/5 hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          menuActionRef.current = true;
+                          handleDownloadChecklist(event);
+                        }}
+                      >
+                        <ListChecks className="h-3.5 w-3.5" />
+                        {pdfLoadingEventId === event.id ? 'Preparing…' : 'Checklist'}
                       </Button>
                     )}
 
