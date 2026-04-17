@@ -436,6 +436,9 @@ const Index = () => {
             © {new Date().getFullYear()} Hereday. Made for race organizers.
           </p>
           <div className="flex gap-4 text-xs text-muted-foreground">
+            <Link to="/getting-started" className="hover:text-foreground transition-colors">
+              Getting Started
+            </Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">
               Terms
             </Link>
