@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Radio, Link as LinkIcon, Lock } from 'lucide-react';
+import { CalendarIcon, Radio, Link as LinkIcon, Lock, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -21,13 +21,22 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+export interface EmergencyContacts {
+  raceDirectorPhone?: string;
+  medicalLeadName?: string;
+  medicalLeadPhone?: string;
+  nearestHospital?: string;
+}
+
 interface EventData {
   id: string;
   name: string;
   city: string | null;
   event_date: string | null;
+  start_time?: string | null;
   tracking_start?: string | null;
   tracking_end?: string | null;
+  emergency_contacts?: EmergencyContacts | null;
   /** Optional so existing call sites don't break. When present, the
    *  slug field surfaces as editable on drafts and read-only on
    *  published events (live links must stay stable). */
@@ -71,8 +80,14 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
   const [city, setCity] = useState('');
   const [date, setDate] = useState<Date>();
   const [slug, setSlug] = useState('');
+  const [startTime, setStartTime] = useState('');
   const [trackingStart, setTrackingStart] = useState('');
   const [trackingEnd, setTrackingEnd] = useState('');
+  // Emergency contacts — stored as a JSONB column on events
+  const [raceDirectorPhone, setRaceDirectorPhone] = useState('');
+  const [medicalLeadName, setMedicalLeadName] = useState('');
+  const [medicalLeadPhone, setMedicalLeadPhone] = useState('');
+  const [nearestHospital, setNearestHospital] = useState('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -87,8 +102,14 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       setCity(event.city ?? '');
       setDate(event.event_date ? new Date(event.event_date + 'T00:00:00') : undefined);
       setSlug(event.slug ?? '');
+      setStartTime(event.start_time ?? '');
       setTrackingStart(toLocalDatetime(event.tracking_start));
       setTrackingEnd(toLocalDatetime(event.tracking_end));
+      const ec = (event.emergency_contacts ?? {}) as EmergencyContacts;
+      setRaceDirectorPhone(ec.raceDirectorPhone ?? '');
+      setMedicalLeadName(ec.medicalLeadName ?? '');
+      setMedicalLeadPhone(ec.medicalLeadPhone ?? '');
+      setNearestHospital(ec.nearestHospital ?? '');
     }
   }, [event]);
 
@@ -122,16 +143,25 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       name: string;
       city: string | null;
       event_date: string | null;
+      start_time: string | null;
       tracking_start: string | null;
       tracking_end: string | null;
+      emergency_contacts: EmergencyContacts;
       slug?: string;
     };
     const payload: UpdatePayload = {
       name: name.trim(),
       city: city.trim() || null,
       event_date: date ? format(date, 'yyyy-MM-dd') : null,
+      start_time: startTime || null,
       tracking_start: trackingStart ? new Date(trackingStart).toISOString() : null,
       tracking_end: trackingEnd ? new Date(trackingEnd).toISOString() : null,
+      emergency_contacts: {
+        raceDirectorPhone: raceDirectorPhone.trim() || undefined,
+        medicalLeadName: medicalLeadName.trim() || undefined,
+        medicalLeadPhone: medicalLeadPhone.trim() || undefined,
+        nearestHospital: nearestHospital.trim() || undefined,
+      },
     };
     if (slugChanged) payload.slug = normalizedSlug;
 
@@ -182,31 +212,43 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
               onChange={(e) => setCity(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label>Event date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !date && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, 'PPP') : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                  className={cn('p-3 pointer-events-auto')}
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-2 col-span-2">
+              <Label>Event date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal',
+                      !date && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, 'PPP') : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                    className={cn('p-3 pointer-events-auto')}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-start-time">Start time</Label>
+              <Input
+                id="edit-start-time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                placeholder="07:00"
+              />
+            </div>
           </div>
           {/* Public URL slug — only editable while draft. Once the event
               is published, this field becomes a read-only display so
@@ -305,6 +347,67 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
               </div>
             )}
           </div>
+
+          {/* Race-Day Contacts — printed on the checklist PDF. Collapsible
+              because most organizers won't fill this in until close to
+              race day, and the dialog is already long. */}
+          <details className="rounded-lg border border-border bg-secondary/30 p-3 group">
+            <summary className="flex items-center gap-2 text-sm font-semibold text-foreground cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              <Phone className="h-3.5 w-3.5 text-primary" />
+              Race-Day Contacts
+              <span className="ml-auto text-xs text-muted-foreground font-normal group-open:hidden">Click to expand</span>
+            </summary>
+            <div className="space-y-3 mt-3">
+              <p className="text-xs text-muted-foreground leading-snug">
+                These appear on the printed race-day checklist. Fill them in before race day so
+                volunteers know who to call.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="ec-rd-phone" className="text-xs">Race director phone</Label>
+                  <Input
+                    id="ec-rd-phone"
+                    type="tel"
+                    value={raceDirectorPhone}
+                    onChange={(e) => setRaceDirectorPhone(e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="ec-med-name" className="text-xs">Medical lead name</Label>
+                  <Input
+                    id="ec-med-name"
+                    value={medicalLeadName}
+                    onChange={(e) => setMedicalLeadName(e.target.value)}
+                    placeholder="Dr. Smith"
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="ec-med-phone" className="text-xs">Medical lead phone</Label>
+                  <Input
+                    id="ec-med-phone"
+                    type="tel"
+                    value={medicalLeadPhone}
+                    onChange={(e) => setMedicalLeadPhone(e.target.value)}
+                    placeholder="(555) 987-6543"
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="ec-hospital" className="text-xs">Nearest hospital</Label>
+                  <Input
+                    id="ec-hospital"
+                    value={nearestHospital}
+                    onChange={(e) => setNearestHospital(e.target.value)}
+                    placeholder="City General — 2 miles east"
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          </details>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

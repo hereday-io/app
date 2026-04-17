@@ -159,17 +159,19 @@ const Dashboard = () => {
     logEvent('checklist_pdf_downloaded', event.id, { plan: event.paid_at ? 'pro' : 'free' });
     try {
       const { renderRaceDayChecklistPdf } = await import('@/lib/pdf/generateRaceDayChecklist');
-      const row = event as unknown as { routes?: EventRoute[]; pois?: RoutePoi[] };
+      const row = event as unknown as { routes?: EventRoute[]; pois?: RoutePoi[]; start_time?: string | null; emergency_contacts?: Record<string, string> | null };
       const blob = await renderRaceDayChecklistPdf({
         event: {
           id: event.id,
           name: event.name,
           city: event.city,
           event_date: event.event_date,
+          start_time: row.start_time ?? null,
           slug: event.slug,
           paid_at: event.paid_at ?? null,
           routes: row.routes ?? [],
           pois: row.pois ?? [],
+          emergency_contacts: row.emergency_contacts ?? null,
         },
         organizer: { displayName, email: user?.email ?? null },
         publicBaseUrl: window.location.origin,

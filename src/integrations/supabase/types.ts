@@ -76,6 +76,8 @@ export type Database = {
           status: string
           stripe_payment_id: string | null
           stripe_session_id: string | null
+          emergency_contacts: Json
+          start_time: string | null
           tracking_end: string | null
           tracking_start: string | null
           updated_at: string
@@ -85,6 +87,7 @@ export type Database = {
           branding_style?: string
           city?: string | null
           created_at?: string
+          emergency_contacts?: Json
           event_date?: string | null
           id?: string
           logo_url?: string | null
@@ -97,6 +100,7 @@ export type Database = {
           routes?: Json
           scouted_pois?: Json
           slug?: string | null
+          start_time?: string | null
           status?: string
           stripe_payment_id?: string | null
           stripe_session_id?: string | null
@@ -109,6 +113,7 @@ export type Database = {
           branding_style?: string
           city?: string | null
           created_at?: string
+          emergency_contacts?: Json
           event_date?: string | null
           id?: string
           logo_url?: string | null
@@ -121,6 +126,7 @@ export type Database = {
           routes?: Json
           scouted_pois?: Json
           slug?: string | null
+          start_time?: string | null
           status?: string
           stripe_payment_id?: string | null
           stripe_session_id?: string | null

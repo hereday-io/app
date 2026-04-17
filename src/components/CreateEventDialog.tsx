@@ -28,6 +28,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
   const [city, setCity] = useState('');
   const [cityCenter, setCityCenter] = useState<[number, number] | null>(null);
   const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState('');
   const [trackingStart, setTrackingStart] = useState('');
   const [trackingEnd, setTrackingEnd] = useState('');
   const [saving, setSaving] = useState(false);
@@ -52,6 +53,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
       name: name.trim(),
       city: city.trim() || null,
       event_date: date || null,
+      start_time: startTime || null,
       slug,
       ...(trackingStart && trackingEnd ? {
         tracking_start: new Date(trackingStart).toISOString(),
@@ -92,6 +94,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
     setCity('');
     setCityCenter(null);
     setDate('');
+    setStartTime('');
     setTrackingStart('');
     setTrackingEnd('');
     setWantsPro(false);
@@ -137,14 +140,26 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
               />
             )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="event-date">Event date</Label>
-            <Input
-              id="event-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="event-date">Event date</Label>
+              <Input
+                id="event-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="event-start-time">Start time</Label>
+              <Input
+                id="event-start-time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                placeholder="07:00"
+              />
+            </div>
           </div>
           {/* Live Tracking Window */}
           <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">

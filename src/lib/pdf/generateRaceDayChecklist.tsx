@@ -1,7 +1,8 @@
 import { Document, Image, Page, StyleSheet, Text, View, pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import type { EventRoute, PoiType, RoutePoi } from '@/types/mapEditor';
-import { totalRouteMiles } from './routeDistance';
+import type { EmergencyContacts } from '@/components/EditEventDialog';
+import { totalRouteMiles, mileMarkerForPoi, metersToMiles } from './routeDistance';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -13,10 +14,12 @@ export interface ChecklistInput {
     name: string;
     city?: string | null;
     event_date?: string | null;
+    start_time?: string | null;
     slug?: string | null;
     paid_at?: string | null;
     routes?: EventRoute[] | null;
     pois?: RoutePoi[] | null;
+    emergency_contacts?: EmergencyContacts | null;
   };
   organizer: { displayName: string | null; email: string | null };
   /** Base URL for the public event page, e.g. "https://hereday.io" (no trailing slash). */
@@ -162,6 +165,15 @@ function formatEventDate(date?: string | null): string {
   });
 }
 
+function formatStartTime(time?: string | null): string {
+  if (!time) return '';
+  // time is "HH:mm" or "HH:mm:ss" from a TIME column
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Asset loading                                                      */
 /* ------------------------------------------------------------------ */
@@ -197,12 +209,17 @@ interface DocProps extends ChecklistInput {
   totalMiles: number;
   routeCount: number;
   groupedPois: ReturnType<typeof groupPois>;
+  /** POI id → mile marker (e.g. 4.7). Absent for POIs that couldn't be projected. */
+  poiMileMarkers: Map<string, number>;
 }
 
 function RaceDayChecklistDocument(props: DocProps) {
-  const { event, organizer, logoDataUrl, qrDataUrl, publicUrl, totalMiles, routeCount, groupedPois } = props;
+  const { event, organizer, logoDataUrl, qrDataUrl, publicUrl, totalMiles, routeCount, groupedPois, poiMileMarkers } = props;
   const isPro = !!event.paid_at;
   const formattedDate = formatEventDate(event.event_date);
+  const formattedTime = formatStartTime(event.start_time);
+  const ec = (event.emergency_contacts ?? {}) as EmergencyContacts;
+  const hasEmergencyContacts = !!(ec.raceDirectorPhone || ec.medicalLeadName || ec.medicalLeadPhone || ec.nearestHospital);
 
   // Split groups into two balanced columns by item count so neither
   // column towers over the other.
@@ -220,13 +237,37 @@ function RaceDayChecklistDocument(props: DocProps) {
     }
   }
 
+  // Mini header repeated on page 2+ via `fixed` — shows event name
+  // and date so a standalone second page is still identifiable.
+  const miniHeader = (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingBottom: 8,
+        marginBottom: 12,
+        borderBottom: `0.5pt solid ${BORDER}`,
+        fontSize: 8,
+        color: MUTED,
+      }}
+      fixed
+      render={({ pageNumber }) => (pageNumber > 1 ? (
+        <>
+          <Text>{event.name}</Text>
+          <Text>{formattedDate}{formattedTime ? ` · ${formattedTime}` : ''}</Text>
+        </>
+      ) : null)}
+    />
+  );
+
   return (
     <Document title={`${event.name} — Race-Day Checklist`}>
       <Page size="LETTER" style={styles.page}>
+        {/* Mini header on page 2+ */}
+        {miniHeader}
+
         {/* Header */}
         <View style={styles.headerRow}>
-          {/* Use an Image tag only when we actually have a data URL to avoid
-              a broken-image glyph if the public logo fetch fails. */}
           {logoDataUrl ? <Image src={logoDataUrl} style={styles.logo} /> : <View style={styles.logo} />}
           <View style={styles.headerRight}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -235,6 +276,7 @@ function RaceDayChecklistDocument(props: DocProps) {
             </View>
             <Text style={styles.eventMeta}>
               {formattedDate}
+              {formattedTime ? `  ·  ${formattedTime}` : ''}
               {event.city ? `  ·  ${event.city}` : ''}
             </Text>
           </View>
@@ -252,6 +294,33 @@ function RaceDayChecklistDocument(props: DocProps) {
             <Text style={styles.valueCol}>{organizer.email || '—'}</Text>
           </View>
         </View>
+
+        {/* Emergency contacts — only rendered if at least one field is filled */}
+        {hasEmergencyContacts && (
+          <View style={styles.summaryBlock}>
+            <Text style={styles.sectionTitle}>Race-Day Contacts</Text>
+            {ec.raceDirectorPhone && (
+              <View style={styles.row}>
+                <Text style={styles.labelCol}>Race Director</Text>
+                <Text style={styles.valueCol}>{ec.raceDirectorPhone}</Text>
+              </View>
+            )}
+            {(ec.medicalLeadName || ec.medicalLeadPhone) && (
+              <View style={styles.row}>
+                <Text style={styles.labelCol}>Medical Lead</Text>
+                <Text style={styles.valueCol}>
+                  {[ec.medicalLeadName, ec.medicalLeadPhone].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+            )}
+            {ec.nearestHospital && (
+              <View style={styles.row}>
+                <Text style={styles.labelCol}>Nearest Hospital</Text>
+                <Text style={styles.valueCol}>{ec.nearestHospital}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Course summary */}
         <View style={styles.summaryBlock}>
@@ -272,8 +341,8 @@ function RaceDayChecklistDocument(props: DocProps) {
             <Text style={[styles.summaryLine, { color: MUTED }]}>No POIs added yet.</Text>
           ) : (
             <View style={styles.poiColumns}>
-              <View style={styles.poiColumn}>{leftCol.map(renderPoiGroup)}</View>
-              <View style={styles.poiColumn}>{rightCol.map(renderPoiGroup)}</View>
+              <View style={styles.poiColumn}>{leftCol.map((g) => renderPoiGroup(g, poiMileMarkers))}</View>
+              <View style={styles.poiColumn}>{rightCol.map((g) => renderPoiGroup(g, poiMileMarkers))}</View>
             </View>
           )}
         </View>
@@ -305,16 +374,20 @@ function RaceDayChecklistDocument(props: DocProps) {
   );
 }
 
-function renderPoiGroup(g: ReturnType<typeof groupPois>[number]) {
+function renderPoiGroup(g: ReturnType<typeof groupPois>[number], markers: Map<string, number>) {
   return (
     <View key={g.key} style={styles.poiGroup}>
       <Text style={styles.poiGroupTitle}>{g.label}</Text>
-      {g.items.map((p) => (
-        <View key={p.id} style={styles.poiItem}>
-          <Text style={styles.poiTitle}>• {p.title || '(untitled)'}</Text>
-          {p.description ? <Text style={styles.poiDesc}>   {p.description}</Text> : null}
-        </View>
-      ))}
+      {g.items.map((p) => {
+        const mile = markers.get(p.id);
+        const mileLabel = mile != null ? `Mile ${mile.toFixed(1)} — ` : '';
+        return (
+          <View key={p.id} style={styles.poiItem}>
+            <Text style={styles.poiTitle}>• {mileLabel}{p.title || '(untitled)'}</Text>
+            {p.description ? <Text style={styles.poiDesc}>   {p.description}</Text> : null}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -346,6 +419,24 @@ export async function renderRaceDayChecklistPdf(input: ChecklistInput): Promise<
   const totalMiles = totalRouteMiles(routes);
   const groupedPois = groupPois(pois);
 
+  // Compute mile markers by projecting each POI onto the nearest route.
+  // Uses the first route with routeCoords as the primary route — most
+  // single-course events have exactly one. Multi-route events get a
+  // best-effort projection onto the longest route.
+  const poiMileMarkers = new Map<string, number>();
+  const primaryRoute = routes
+    .filter((r) => r.routeCoords && r.routeCoords.length >= 2)
+    .sort((a, b) => (b.routeCoords?.length ?? 0) - (a.routeCoords?.length ?? 0))[0];
+
+  if (primaryRoute?.routeCoords) {
+    for (const poi of pois) {
+      const meters = mileMarkerForPoi(poi.coordinates, primaryRoute.routeCoords);
+      if (meters != null) {
+        poiMileMarkers.set(poi.id, metersToMiles(meters));
+      }
+    }
+  }
+
   const blob = await pdf(
     <RaceDayChecklistDocument
       {...input}
@@ -355,6 +446,7 @@ export async function renderRaceDayChecklistPdf(input: ChecklistInput): Promise<
       totalMiles={totalMiles}
       routeCount={routes.length}
       groupedPois={groupedPois}
+      poiMileMarkers={poiMileMarkers}
     />,
   ).toBlob();
   return blob;

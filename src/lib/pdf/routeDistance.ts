@@ -26,6 +26,72 @@ export function haversineMeters(coords: [number, number][]): number {
 
 export const metersToMiles = (m: number) => m / 1609.344;
 
+/* ------------------------------------------------------------------ */
+/*  Point-on-line projection for mile markers                         */
+/* ------------------------------------------------------------------ */
+
+/** Distance in meters between two [lng, lat] points. */
+function ptDist(a: [number, number], b: [number, number]): number {
+  return haversineMeters([a, b]);
+}
+
+/**
+ * Project a point onto a polyline and return the distance-along-line
+ * from the polyline start to the projected point, in meters.
+ *
+ * Algorithm: for each segment of the polyline, find the closest point
+ * on that segment to `pt` (clamped perpendicular projection). Track
+ * the segment whose projection is closest, then sum Haversine distances
+ * from start to that projected point.
+ *
+ * Returns `null` if the polyline has fewer than 2 points.
+ */
+export function mileMarkerForPoi(
+  pt: [number, number],
+  routeCoords: [number, number][],
+): number | null {
+  if (!routeCoords || routeCoords.length < 2) return null;
+
+  let bestDist = Infinity;
+  let bestSegIdx = 0;
+  let bestT = 0; // interpolation factor [0..1] along best segment
+
+  for (let i = 0; i < routeCoords.length - 1; i++) {
+    const a = routeCoords[i];
+    const b = routeCoords[i + 1];
+
+    // Project pt onto segment a→b (in lng/lat space — good enough for
+    // short segments which is what snapped-route coords give us).
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq === 0 ? 0 : ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+
+    const proj: [number, number] = [a[0] + t * dx, a[1] + t * dy];
+    const d = ptDist(pt, proj);
+
+    if (d < bestDist) {
+      bestDist = d;
+      bestSegIdx = i;
+      bestT = t;
+    }
+  }
+
+  // Sum distance from start to the beginning of the best segment.
+  let along = 0;
+  for (let i = 0; i < bestSegIdx; i++) {
+    along += ptDist(routeCoords[i], routeCoords[i + 1]);
+  }
+  // Add the fractional distance within the best segment.
+  along += ptDist(routeCoords[bestSegIdx], [
+    routeCoords[bestSegIdx][0] + bestT * (routeCoords[bestSegIdx + 1][0] - routeCoords[bestSegIdx][0]),
+    routeCoords[bestSegIdx][1] + bestT * (routeCoords[bestSegIdx + 1][1] - routeCoords[bestSegIdx][1]),
+  ]);
+
+  return along;
+}
+
 /**
  * Total miles across all provided routes, summing each route's
  * `routeCoords` (falling back to `waypoints` if routeCoords is missing).
