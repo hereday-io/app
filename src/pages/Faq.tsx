@@ -56,7 +56,7 @@ const generalFaqs: FaqItem[] = [
 
 const planFaqs: FaqItem[] = [
   {
-    q: 'What's included in the free plan?',
+    q: "What's included in the free plan?",
     a: (
       <>
         <p>Everything you need to publish a race map:</p>
