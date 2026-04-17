@@ -439,6 +439,9 @@ const Index = () => {
             <Link to="/getting-started" className="hover:text-foreground transition-colors">
               Getting Started
             </Link>
+            <Link to="/faq" className="hover:text-foreground transition-colors">
+              FAQ
+            </Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">
               Terms
             </Link>
