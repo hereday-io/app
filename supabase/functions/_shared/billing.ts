@@ -1,0 +1,97 @@
+// Shared billing helpers. Every function under supabase/functions/*
+// that talks to Stripe goes through these — the auth dance, the
+// Stripe client, and the CORS headers are identical across them.
+
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+
+export const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
+
+export function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+export function getServiceClient(): SupabaseClient {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+}
+
+export function getStripe(): Stripe {
+  const key = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
+  return new Stripe(key, { apiVersion: "2023-10-16" });
+}
+
+/** Verify the caller's JWT and return the authed user + profile row. */
+export async function authenticate(req: Request): Promise<
+  | { ok: true; userId: string; email: string | null; profile: ProfileRow }
+  | { ok: false; response: Response }
+> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { ok: false, response: json({ error: "Missing Authorization header" }, 401) };
+  }
+  const anon = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: userData, error: userErr } = await anon.auth.getUser();
+  if (userErr || !userData.user) {
+    return { ok: false, response: json({ error: "Invalid session" }, 401) };
+  }
+  const service = getServiceClient();
+  const { data: profile, error: profileErr } = await service
+    .from("profiles")
+    .select("user_id, stripe_customer_id, active_promo_code, active_promo_expires_at, active_promo_percent_off")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+  if (profileErr) {
+    console.error("[billing] profile lookup failed", profileErr);
+    return { ok: false, response: json({ error: "Profile lookup failed" }, 500) };
+  }
+  return {
+    ok: true,
+    userId: userData.user.id,
+    email: userData.user.email ?? null,
+    profile: (profile ?? { user_id: userData.user.id, stripe_customer_id: null }) as ProfileRow,
+  };
+}
+
+/** Ensure a Stripe customer exists for the authed user, creating one on first touch. */
+export async function ensureStripeCustomer(params: {
+  userId: string;
+  email: string | null;
+  existingCustomerId: string | null;
+}): Promise<string> {
+  if (params.existingCustomerId) return params.existingCustomerId;
+  const stripe = getStripe();
+  const customer = await stripe.customers.create({
+    email: params.email ?? undefined,
+    metadata: { hereday_user_id: params.userId },
+  });
+  const service = getServiceClient();
+  const { error } = await service
+    .from("profiles")
+    .update({ stripe_customer_id: customer.id })
+    .eq("user_id", params.userId);
+  if (error) console.error("[billing] failed to persist stripe_customer_id", error);
+  return customer.id;
+}
+
+export interface ProfileRow {
+  user_id: string;
+  stripe_customer_id: string | null;
+  active_promo_code?: string | null;
+  active_promo_expires_at?: string | null;
+  active_promo_percent_off?: number | null;
+}

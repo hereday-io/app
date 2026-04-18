@@ -44,7 +44,7 @@ const KeyboardShortcutsOverlay = ({ open, onClose }: Props) => {
         <div className="px-5 py-4 border-b border-border flex items-center gap-2">
           <Keyboard className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold text-foreground">Keyboard Shortcuts</h2>
-          <button onClick={onClose} className="ml-auto text-muted-foreground hover:text-foreground text-lg leading-none">×</button>
+          <button onClick={onClose} aria-label="Close shortcuts" className="ml-auto text-muted-foreground hover:text-foreground text-lg leading-none">×</button>
         </div>
         <div className="px-5 py-3 space-y-1">
           {SHORTCUTS.map((s) => (

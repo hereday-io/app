@@ -334,7 +334,7 @@ const EditorTopBar = ({
                   <div className="absolute right-0 top-full mt-2 w-80 rounded-xl bg-background border border-border shadow-lg z-50">
                     <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
                       <span className="text-sm font-semibold text-foreground">Share event</span>
-                      <button onClick={() => setSharePopoverOpen(false)} className="text-muted-foreground hover:text-foreground text-lg leading-none">×</button>
+                      <button onClick={() => setSharePopoverOpen(false)} aria-label="Close share panel" className="text-muted-foreground hover:text-foreground text-lg leading-none">×</button>
                     </div>
                     <div className="px-4 py-3 space-y-3">
                       {/* URL row */}
@@ -342,6 +342,7 @@ const EditorTopBar = ({
                         <span className="flex-1 text-xs text-foreground truncate font-mono">{publicUrl}</span>
                         <button
                           onClick={handleCopy}
+                          aria-label="Copy event link"
                           className="shrink-0 p-1.5 rounded-md hover:bg-background transition-colors text-muted-foreground hover:text-foreground"
                           title="Copy link"
                         >

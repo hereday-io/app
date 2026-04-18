@@ -6,7 +6,9 @@ import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import { clusterPoisByPixels } from '@/lib/poiCluster';
-import { parseAutoStartFinishId } from '@/lib/mapMarkers';
+import { attachStatusDot, buildBrandedSponsorMarkerEl, parseAutoStartFinishId, setStatusDot } from '@/lib/mapMarkers';
+import { selectBrandedSponsorIds } from '@/lib/sponsors';
+import { usePoiStatuses } from '@/hooks/usePoiStatuses';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Trophy, Eye, Maximize2 } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
@@ -54,6 +56,12 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
   const poiMarkerByIdRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   // React roots mounted into Mapbox popup DOM for each open popover.
   const popoverRootsRef = useRef<Map<string, Root>>(new Map());
+  // Per-POI status dot overlays — updated imperatively when the
+  // postgres_changes subscription fires.
+  const statusDotByPoiIdRef = useRef<Map<string, HTMLElement>>(new Map());
+
+  // Live POI statuses. Hydrated on mount; deltas stream via realtime.
+  const poiStatuses = usePoiStatuses(event.id);
   // Queued target POI id from a cluster-row click — consumed by the
   // moveend render after the fly-in completes.
   const pendingPoiPopupRef = useRef<string | null>(null);
@@ -282,20 +290,39 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
       visiblePois.push(poi);
     });
 
+    // Soft-wall selection mirrors RunnerView — see src/lib/sponsors.ts.
+    const isPro = event.plan === 'pro';
+    const brandedSponsorIds = selectBrandedSponsorIds(event.pois, isPro);
+
     const buildSinglePoiMarker = (poi: RoutePoi) => {
       const tone = poiTone(poi.type);
       const isHighlighted = !highlightedPoiType || highlightedPoiType === poi.type;
+      const isBrandedSponsor = brandedSponsorIds.has(poi.id);
 
-      const el = document.createElement('div');
-      el.style.cssText = 'cursor:pointer;';
+      let el: HTMLElement;
+      if (isBrandedSponsor) {
+        el = buildBrandedSponsorMarkerEl({
+          logoUrl: poi.sponsor?.logoUrl || poi.sponsor?.logoDataUrl,
+          brandColor: poi.sponsor?.brandColor,
+          fallbackGlyph: tone.emoji,
+          isHighlighted,
+        });
+      } else {
+        el = document.createElement('div');
+        el.style.cssText = 'cursor:pointer;';
+        const inner = document.createElement('div');
+        const size = 36;
+        inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:16px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease,box-shadow 0.2s;pointer-events:none;`;
+        inner.textContent = tone.emoji;
+        el.appendChild(inner);
+        el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.25)'; inner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)'; });
+        el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)'; inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
+      }
 
-      const inner = document.createElement('div');
-      const size = 36;
-      inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:16px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease,box-shadow 0.2s;pointer-events:none;`;
-      inner.textContent = tone.emoji;
-      el.appendChild(inner);
-      el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.25)'; inner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)'; });
-      el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)'; inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
+      const statusDot = attachStatusDot(el);
+      statusDotByPoiIdRef.current.set(poi.id, statusDot);
+      const currentStatus = poiStatuses.get(poi.id);
+      setStatusDot(statusDot, currentStatus?.state ?? null);
 
       // Mount the React PoiReadonlyPopover into a Mapbox-owned DOM
       // node. createRoot on open, deferred unmount on close (to stay
@@ -312,6 +339,9 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
         root.render(
           <PoiReadonlyPopover
             poi={poi}
+            eventId={event.id}
+            branded={isBrandedSponsor}
+            status={poiStatuses.get(poi.id) ?? null}
             onClose={() => popup.remove()}
           />
         );
@@ -417,6 +447,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
       poiMarkersRef.current.forEach(m => m.remove());
       poiMarkersRef.current = [];
       poiMarkerByIdRef.current.clear();
+      statusDotByPoiIdRef.current.clear();
       // Defer root unmounts past the current React render cycle.
       const roots = popoverRootsRef.current;
       setTimeout(() => {
@@ -424,7 +455,19 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
         roots.clear();
       }, 0);
     };
-  }, [event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
+    // poiStatuses intentionally excluded — the status-update effect
+    // below mutates dots in place. Rebuilding markers would flicker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id, event.plan, event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
+
+  // Reactively sync status dots with the realtime subscription — same
+  // pattern as RunnerView. Keeps marker instances stable.
+  useEffect(() => {
+    statusDotByPoiIdRef.current.forEach((dot, poiId) => {
+      const s = poiStatuses.get(poiId);
+      setStatusDot(dot, s?.state ?? null);
+    });
+  }, [poiStatuses]);
 
   return (
     <div className="h-dvh relative overflow-hidden bg-black">

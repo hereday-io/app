@@ -80,7 +80,7 @@ const EditorWeatherWidget = ({ eventDate, lat, lon }: EditorWeatherWidgetProps) 
               <span className="text-[10px] text-muted-foreground">
                 {days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`}
               </span>
-              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <button onClick={() => setOpen(false)} aria-label="Close forecast" className="text-muted-foreground hover:text-foreground">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>

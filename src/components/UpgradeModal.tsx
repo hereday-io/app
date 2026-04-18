@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Crown, Route, MapPin, ImageIcon, Check } from 'lucide-react';
@@ -13,7 +14,7 @@ interface UpgradeModalProps {
   open: boolean;
   onClose: () => void;
   /** Which limit was hit — shapes the headline */
-  trigger?: 'routes' | 'pois' | 'branding' | 'publish';
+  trigger?: 'routes' | 'pois' | 'branding' | 'publish' | 'sponsors';
   /** The event being upgraded */
   eventId?: string | null;
   /** Called before navigating to Stripe so the caller can flush pending saves */
@@ -44,11 +45,39 @@ const TRIGGER_COPY: Record<string, { headline: string; sub: string }> = {
     headline: 'Your event is live — want to go Pro?',
     sub: "It's published on the Free plan. Unlock this event to remove limits, add custom branding, and enable live runner tracking.",
   },
+  sponsors: {
+    headline: 'Show every sponsor on the map',
+    sub: "Free events show one branded sponsor publicly — the rest render as generic pins. Unlock this event to publish all your sponsors with logos, CTAs, and tracked analytics.",
+  },
 };
 
 const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedirect }: UpgradeModalProps) => {
   const copy = TRIGGER_COPY[trigger];
   const [loading, setLoading] = useState(false);
+  const [activePromo, setActivePromo] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  // Read the customer's active promo code so Stripe Checkout can
+  // pre-apply it. Done once when the modal opens — the code is sourced
+  // from the profiles row the organizer manages on /billing.
+  useEffect(() => {
+    if (!open || !PAYMENTS_LIVE) return;
+    let cancelled = false;
+    (async () => {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes.user?.id;
+      if (!uid) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('active_promo_code')
+        .eq('user_id', uid)
+        .maybeSingle();
+      if (!cancelled && data && typeof (data as { active_promo_code?: string | null }).active_promo_code === 'string') {
+        setActivePromo((data as { active_promo_code: string }).active_promo_code);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -91,7 +120,11 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
                 logEvent('upgrade_clicked', eventId, { trigger });
                 try {
                   const { data, error } = await supabase.functions.invoke('create-checkout', {
-                    body: { eventId, returnUrl: window.location.origin },
+                    body: {
+                      eventId,
+                      returnUrl: window.location.origin,
+                      ...(activePromo ? { discountCode: activePromo } : {}),
+                    },
                   });
                   if (error || !data?.url) {
                     console.error('[UpgradeModal] Checkout failed:', error, data);
@@ -110,9 +143,19 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
               <Crown className="h-4 w-4" />
               {loading ? 'Redirecting to checkout…' : 'Unlock this event — $49'}
             </Button>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              <span className="font-medium text-foreground">One-time payment.</span> No subscription, no auto-renew.
+            </p>
             <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={onClose}>
               Maybe later
             </Button>
+            <button
+              type="button"
+              onClick={() => { onClose(); navigate('/billing#promo'); }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors text-center -mt-1"
+            >
+              Have a code? <span className="text-primary hover:underline">Redeem on Billing →</span>
+            </button>
           </div>
         ) : (
           <div className="flex flex-col gap-2 mt-2">

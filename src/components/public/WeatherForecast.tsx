@@ -35,8 +35,28 @@ const WeatherForecast = ({ eventDate, lat, lon }: WeatherForecastProps) => {
   // Don't render anything for past events
   if (isPast) return null;
 
-  // No location data — silently skip
-  if (!hasLocation) return null;
+  // No location data — event has no mapped waypoints yet. Render a
+  // compact empty card so the page structure is consistent rather
+  // than silently dropping the weather slot (which reads as broken).
+  if (!hasLocation) {
+    return (
+      <div className="w-full max-w-3xl mx-auto px-4 pb-2">
+        <div className="bg-card/80 backdrop-blur-sm border border-border rounded-2xl overflow-hidden shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🌤️</span>
+              <span className="text-sm font-semibold text-foreground">Race Day Forecast</span>
+            </div>
+          </div>
+          <div className="px-4 py-5 text-center">
+            <p className="text-sm text-muted-foreground">
+              Forecast will appear here once the organizer maps the course.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-3xl mx-auto px-4 pb-2">

@@ -38,6 +38,8 @@ const MapToolbar = ({ snapToRoads, setSnapToRoads, pendingPoiType, setPendingPoi
           <TooltipTrigger asChild>
             <button
               onClick={() => setSnapToRoads(!snapToRoads)}
+              aria-label={snapToRoads ? 'Following roads — click for off-road mode' : 'Off-road mode — click to follow roads'}
+              aria-pressed={snapToRoads}
               className={`w-10 h-10 rounded-lg border shadow-lg flex items-center justify-center text-base transition-colors ${
                 snapToRoads
                   ? 'bg-primary text-primary-foreground border-primary'
@@ -58,6 +60,8 @@ const MapToolbar = ({ snapToRoads, setSnapToRoads, pendingPoiType, setPendingPoi
             <TooltipTrigger asChild>
               <button
                 onClick={() => { setPoiOpen((v) => !v); setBasemapOpen(false); }}
+                aria-label="Drop a marker"
+                aria-expanded={poiOpen}
                 className={`w-10 h-10 rounded-lg border shadow-lg flex items-center justify-center text-base transition-colors ${
                   pendingPoiType
                     ? 'bg-primary text-primary-foreground border-primary'
@@ -107,6 +111,8 @@ const MapToolbar = ({ snapToRoads, setSnapToRoads, pendingPoiType, setPendingPoi
             <TooltipTrigger asChild>
               <button
                 onClick={() => { setBasemapOpen((v) => !v); setPoiOpen(false); }}
+                aria-label="Change basemap"
+                aria-expanded={basemapOpen}
                 className="w-10 h-10 rounded-lg border shadow-lg flex items-center justify-center transition-colors bg-card/95 backdrop-blur text-foreground border-border hover:bg-secondary"
               >
                 <Layers className="h-4 w-4" />

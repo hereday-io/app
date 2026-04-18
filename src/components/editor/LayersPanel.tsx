@@ -86,7 +86,7 @@ const LayersPanel = ({
           <Layers className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold">Layers</span>
         </div>
-        <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+        <button onClick={() => setOpen(false)} aria-label="Close layers panel" className="text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
       </div>

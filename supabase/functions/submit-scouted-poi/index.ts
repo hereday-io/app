@@ -181,17 +181,35 @@ Deno.serve(async (req) => {
     ? ((eventRow as EventRow).scouted_pois as ScoutedPoi[])
     : [];
 
-  // 3. Rate limit — count how many POIs this token submitted in the last hour
+  // 3. Rate limit — count recent submissions from this token in the
+  // dedicated scout_rate_limits table. Falling back to the legacy
+  // in-array count if the table query fails means a bad migration
+  // doesn't brick submissions; the fallback is strictly more
+  // permissive but only fires on the error path.
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const tokenPrefix = token.slice(0, 8);
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  const recentFromThisToken = current.filter(
-    (p) =>
-      p?.scouted_via_token === tokenPrefix &&
-      typeof p?.scouted_at === "string" &&
-      Date.parse(p.scouted_at) > oneHourAgo,
-  ).length;
 
-  if (recentFromThisToken >= RATE_LIMIT_PER_HOUR) {
+  const { count: recentFromThisToken, error: countErr } = await supabase
+    .from("scout_rate_limits")
+    .select("id", { count: "exact", head: true })
+    .eq("token", token)
+    .gte("created_at", oneHourAgo);
+
+  if (countErr) {
+    console.error("[submit-scouted-poi] rate limit count failed, falling back", countErr);
+    const legacy = current.filter(
+      (p) =>
+        p?.scouted_via_token === tokenPrefix &&
+        typeof p?.scouted_at === "string" &&
+        Date.parse(p.scouted_at) > Date.parse(oneHourAgo),
+    ).length;
+    if (legacy >= RATE_LIMIT_PER_HOUR) {
+      return json(
+        { error: `Rate limit exceeded: max ${RATE_LIMIT_PER_HOUR} POIs per hour per scout link` },
+        429,
+      );
+    }
+  } else if ((recentFromThisToken ?? 0) >= RATE_LIMIT_PER_HOUR) {
     return json(
       { error: `Rate limit exceeded: max ${RATE_LIMIT_PER_HOUR} POIs per hour per scout link` },
       429,
@@ -211,7 +229,7 @@ Deno.serve(async (req) => {
 
   const next = [...current, newPoi];
 
-  // 5. Persist
+  // 5. Persist the POI onto the event
   const { error: updateErr } = await supabase
     .from("events")
     .update({ scouted_pois: next })
@@ -221,6 +239,25 @@ Deno.serve(async (req) => {
     console.error("[submit-scouted-poi] update failed", updateErr);
     return json({ error: "Failed to save POI" }, 500);
   }
+
+  // 6. Record the submission for rate-limit accounting, then opportunistically
+  // purge rows older than 24h so the table stays small without a cron.
+  // Both are fire-and-forget — a failure here doesn't fail the submission
+  // itself since the POI is already persisted above.
+  void supabase
+    .from("scout_rate_limits")
+    .insert({ token, event_id: row.event_id })
+    .then(({ error }) => {
+      if (error) console.warn("[submit-scouted-poi] rate-limit insert failed", error);
+    });
+  const purgeCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  void supabase
+    .from("scout_rate_limits")
+    .delete()
+    .lt("created_at", purgeCutoff)
+    .then(({ error }) => {
+      if (error) console.warn("[submit-scouted-poi] rate-limit purge failed", error);
+    });
 
   return json({ ok: true, poi: newPoi });
 });

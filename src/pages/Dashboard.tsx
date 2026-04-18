@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Eye, Users, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, Route, MapPinned, ListChecks } from 'lucide-react';
+import { Eye, Users, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, Route, MapPinned, ListChecks, CreditCard } from 'lucide-react';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
@@ -255,16 +255,27 @@ const Dashboard = () => {
         <div className="container mx-auto flex items-center justify-between py-2 px-4">
           <img src="/hereday-logo.png" alt="Hereday" className="h-16 w-auto -my-2" />
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 border border-border flex items-center justify-center shrink-0">
-                <span className="text-xs font-semibold text-primary">{userInitials}</span>
-              </div>
-              <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
-            </div>
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline ml-1">Sign out</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="Open user menu"
+                  className="flex items-center gap-2 rounded-full hover:bg-muted transition-colors pr-2"
+                >
+                  <div className="h-8 w-8 rounded-full bg-primary/10 border border-border flex items-center justify-center shrink-0">
+                    <span className="text-xs font-semibold text-primary">{userInitials}</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate('/billing')}>
+                  <CreditCard className="h-4 w-4 mr-2" /> Billing
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" /> Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>

@@ -167,7 +167,7 @@ const EditorTour = ({ active, onEnd }: EditorTourProps) => {
       >
         <div className="flex items-start justify-between mb-2">
           <h4 className="font-display font-bold text-sm text-foreground">{currentStep.title}</h4>
-          <button onClick={onEnd} className="text-muted-foreground hover:text-foreground -mt-1 -mr-1 p-1">
+          <button onClick={onEnd} aria-label="End tour" className="text-muted-foreground hover:text-foreground -mt-1 -mr-1 p-1">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>

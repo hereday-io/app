@@ -12,10 +12,12 @@ import ResetPassword from "./pages/ResetPassword.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import RouteEditor from "./pages/RouteEditor.tsx";
 import ScoutPage from "./pages/ScoutPage.tsx";
+import VolunteerStatusPage from "./pages/VolunteerStatusPage.tsx";
 import EventPublic from "./pages/EventPublic.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import Terms from "./pages/Terms.tsx";
 import Refund from "./pages/Refund.tsx";
+import Billing from "./pages/Billing.tsx";
 import GettingStarted from "./pages/GettingStarted.tsx";
 import Faq from "./pages/Faq.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -38,10 +40,12 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/editor" element={<RouteEditor />} />
             <Route path="/scout/:token" element={<ScoutPage />} />
+            <Route path="/v/:token" element={<VolunteerStatusPage />} />
             <Route path="/event/:slug" element={<EventPublic />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/refund" element={<Refund />} />
+            <Route path="/billing" element={<Billing />} />
             <Route path="/getting-started" element={<GettingStarted />} />
             <Route path="/faq" element={<Faq />} />
             <Route path="*" element={<NotFound />} />

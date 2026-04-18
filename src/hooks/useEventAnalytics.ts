@@ -3,6 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 
 const POLL_INTERVAL_MS = 30_000; // refresh every 30s while open
 
+export interface SponsorStat {
+  poi_id: string;
+  title: string;
+  logo_url: string | null;
+  brand_color: string | null;
+  impressions: number;
+  clicks: number;
+  promo_copies: number;
+}
+
 export interface EventAnalytics {
   views_total: number;
   views_runner: number;
@@ -13,6 +23,7 @@ export interface EventAnalytics {
   tracking_sessions: number;
   tracking_runners: number;
   views_by_day: Array<{ day: string; count: number }>;
+  sponsors: SponsorStat[];
 }
 
 const EMPTY: EventAnalytics = {
@@ -25,6 +36,7 @@ const EMPTY: EventAnalytics = {
   tracking_sessions: 0,
   tracking_runners: 0,
   views_by_day: [],
+  sponsors: [],
 };
 
 export function useEventAnalytics(eventId: string | null) {
@@ -44,8 +56,10 @@ export function useEventAnalytics(eventId: string | null) {
           setError(rpcError.message);
           setData(EMPTY);
         } else {
-          const parsed = (typeof result === 'string' ? JSON.parse(result) : result) as EventAnalytics;
-          setData(parsed);
+          const parsed = (typeof result === 'string' ? JSON.parse(result) : result) as Partial<EventAnalytics>;
+          // Defensive defaults — if the SQL function is stale (pre
+          // sponsor-aggregates migration) it won't return `sponsors`.
+          setData({ ...EMPTY, ...parsed, sponsors: parsed.sponsors ?? [] });
         }
         setLoading(false);
       });

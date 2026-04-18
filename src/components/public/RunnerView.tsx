@@ -6,7 +6,9 @@ import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { totalDistanceMiles, getMileMarkers, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone } from '@/lib/pois';
 import { clusterPoisByPixels } from '@/lib/poiCluster';
-import { parseAutoStartFinishId } from '@/lib/mapMarkers';
+import { attachStatusDot, buildBrandedSponsorMarkerEl, parseAutoStartFinishId, setStatusDot } from '@/lib/mapMarkers';
+import { selectBrandedSponsorIds } from '@/lib/sponsors';
+import { usePoiStatuses } from '@/hooks/usePoiStatuses';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { ArrowLeft, Trophy, Eye, Maximize2, Download } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
@@ -48,6 +50,13 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
   const poiMarkerByIdRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   // React roots mounted into Mapbox popup DOM — one per open popup.
   const popoverRootsRef = useRef<Map<string, Root>>(new Map());
+  // Per-POI status dot overlay elements, keyed so the subscription
+  // effect can mutate their color without rebuilding the marker.
+  const statusDotByPoiIdRef = useRef<Map<string, HTMLElement>>(new Map());
+
+  // Live POI statuses via postgres_changes. Empty map until the first
+  // snapshot resolves; marker build path treats unknown = 'open'.
+  const poiStatuses = usePoiStatuses(event.id);
   // When a user taps a row in a cluster popup we queue the target
   // POI id here, fly the map in, and open that POI's popup after
   // the moveend rebuild fires.
@@ -309,20 +318,45 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       visiblePois.push(poi);
     });
 
+    // Soft-wall selection: Free events cap branded sponsor slots; extras
+    // fall back to the generic ⭐. Organizer sees all branded in the
+    // editor — this filter is the public-map enforcement point.
+    const isPro = event.plan === 'pro';
+    const brandedSponsorIds = selectBrandedSponsorIds(event.pois, isPro);
+
     const buildSinglePoiMarker = (poi: RoutePoi) => {
       const tone = poiTone(poi.type);
       const isHighlighted = !highlightedPoiType || highlightedPoiType === poi.type;
+      const isBrandedSponsor = brandedSponsorIds.has(poi.id);
 
-      const el = document.createElement('div');
-      el.style.cssText = 'cursor:pointer;';
+      let el: HTMLElement;
+      if (isBrandedSponsor) {
+        el = buildBrandedSponsorMarkerEl({
+          logoUrl: poi.sponsor?.logoUrl || poi.sponsor?.logoDataUrl,
+          brandColor: poi.sponsor?.brandColor,
+          fallbackGlyph: tone.emoji,
+          isHighlighted,
+        });
+      } else {
+        el = document.createElement('div');
+        el.style.cssText = 'cursor:pointer;';
+        const inner = document.createElement('div');
+        const size = 32;
+        inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:14px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease,box-shadow 0.2s;pointer-events:none;`;
+        inner.textContent = tone.emoji;
+        el.appendChild(inner);
+        el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.25)'; inner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)'; });
+        el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)'; inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
+      }
 
-      const inner = document.createElement('div');
-      const size = 32;
-      inner.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${tone.dot};border:3px solid ${isHighlighted ? 'white' : 'rgba(255,255,255,0.5)'};box-shadow:0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1});display:flex;align-items:center;justify-content:center;font-size:14px;opacity:${isHighlighted ? 1 : 0.4};transition:transform 0.15s ease,box-shadow 0.2s;pointer-events:none;`;
-      inner.textContent = tone.emoji;
-      el.appendChild(inner);
-      el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.25)'; inner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)'; });
-      el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)'; inner.style.boxShadow = `0 2px 8px rgba(0,0,0,${isHighlighted ? 0.3 : 0.1})`; });
+      // Attach a status dot overlay and register it so the
+      // postgres_changes effect can mutate it imperatively when a
+      // volunteer updates this POI's status. Initial state comes from
+      // whatever the subscription has already hydrated.
+      const statusDot = attachStatusDot(el);
+      statusDotByPoiIdRef.current.set(poi.id, statusDot);
+      const currentStatus = poiStatuses.get(poi.id);
+      setStatusDot(statusDot, currentStatus?.state ?? null);
 
       // Mount the React PoiReadonlyPopover into a DOM node that
       // Mapbox owns. Create the root on popup 'open' and unmount
@@ -339,6 +373,9 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
         root.render(
           <PoiReadonlyPopover
             poi={poi}
+            eventId={event.id}
+            branded={isBrandedSponsor}
+            status={poiStatuses.get(poi.id) ?? null}
             onClose={() => popup.remove()}
           />
         );
@@ -447,6 +484,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       poiMarkersRef.current.forEach(m => m.remove());
       poiMarkersRef.current = [];
       poiMarkerByIdRef.current.clear();
+      statusDotByPoiIdRef.current.clear();
       // Unmount any React roots left alive (e.g. popover was open
       // when the component unmounts). Deferred to escape React's
       // current render phase.
@@ -456,7 +494,22 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
         roots.clear();
       }, 0);
     };
-  }, [event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
+    // poiStatuses intentionally excluded — we don't want to rebuild
+    // markers on every volunteer status tick; the separate effect
+    // below mutates status dots in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id, event.plan, event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
+
+  // Drive the status dots imperatively whenever the subscription
+  // reports new data. Rebuilding markers on every status change would
+  // cause flicker and lose popup state; mutating the already-attached
+  // overlay keeps everything smooth.
+  useEffect(() => {
+    statusDotByPoiIdRef.current.forEach((dot, poiId) => {
+      const s = poiStatuses.get(poiId);
+      setStatusDot(dot, s?.state ?? null);
+    });
+  }, [poiStatuses]);
 
   return (
     <div className="h-dvh relative overflow-hidden bg-black">

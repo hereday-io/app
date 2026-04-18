@@ -11,6 +11,7 @@ import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
 import { totalDistanceMiles, getSnappedRoute, getMileMarkers, snapToNearestRoute, ROUTE_COLORS, BASEMAP_OPTIONS } from '@/lib/geo';
 import { poiTone, POI_TYPES } from '@/lib/pois';
 import { uploadPoiImage, isDataUrl } from '@/lib/poiImageUpload';
+import { hasSponsorContent, FREE_BRANDED_SPONSOR_CAP } from '@/lib/sponsors';
 import { logEvent } from '@/lib/analytics';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
@@ -19,6 +20,7 @@ import EditorCoachMark from '@/components/editor/EditorCoachMark';
 import SnapModePill from '@/components/editor/SnapModePill';
 import MobileEditorGate from '@/components/editor/MobileEditorGate';
 import ScoutLinkDialog from '@/components/editor/ScoutLinkDialog';
+import StatusTokenDialog from '@/components/editor/StatusTokenDialog';
 import ScoutReviewBanner from '@/components/editor/ScoutReviewBanner';
 import ScoutReviewPanel, { type ScoutedPoiRecord } from '@/components/editor/ScoutReviewPanel';
 import EditorTour from '@/components/editor/EditorTour';
@@ -93,6 +95,7 @@ const RouteEditor = () => {
   const [tourActive, setTourActive] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [scoutLinkDialogOpen, setScoutLinkDialogOpen] = useState(false);
+  const [statusTokenDialogOpen, setStatusTokenDialogOpen] = useState(false);
   const [scoutedPois, setScoutedPois] = useState<ScoutedPoiRecord[]>([]);
   const [scoutReviewPanelOpen, setScoutReviewPanelOpen] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
@@ -117,7 +120,7 @@ const RouteEditor = () => {
   const [eventPlan, setEventPlan] = useState<'free' | 'pro'>('free');
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
-  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | null>(null);
+  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | 'sponsors' | null>(null);
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -739,9 +742,20 @@ const RouteEditor = () => {
           // reads the latest POI data from the closure.
           const root = createRoot(popupHost);
           popoverRootsRef.current.set(poi.id, root);
+          // Compute overflow lazily at open time — the set of sponsor
+          // POIs can have changed since the marker was built. Soft
+          // wall: POIs with index >= FREE_BRANDED_SPONSOR_CAP in the
+          // branded list get the upgrade hint on free events.
+          const brandedSponsors = pois.filter(hasSponsorContent);
+          const myBrandedIdx = brandedSponsors.findIndex((p) => p.id === poi.id);
+          const sponsorOverflow = myBrandedIdx >= FREE_BRANDED_SPONSOR_CAP;
           root.render(
             <PoiEditPopover
               poi={poi}
+              isPro={eventPlan === 'pro'}
+              sponsorOverflow={sponsorOverflow}
+              onUpgradeClick={() => { popup.remove(); setUpgradeModalTrigger('sponsors'); }}
+              onGenerateStatusLink={() => setStatusTokenDialogOpen(true)}
               onSave={(patch) => {
                 setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, ...patch } : p)));
               }}
@@ -912,28 +926,45 @@ const RouteEditor = () => {
   // Materializes any POI images that are still base64 data URLs into the
   // poi-images storage bucket. Returns a POI array safe to persist (no
   // base64 payloads) and, as a side effect, updates in-memory state so
-  // the next autosave doesn't re-upload the same bytes.
+  // the next autosave doesn't re-upload the same bytes. Handles two
+  // image slots per POI: the main photo (imageDataUrl) and the optional
+  // sponsor logo (sponsor.logoDataUrl).
   const materializePoiImages = useCallback(async (input: RoutePoi[]): Promise<RoutePoi[]> => {
     if (!user || !eventId) return input;
     const out: RoutePoi[] = [];
     let mutated = false;
     for (const poi of input) {
-      if (isDataUrl(poi.imageDataUrl)) {
+      let next = poi;
+      if (isDataUrl(next.imageDataUrl)) {
         try {
-          const url = await uploadPoiImage(poi.imageDataUrl!, user.id, eventId, poi.id);
-          out.push({ ...poi, imageUrl: url, imageDataUrl: undefined });
+          const url = await uploadPoiImage(next.imageDataUrl!, user.id, eventId, next.id);
+          next = { ...next, imageUrl: url, imageDataUrl: undefined };
           mutated = true;
-          continue;
         } catch (err) {
           // If upload fails, drop the base64 rather than persist it. The
           // user keeps the in-memory preview until the next edit.
           console.error('POI image upload failed', err);
-          out.push({ ...poi, imageDataUrl: undefined });
+          next = { ...next, imageDataUrl: undefined };
           mutated = true;
-          continue;
         }
       }
-      out.push(poi);
+      if (isDataUrl(next.sponsor?.logoDataUrl)) {
+        try {
+          const url = await uploadPoiImage(
+            next.sponsor!.logoDataUrl!,
+            user.id,
+            eventId,
+            `${next.id}-sponsor`,
+          );
+          next = { ...next, sponsor: { ...next.sponsor!, logoUrl: url, logoDataUrl: undefined } };
+          mutated = true;
+        } catch (err) {
+          console.error('Sponsor logo upload failed', err);
+          next = { ...next, sponsor: { ...next.sponsor!, logoDataUrl: undefined } };
+          mutated = true;
+        }
+      }
+      out.push(next);
     }
     if (mutated) setPois(out);
     return out;
@@ -1483,6 +1514,14 @@ const RouteEditor = () => {
           userId={user.id}
         />
       )}
+      {eventId && user && (
+        <StatusTokenDialog
+          open={statusTokenDialogOpen}
+          onOpenChange={setStatusTokenDialogOpen}
+          eventId={eventId}
+          userId={user.id}
+        />
+      )}
       <ScoutReviewPanel
         open={scoutReviewPanelOpen}
         onOpenChange={setScoutReviewPanelOpen}
@@ -1593,6 +1632,8 @@ const RouteEditor = () => {
             <EditorCoachMark
               userId={user.id}
               hasRouteWaypoints={routes.some((r) => r.waypoints.length > 0)}
+              hasFinishedRoute={finishedRouteIds.size > 0}
+              isPublished={eventStatus === 'published'}
             />
           )}
 

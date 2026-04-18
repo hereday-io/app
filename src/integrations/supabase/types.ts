@@ -137,6 +137,84 @@ export type Database = {
         }
         Relationships: []
       }
+      poi_statuses: {
+        Row: {
+          event_id: string
+          poi_id: string
+          state: string
+          note: string | null
+          moved_to_lng: number | null
+          moved_to_lat: number | null
+          updated_by_name: string | null
+          updated_via_token: string | null
+          updated_at: string
+        }
+        Insert: {
+          event_id: string
+          poi_id: string
+          state: string
+          note?: string | null
+          moved_to_lng?: number | null
+          moved_to_lat?: number | null
+          updated_by_name?: string | null
+          updated_via_token?: string | null
+          updated_at?: string
+        }
+        Update: {
+          event_id?: string
+          poi_id?: string
+          state?: string
+          note?: string | null
+          moved_to_lng?: number | null
+          moved_to_lat?: number | null
+          updated_by_name?: string | null
+          updated_via_token?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      poi_status_history: {
+        Row: {
+          id: number
+          event_id: string
+          poi_id: string
+          state: string
+          note: string | null
+          moved_to_lng: number | null
+          moved_to_lat: number | null
+          updated_by_name: string | null
+          updated_via_token: string | null
+          updated_ip: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          event_id: string
+          poi_id: string
+          state: string
+          note?: string | null
+          moved_to_lng?: number | null
+          moved_to_lat?: number | null
+          updated_by_name?: string | null
+          updated_via_token?: string | null
+          updated_ip?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          event_id?: string
+          poi_id?: string
+          state?: string
+          note?: string | null
+          moved_to_lng?: number | null
+          moved_to_lat?: number | null
+          updated_by_name?: string | null
+          updated_via_token?: string | null
+          updated_ip?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       poi_volunteer_tokens: {
         Row: {
           created_at: string
@@ -211,6 +289,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_promo_code: string | null
+          active_promo_expires_at: string | null
+          active_promo_percent_off: number | null
           avatar_url: string | null
           created_at: string
           current_period_end: string | null
@@ -225,6 +306,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          active_promo_code?: string | null
+          active_promo_expires_at?: string | null
+          active_promo_percent_off?: number | null
           avatar_url?: string | null
           created_at?: string
           current_period_end?: string | null
@@ -239,6 +323,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          active_promo_code?: string | null
+          active_promo_expires_at?: string | null
+          active_promo_percent_off?: number | null
           avatar_url?: string | null
           created_at?: string
           current_period_end?: string | null

@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { ArrowLeft, LocateFixed, Plus, Loader2, Compass } from 'lucide-react';
+import { ArrowLeft, CloudOff, LocateFixed, Plus, Loader2, Compass } from 'lucide-react';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { useToast } from '@/hooks/use-toast';
 import { resolveScoutToken, type ResolvedScoutEvent } from '@/lib/scoutApi';
-import { flushScoutPending } from '@/lib/scoutStorage';
+import { countScoutPending, flushScoutPending } from '@/lib/scoutStorage';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import { poiTone } from '@/lib/pois';
 import DropPinSheet from '@/components/scout/DropPinSheet';
@@ -49,6 +49,14 @@ const ScoutPage = () => {
   // the right spot — a 200m fix inside a stadium is useless data for
   // the organizer and should come with a visible warning.
   const [accuracyM, setAccuracyM] = useState<number | null>(null);
+  // Offline queue size — surfaced in a small banner so the scout knows
+  // their submissions are persisted even when submits are silently
+  // stashing. Polled on mount + after any online event; DropPinSheet
+  // triggers a refresh via the `onSubmitted` callback.
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
 
   // ── 1. Resolve the token ───────────────────────────────────────────────
   useEffect(() => {
@@ -71,14 +79,61 @@ const ScoutPage = () => {
   }, [token]);
 
   // ── 2. Auto-flush any queued POIs when the network comes back ─────────
+  //
+  // The submit path in DropPinSheet stashes failures in IndexedDB; this
+  // effect drains that queue whenever we either (a) mount or (b) get
+  // `online` event. We also refresh `pendingCount` after each flush so
+  // the banner updates without a reload. Successful flushes toast so
+  // the scout sees resolution — silent success reads as broken.
   useEffect(() => {
     if (!token) return;
-    const handler = () => { void flushScoutPending(token); };
-    // Try once on mount in case we came online between sessions.
-    handler();
-    window.addEventListener('online', handler);
-    return () => window.removeEventListener('online', handler);
-  }, [token]);
+    let cancelled = false;
+
+    const refreshCount = async () => {
+      const n = await countScoutPending(token);
+      if (!cancelled) setPendingCount(n);
+    };
+
+    const flushAndToast = async () => {
+      const before = await countScoutPending(token);
+      if (before === 0) {
+        if (!cancelled) setPendingCount(0);
+        return;
+      }
+      const flushed = await flushScoutPending(token);
+      if (cancelled) return;
+      const after = await countScoutPending(token);
+      setPendingCount(after);
+      if (flushed > 0) {
+        toast({
+          title: flushed === 1 ? 'Uploaded 1 offline pin' : `Uploaded ${flushed} offline pins`,
+          description: after > 0 ? `${after} still waiting for a better signal.` : undefined,
+        });
+      }
+    };
+
+    // Initial read on mount (fast, no network) + attempt flush.
+    void refreshCount();
+    void flushAndToast();
+
+    const onOnline = () => { setIsOnline(true); void flushAndToast(); };
+    const onOffline = () => { setIsOnline(false); };
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [token, toast]);
+
+  // Re-read pending count after every submit — DropPinSheet may have
+  // added to or drained from the queue.
+  const refreshPendingCount = async () => {
+    if (!token) return;
+    const n = await countScoutPending(token);
+    setPendingCount(n);
+  };
 
   // ── 3. Initialize map once we have both the event and the mapbox token ──
   useEffect(() => {
@@ -299,6 +354,26 @@ const ScoutPage = () => {
         </p>
       </div>
 
+      {/* Offline queue banner — only visible when pins are stashed
+          locally. Gives the scout confidence that nothing was lost and
+          surfaces the resolution path (get back to signal). */}
+      {pendingCount > 0 && (
+        <div
+          className={`shrink-0 flex items-center justify-center gap-2 px-3 py-1.5 border-b text-[11px] font-medium ${
+            isOnline
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400'
+              : 'bg-destructive/10 border-destructive/30 text-destructive'
+          }`}
+        >
+          <CloudOff className="h-3 w-3" />
+          <span>
+            {pendingCount === 1 ? '1 pin saved offline' : `${pendingCount} pins saved offline`}
+            {' · '}
+            {isOnline ? 'Syncing…' : 'Will sync when back online'}
+          </span>
+        </div>
+      )}
+
       {/* Map + overlays */}
       <div className="flex-1 relative">
         <div ref={mapContainerRef} className="absolute inset-0" />
@@ -371,6 +446,10 @@ const ScoutPage = () => {
           onSubmitted={(coord) => {
             handleSubmitted(coord);
             setDropSheetOpen(false);
+            // Refresh the banner — submit may have hit the network
+            // directly (count stays 0) or queued offline (count +1) or
+            // piggy-backed a flush (count -N).
+            void refreshPendingCount();
           }}
         />
       )}

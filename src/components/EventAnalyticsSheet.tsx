@@ -1,4 +1,4 @@
-import { Eye, Users, QrCode, Navigation, Lock, TrendingUp } from 'lucide-react';
+import { Eye, Users, QrCode, Navigation, Lock, TrendingUp, Megaphone } from 'lucide-react';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
@@ -137,6 +137,69 @@ const EventAnalyticsSheet = ({ open, onOpenChange, eventId, eventName, isPro }: 
                 </CardContent>
               </Card>
             </div>
+
+            {/* Sponsors — per-POI impressions + clicks + promo copies.
+                Ranked server-side by clicks desc. Only renders when the
+                event has at least one branded sponsor. */}
+            {data.sponsors.length > 0 && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">Sponsors</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      {data.sponsors.length} sponsor{data.sponsors.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {data.sponsors.map((s) => (
+                      <div
+                        key={s.poi_id}
+                        className="flex items-center gap-3 rounded-lg border border-border/60 px-2.5 py-2"
+                      >
+                        <div
+                          className="w-9 h-9 rounded-md bg-white border flex items-center justify-center overflow-hidden shrink-0"
+                          style={{ borderColor: `${s.brand_color ?? '#2563eb'}40` }}
+                        >
+                          {s.logo_url ? (
+                            <img src={s.logo_url} alt="" className="max-w-[85%] max-h-[85%] object-contain" />
+                          ) : (
+                            <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-foreground truncate">{s.title}</p>
+                          <p className="text-[10.5px] text-muted-foreground font-display">
+                            <span className="font-semibold text-foreground">{s.impressions}</span> impression{s.impressions === 1 ? '' : 's'}
+                            {' · '}
+                            <span className="font-semibold text-foreground">{s.clicks}</span> click{s.clicks === 1 ? '' : 's'}
+                            {s.promo_copies > 0 && (
+                              <>
+                                {' · '}
+                                <span className="font-semibold text-foreground">{s.promo_copies}</span> promo cop{s.promo_copies === 1 ? 'y' : 'ies'}
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        {s.impressions > 0 && (
+                          <div className="text-right shrink-0">
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-display font-semibold">CTR</div>
+                            <div className="text-[12px] font-display font-bold text-foreground">
+                              {Math.round((s.clicks / s.impressions) * 100)}%
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-3 leading-snug">
+                    Impressions include map taps on the sponsor marker.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Views over time chart */}
             {chartData.length > 1 && (

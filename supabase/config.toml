@@ -1,1 +1,7 @@
 project_id = "vbhpvboccvufdkujgnmd"
+
+# Stripe webhook — signed with STRIPE_WEBHOOK_SECRET, not a Supabase
+# JWT. Disable the default JWT gate so Stripe can reach it; the
+# signature check inside the function is what prevents forgery.
+[functions.stripe-webhook]
+verify_jwt = false
