@@ -8,6 +8,7 @@ import {
   Crown,
   ExternalLink,
   Eye,
+  ListChecks,
   Lock,
   Megaphone,
   Navigation,
@@ -36,7 +37,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { poiTone } from '@/lib/pois';
 import { STATUS_DOT_COLORS } from '@/lib/mapMarkers';
 import { logEvent } from '@/lib/analytics';
-import type { PoiStatusState, RoutePoi } from '@/types/mapEditor';
+import type { EventRoute, PoiStatusState, RoutePoi } from '@/types/mapEditor';
 import StatusTokenDialog from '@/components/editor/StatusTokenDialog';
 import UpgradeModal from '@/components/UpgradeModal';
 import type { ScoutedPoiRecord } from '@/components/editor/ScoutReviewPanel';
@@ -49,12 +50,15 @@ interface EventRow {
   name: string;
   city: string | null;
   event_date: string | null;
+  start_time: string | null;
   status: string;
   slug: string | null;
   paid_at: string | null;
   plan: string;
   pois: RoutePoi[];
+  routes: EventRoute[];
   scouted_pois: ScoutedPoiRecord[];
+  emergency_contacts: Record<string, string> | null;
   user_id: string;
 }
 
@@ -123,6 +127,8 @@ const EventOpsCenter = () => {
   const [loading, setLoading] = useState(true);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [checklistLoading, setChecklistLoading] = useState(false);
 
   // Redirect unauthed users
   useEffect(() => {
@@ -135,7 +141,7 @@ const EventOpsCenter = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, city, event_date, status, slug, paid_at, plan, pois, scouted_pois, user_id')
+      .select('id, name, city, event_date, start_time, status, slug, paid_at, plan, pois, routes, scouted_pois, emergency_contacts, user_id')
       .eq('id', eventId)
       .maybeSingle();
     setLoading(false);
@@ -155,8 +161,65 @@ const EventOpsCenter = () => {
   }, [fetchEvent]);
 
   useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.display_name) setDisplayName(data.display_name);
+      });
+  }, [user]);
+
+  useEffect(() => {
     if (event?.id) logEvent('ops_center_viewed', event.id);
   }, [event?.id]);
+
+  const handleDownloadChecklist = useCallback(async () => {
+    if (!event || checklistLoading) return;
+    setChecklistLoading(true);
+    logEvent('checklist_pdf_downloaded', event.id, {
+      plan: event.paid_at ? 'pro' : 'free',
+      source: 'ops_center',
+    });
+    try {
+      const { renderRaceDayChecklistPdf } = await import('@/lib/pdf/generateRaceDayChecklist');
+      const blob = await renderRaceDayChecklistPdf({
+        event: {
+          id: event.id,
+          name: event.name,
+          city: event.city,
+          event_date: event.event_date,
+          start_time: event.start_time ?? null,
+          slug: event.slug,
+          paid_at: event.paid_at ?? null,
+          routes: event.routes ?? [],
+          pois: event.pois ?? [],
+          emergency_contacts: event.emergency_contacts ?? null,
+        },
+        organizer: { displayName, email: user?.email ?? null },
+        publicBaseUrl: window.location.origin,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${event.name.replace(/[^\w-]+/g, '-') || 'event'}-race-day-checklist.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[OpsCenter] checklist failed', err);
+      toast({
+        title: 'Could not generate checklist',
+        description: 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setChecklistLoading(false);
+    }
+  }, [event, checklistLoading, displayName, user, toast]);
 
   // ── Gating ─────────────────────────────────────────────────────────
   const isPublished = event?.status === 'published';
@@ -196,6 +259,8 @@ const EventOpsCenter = () => {
         onBack={() => navigate('/dashboard')}
         onOpenStatusDialog={() => setStatusDialogOpen(true)}
         onEventUpdated={fetchEvent}
+        onDownloadChecklist={handleDownloadChecklist}
+        checklistLoading={checklistLoading}
       />
       {user && (
         <StatusTokenDialog
@@ -329,12 +394,21 @@ const Header = ({
   onBack,
   locked,
   onOpenStatusDialog,
+  onDownloadChecklist,
+  checklistLoading,
 }: {
   event: EventRow;
   onBack: () => void;
   locked?: boolean;
   onOpenStatusDialog?: () => void;
+  onDownloadChecklist?: () => void;
+  checklistLoading?: boolean;
 }) => {
+  // Hide Checklist for past events — a race-day checklist for a race
+  // that already happened has no value. Matches the same gate on the
+  // Dashboard card button.
+  const today = new Date().toISOString().slice(0, 10);
+  const isPastEvent = !!event.event_date && event.event_date < today;
   const { toast } = useToast();
   const publicUrl = event.slug ? `${window.location.origin}/event/${event.slug}` : null;
 
@@ -426,6 +500,18 @@ const Header = ({
                 Volunteer link
               </Button>
             )}
+            {onDownloadChecklist && !isPastEvent && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
+                onClick={onDownloadChecklist}
+                disabled={checklistLoading}
+              >
+                <ListChecks className="h-3 w-3" />
+                {checklistLoading ? 'Preparing…' : 'Checklist'}
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="h-8 gap-1.5 opacity-60" disabled title="Coming soon">
               <Send className="h-3 w-3" />
               Send update
@@ -445,11 +531,15 @@ const OpsCenterContent = ({
   onBack,
   onOpenStatusDialog,
   onEventUpdated,
+  onDownloadChecklist,
+  checklistLoading,
 }: {
   event: EventRow;
   onBack: () => void;
   onOpenStatusDialog: () => void;
   onEventUpdated: () => void;
+  onDownloadChecklist: () => void;
+  checklistLoading: boolean;
 }) => {
   const statuses = usePoiStatuses(event.id);
   const { data: analytics, loading: analyticsLoading } = useEventAnalytics(event.id);
@@ -457,7 +547,13 @@ const OpsCenterContent = ({
 
   return (
     <div className="min-h-screen bg-background">
-      <Header event={event} onBack={onBack} onOpenStatusDialog={onOpenStatusDialog} />
+      <Header
+        event={event}
+        onBack={onBack}
+        onOpenStatusDialog={onOpenStatusDialog}
+        onDownloadChecklist={onDownloadChecklist}
+        checklistLoading={checklistLoading}
+      />
 
       <main className="max-w-[1180px] mx-auto px-6 py-8 space-y-6">
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px]">
