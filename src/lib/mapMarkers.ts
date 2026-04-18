@@ -24,10 +24,18 @@ export const STATUS_DOT_COLORS: Record<PoiStatusState, string> = {
  * the subscription hook reports a non-open state.
  */
 export function attachStatusDot(markerRoot: HTMLElement): HTMLElement {
-  // Establish a positioning context so the absolute dot anchors to the
-  // marker's top-right edge regardless of its internal layout.
-  if (!markerRoot.style.position) {
-    markerRoot.style.position = 'relative';
+  // Attach to the marker's first child — typically a sized circle —
+  // rather than to the Mapbox-managed root. Reason: Mapbox applies
+  // `position: absolute` via the `.mapboxgl-marker` class, which is
+  // what keeps the element sized to its content (~32-40px) so the
+  // `translate(-50%, -50%)` anchor math works. Setting an inline
+  // `position: relative` on the root overrides that, pushes the
+  // element back into normal flow, and it stretches to full parent
+  // width — which shoves the marker horizontally off its lnglat.
+  const host = (markerRoot.firstElementChild as HTMLElement | null) ?? markerRoot;
+  const inline = host.style.position;
+  if (inline !== 'absolute' && inline !== 'relative' && inline !== 'fixed' && inline !== 'sticky') {
+    host.style.position = 'relative';
   }
   const dot = document.createElement('div');
   dot.style.cssText = [
@@ -43,7 +51,7 @@ export function attachStatusDot(markerRoot: HTMLElement): HTMLElement {
     'pointer-events:none',
     'z-index:2',
   ].join(';');
-  markerRoot.appendChild(dot);
+  host.appendChild(dot);
   return dot;
 }
 
