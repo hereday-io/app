@@ -10,6 +10,7 @@ import Signup from "./pages/Signup.tsx";
 import ForgotPassword from "./pages/ForgotPassword.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
+import EventOpsCenter from "./pages/EventOpsCenter.tsx";
 import RouteEditor from "./pages/RouteEditor.tsx";
 import ScoutPage from "./pages/ScoutPage.tsx";
 import VolunteerStatusPage from "./pages/VolunteerStatusPage.tsx";
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard/events/:id" element={<EventOpsCenter />} />
             <Route path="/editor" element={<RouteEditor />} />
             <Route path="/scout/:token" element={<ScoutPage />} />
             <Route path="/v/:token" element={<VolunteerStatusPage />} />

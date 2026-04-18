@@ -16,15 +16,6 @@ const STATUS_LABELS: Record<string, string> = {
   moved: 'Moved',
 };
 
-function relativeTime(iso: string): string {
-  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
-  const mins = Math.round(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(iso).toLocaleDateString();
-}
 
 // Types whose marker flow benefits from a clickable web link (sponsor
 // activations, registration pages, custom "see details" pins). Regular
@@ -116,10 +107,11 @@ const PoiReadonlyPopover = ({ poi, onClose, eventId, branded, status }: PoiReado
         </button>
       </div>
 
-      {/* Live volunteer status — only shown when a status row exists and
-          the state isn't 'open' (default / nothing-to-say). The colored
-          pill echoes the corner dot on the marker so the viewer can
-          connect the two at a glance. */}
+      {/* Live volunteer status — only shown when state isn't 'open'.
+          Public view keeps this intentionally minimal: participants
+          benefit from knowing "water is low" but don't need the
+          organizer-oriented audit trail (who/when/verbose note).
+          Full details live on the Ops Center (organizer-only). */}
       {status && status.state !== 'open' && (
         <div className="border-t border-border pt-2.5 pb-2.5">
           <div className="flex items-center gap-2 text-xs">
@@ -130,16 +122,12 @@ const PoiReadonlyPopover = ({ poi, onClose, eventId, branded, status }: PoiReado
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-white" />
               {STATUS_LABELS[status.state] ?? status.state}
             </span>
-            <span className="text-muted-foreground">
-              updated {relativeTime(status.updated_at)}
-              {status.updated_by_name ? ` by ${status.updated_by_name}` : ''}
-            </span>
+            {status.note && (
+              <span className="text-foreground/85 text-[12px] truncate">
+                {status.note}
+              </span>
+            )}
           </div>
-          {status.note && (
-            <p className="text-[12px] text-foreground/85 leading-snug mt-1.5 whitespace-pre-wrap">
-              “{status.note}”
-            </p>
-          )}
         </div>
       )}
 

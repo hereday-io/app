@@ -507,8 +507,13 @@ const Dashboard = () => {
                           </DropdownMenuItem>
                         )}
                         {isPublished && (
+                          <DropdownMenuItem onClick={() => { menuActionRef.current = true; navigate(`/dashboard/events/${event.id}`); }}>
+                            <BarChart3 className="h-4 w-4 mr-2" /> Ops Center
+                          </DropdownMenuItem>
+                        )}
+                        {isPublished && (
                           <DropdownMenuItem onClick={() => { menuActionRef.current = true; setAnalyticsEvent(event); }}>
-                            <BarChart3 className="h-4 w-4 mr-2" /> View Stats
+                            <Eye className="h-4 w-4 mr-2" /> Quick stats
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem onClick={() => { menuActionRef.current = true; navigate(`/editor?id=${event.id}`); }}>
