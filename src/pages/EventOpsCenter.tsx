@@ -570,6 +570,7 @@ const OpsCenterContent = ({
               statuses={statuses}
               onOpenStatusDialog={onOpenStatusDialog}
             />
+            <StatusHistoryPanel event={event} />
             <ScoutedPoisPanel
               event={event}
               scoutedPois={scoutedPois}
@@ -748,6 +749,166 @@ const StatusRow = ({
     </li>
   );
 };
+
+// ────────────────────────────────────────────────────────────────────
+// Status history panel
+// ────────────────────────────────────────────────────────────────────
+interface StatusHistoryRow {
+  id: number;
+  poi_id: string;
+  state: PoiStatusState;
+  note: string | null;
+  updated_by_name: string | null;
+  created_at: string;
+}
+
+const StatusHistoryPanel = ({ event }: { event: EventRow }) => {
+  const [rows, setRows] = useState<StatusHistoryRow[] | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const fetchRows = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('poi_status_history')
+      .select('id, poi_id, state, note, updated_by_name, created_at')
+      .eq('event_id', event.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) {
+      console.warn('[OpsCenter] history fetch failed', error);
+      setRows([]);
+      return;
+    }
+    setRows((data ?? []) as StatusHistoryRow[]);
+  }, [event.id]);
+
+  useEffect(() => {
+    fetchRows();
+    // Refresh every 60s — history is append-only so polling the
+    // newest row is cheap and avoids a second realtime channel.
+    const t = setInterval(() => { void fetchRows(); }, 60_000);
+    return () => clearInterval(t);
+  }, [fetchRows]);
+
+  // Group by YYYY-MM-DD in the viewer's timezone so "Today /
+  // Yesterday / Apr 16" reads right regardless of UTC drift.
+  const grouped = useMemo(() => {
+    const result: Array<{ dayLabel: string; dayKey: string; rows: StatusHistoryRow[] }> = [];
+    (rows ?? []).forEach((r) => {
+      const d = new Date(r.created_at);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const existing = result.find((g) => g.dayKey === key);
+      if (existing) {
+        existing.rows.push(r);
+      } else {
+        result.push({ dayKey: key, dayLabel: labelForDay(d), rows: [r] });
+      }
+    });
+    return result;
+  }, [rows]);
+
+  const visible = expanded ? grouped : grouped.slice(0, 2);
+  const total = rows?.length ?? 0;
+  const hiddenDays = grouped.length - visible.length;
+
+  if (rows === null) {
+    return (
+      <section className="rounded-[14px] border border-border bg-card p-5" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+        <Skeleton className="h-16 w-full" />
+      </section>
+    );
+  }
+  if (rows.length === 0) return null;
+
+  return (
+    <section
+      className="rounded-[14px] border border-border bg-card overflow-hidden"
+      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}
+    >
+      <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display font-semibold text-[15px] tracking-tight text-foreground">
+            Status history
+          </h2>
+        </div>
+        <span className="text-[11.5px] text-muted-foreground font-display">
+          {total} update{total === 1 ? '' : 's'}
+        </span>
+      </header>
+      <div className="divide-y divide-border">
+        {visible.map((group) => (
+          <div key={group.dayKey}>
+            <div className="px-5 py-1.5 text-[10.5px] uppercase tracking-wider font-display font-semibold text-muted-foreground bg-muted/40">
+              {group.dayLabel}
+            </div>
+            <ul className="divide-y divide-border/60">
+              {group.rows.map((r) => {
+                const poi = event.pois.find((p) => p.id === r.poi_id);
+                const tone = poi ? poiTone(poi.type) : null;
+                const label = poi?.title || tone?.label || 'Unknown marker';
+                const stateColor = STATUS_DOT_COLORS[r.state];
+                return (
+                  <li key={r.id} className="px-5 py-2.5 flex items-start gap-3">
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0 mt-[7px]"
+                      style={{ background: stateColor }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12.5px] text-foreground leading-snug">
+                        <span className="font-semibold">{r.updated_by_name || 'A volunteer'}</span>
+                        {' marked '}
+                        <span className="font-semibold">{label}</span>
+                        {' '}
+                        <span
+                          className="inline-block text-[10px] font-display font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full text-white align-[1px]"
+                          style={{ background: stateColor }}
+                        >
+                          {STATUS_LABEL[r.state] ?? r.state}
+                        </span>
+                      </p>
+                      {r.note && (
+                        <p className="text-[11.5px] text-muted-foreground italic leading-snug mt-0.5">
+                          “{r.note}”
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground shrink-0 font-display tabular-nums">
+                      {formatTime(r.created_at)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+      {hiddenDays > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="w-full px-5 py-2 text-[12px] text-muted-foreground hover:text-foreground hover:bg-muted/40 border-t border-border transition-colors"
+        >
+          Show {hiddenDays} more day{hiddenDays === 1 ? '' : 's'} →
+        </button>
+      )}
+    </section>
+  );
+};
+
+function labelForDay(d: Date): string {
+  const today = new Date();
+  const yest = new Date(today);
+  yest.setDate(today.getDate() - 1);
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, today)) return 'Today';
+  if (sameDay(d, yest)) return 'Yesterday';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
 
 // ────────────────────────────────────────────────────────────────────
 // Scouted POIs panel

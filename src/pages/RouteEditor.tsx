@@ -1468,9 +1468,27 @@ const RouteEditor = () => {
         return;
       }
       if (e.key === 'Escape') {
-        setPendingPoiType(null);
-        setKeepPoiTypeArmed(false);
-        setSelectedPoiId(null);
+        // Priority ordering: dismiss the most intrusive overlay first,
+        // then step down to local interaction state. Each level only
+        // fires if the one above it is inactive, so repeated Escape
+        // presses peel layers off in a predictable order.
+        if (shortcutsOpen) {
+          setShortcutsOpen(false);
+          return;
+        }
+        if (tourActive) {
+          setTourActive(false);
+          return;
+        }
+        if (pendingPoiType) {
+          setPendingPoiType(null);
+          setKeepPoiTypeArmed(false);
+          return;
+        }
+        if (selectedPoiId) {
+          setSelectedPoiId(null);
+          return;
+        }
         return;
       }
       if (e.key === '?') {
@@ -1480,7 +1498,7 @@ const RouteEditor = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSave, undoLastWaypoint, clearActiveRoute, selectedPoiId]);
+  }, [handleSave, undoLastWaypoint, clearActiveRoute, selectedPoiId, shortcutsOpen, tourActive, pendingPoiType]);
 
   const activeDistance = activeRoute ? totalDistanceMiles(activeRoute.routeCoords) : 0;
 
@@ -1637,6 +1655,42 @@ const RouteEditor = () => {
           )}
 
           <SnapModePill snapToRoads={snapToRoads} onToggle={setSnapToRoads} />
+
+          {/* Persistent route indicator — shows when the sidebar is
+              collapsed so the organizer can still see route context +
+              switch the active route without re-opening the sidebar.
+              Sits below the SnapModePill (top-4) at top-[64px].
+              Hidden when sidebar is open (redundant with the Routes
+              panel there) or when there are no routes yet. */}
+          {!sidebarOpen && routes.length > 0 && (
+            <div className="absolute left-4 top-[64px] z-20 flex items-center gap-1 rounded-full bg-card/90 backdrop-blur-xl border border-border shadow-lg p-1 max-w-[calc(100vw-2rem)] overflow-x-auto">
+              <span className="px-2 text-[10px] font-display font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+                Route
+              </span>
+              {routes.map((r) => {
+                const isActive = r.id === activeRouteId;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setActiveRouteId(r.id)}
+                    title={r.name || 'Route'}
+                    className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-full text-[11.5px] font-medium transition-all shrink-0 ${
+                      isActive
+                        ? 'bg-primary/10 text-foreground ring-1 ring-primary/30'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: r.color }}
+                    />
+                    <span className="max-w-[120px] truncate">{r.name || 'Route'}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Status toast — transient feedback from map actions */}
           {statusText && !statusText.startsWith('Click on the map') && (

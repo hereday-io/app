@@ -116,6 +116,27 @@ const EditorTopBar = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [sharePopoverOpen, livePopoverOpen]);
 
+  // Escape closes the popover that's currently open. Stops propagation
+  // so the global editor-level Escape handler doesn't also fire and
+  // clear selection / pending tool on the same press.
+  useEffect(() => {
+    if (!sharePopoverOpen && !livePopoverOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (sharePopoverOpen) {
+        setSharePopoverOpen(false);
+        e.stopPropagation();
+      } else if (livePopoverOpen) {
+        setLivePopoverOpen(false);
+        setUnpublishConfirm(false);
+        e.stopPropagation();
+      }
+    };
+    // Capture phase so we beat the window-level listener in RouteEditor.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [sharePopoverOpen, livePopoverOpen]);
+
   const handleCopy = () => {
     if (!publicUrl) return;
     navigator.clipboard.writeText(publicUrl);
