@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Check, ChevronRight, Loader2, Radio } from 'lucide-react';
+import { Check, ChevronRight, Loader2, Radio, X } from 'lucide-react';
 import type { PoiStatusState, RoutePoi } from '@/types/mapEditor';
 import {
   resolveStatusToken,
@@ -257,7 +257,55 @@ const VolunteerStatusPage = () => {
       </div>
 
       {/* Marker list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto relative">
+        {/* Sticky mini-header — pins the currently open marker's name
+            and status to the top of the scrollable area so the
+            volunteer keeps context when the on-screen keyboard opens
+            for the note field and shoves the form around. Also works
+            as a persistent "close" affordance for long lists where
+            the user scrolled away from the original row. */}
+        {selectedPoi && (() => {
+          const stickyTone = poiTone(selectedPoi.type);
+          const stickyStatus = statuses[selectedPoi.id];
+          const stickyStateMeta = stickyStatus
+            ? STATES.find((s) => s.state === stickyStatus.state)
+            : null;
+          return (
+            <div
+              className="sticky top-0 z-10 flex items-center gap-2.5 px-4 py-2 bg-card/95 backdrop-blur border-b border-border shadow-sm"
+              aria-label="Currently editing"
+            >
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 border-2"
+                style={{ background: `${stickyTone.dot}15`, borderColor: `${stickyTone.dot}40` }}
+              >
+                {stickyTone.emoji}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-foreground truncate leading-tight">
+                  {selectedPoi.title || stickyTone.label}
+                </p>
+                {stickyStatus && stickyStateMeta ? (
+                  <p className="text-[10.5px] flex items-center gap-1 mt-0.5">
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${stickyStateMeta.colorClass}`} />
+                    <span className="font-medium text-foreground">{stickyStateMeta.label}</span>
+                    <span className="text-muted-foreground">· editing</span>
+                  </p>
+                ) : (
+                  <p className="text-[10.5px] text-muted-foreground mt-0.5">Tap a status below</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSelectedPoiId(null); setNoteDraft(''); }}
+                aria-label="Close editor"
+                className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })()}
         {pois.length === 0 ? (
           <div className="px-4 py-12 text-center text-sm text-muted-foreground leading-relaxed">
             Nothing to update yet. Ask your organizer to add water stations, aid, or parking — they'll show up here.
