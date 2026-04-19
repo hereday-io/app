@@ -73,7 +73,7 @@ const ScoutReviewPanel = ({
           <Compass className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-display font-bold text-foreground">
-              Review scouted POIs
+              Review scouted markers
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Click a row to fly the map to it.
@@ -104,7 +104,7 @@ const ScoutReviewPanel = ({
                 <button
                   onClick={() => onFlyTo(poi.coordinates)}
                   className="w-full text-left flex items-start gap-3 cursor-pointer group"
-                  title="Fly map to this POI"
+                  title="Fly map to this marker"
                 >
                   <div className="shrink-0 w-9 h-9 rounded-full bg-muted flex items-center justify-center text-lg">
                     {tone.emoji}
@@ -158,7 +158,7 @@ const ScoutReviewPanel = ({
             {confirmingAcceptAll ? (
               <div className="flex items-center gap-2">
                 <p className="flex-1 text-xs text-muted-foreground">
-                  Accept all {ordered.length} scouted POIs?
+                  Accept all {ordered.length} scouted markers?
                 </p>
                 <button
                   onClick={() => setConfirmingAcceptAll(false)}

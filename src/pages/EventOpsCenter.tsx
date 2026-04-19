@@ -14,7 +14,6 @@ import {
   Navigation,
   QrCode,
   Radio,
-  Send,
   TrendingUp,
   Trash2,
   Users,
@@ -39,7 +38,8 @@ import { STATUS_DOT_COLORS } from '@/lib/mapMarkers';
 import { logEvent } from '@/lib/analytics';
 import type { EventRoute, PoiStatusState, RoutePoi } from '@/types/mapEditor';
 import StatusTokenDialog from '@/components/editor/StatusTokenDialog';
-import UpgradeModal from '@/components/UpgradeModal';
+import UpgradeModal, { PAYMENTS_LIVE } from '@/components/UpgradeModal';
+import ProWaitlistCapture from '@/components/ProWaitlistCapture';
 import type { ScoutedPoiRecord } from '@/components/editor/ScoutReviewPanel';
 
 // ────────────────────────────────────────────────────────────────────
@@ -351,22 +351,32 @@ const LockedPreviewState = ({
             <Lock className="h-6 w-6" />
           </div>
           <div className="space-y-1.5">
-            <h1 className="text-2xl font-display font-bold text-foreground">Ops center is a Pro feature</h1>
+            <h1 className="text-2xl font-display font-bold text-foreground">Open the ops center for {event.name}</h1>
             <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Unlock <strong>{event.name}</strong> to get live volunteer status reports, scouted
-              POI review, analytics at a glance, and a unified activity feed during race day.
+              Unlock Pro to follow live volunteer updates, scouted markers, and race-day analytics — all
+              in one place.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 max-w-md mx-auto pt-2">
-            <FeatureChip icon={Radio} label="Live POI statuses" />
+            <FeatureChip icon={Radio} label="Live marker statuses" />
             <FeatureChip icon={BarChart3} label="Analytics + sponsors" />
             <FeatureChip icon={Users} label="Subscriber tracking" />
             <FeatureChip icon={Megaphone} label="Activity feed" />
           </div>
-          <Button onClick={onUpgrade} className="gap-2 mt-2">
-            <Crown className="h-4 w-4" />
-            Unlock — $49
-          </Button>
+          {PAYMENTS_LIVE ? (
+            <Button onClick={onUpgrade} className="gap-2 mt-2">
+              <Crown className="h-4 w-4" />
+              Unlock for $49
+            </Button>
+          ) : (
+            <div className="max-w-sm mx-auto w-full pt-1">
+              <ProWaitlistCapture
+                variant="card"
+                eventId={event.id}
+                trigger="ops_center_lock"
+              />
+            </div>
+          )}
         </div>
       </main>
     </div>
@@ -512,10 +522,6 @@ const Header = ({
                 {checklistLoading ? 'Preparing…' : 'Checklist'}
               </Button>
             )}
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 opacity-60" disabled title="Coming soon">
-              <Send className="h-3 w-3" />
-              Send update
-            </Button>
           </div>
         )}
       </div>
@@ -559,7 +565,11 @@ const OpsCenterContent = ({
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px]">
           {/* LEFT column */}
           <div className="space-y-5">
-            <LiveStatusesPanel event={event} statuses={statuses} />
+            <LiveStatusesPanel
+              event={event}
+              statuses={statuses}
+              onOpenStatusDialog={onOpenStatusDialog}
+            />
             <ScoutedPoisPanel
               event={event}
               scoutedPois={scoutedPois}
@@ -585,9 +595,11 @@ const OpsCenterContent = ({
 const LiveStatusesPanel = ({
   event,
   statuses,
+  onOpenStatusDialog,
 }: {
   event: EventRow;
   statuses: Map<string, { state: string; note: string | null; updated_by_name: string | null; updated_at: string; poi_id: string }>;
+  onOpenStatusDialog: () => void;
 }) => {
   const navigate = useNavigate();
   const rows = useMemo(() => {
@@ -640,11 +652,19 @@ const LiveStatusesPanel = ({
       </header>
 
       {rows.length === 0 ? (
-        <div className="px-5 py-8 text-center">
-          <p className="text-sm text-muted-foreground">No volunteer updates yet.</p>
-          <p className="text-[12px] text-muted-foreground mt-1">
-            Generate a volunteer link from the top bar and share it with your course marshals.
-          </p>
+        <div className="px-5 py-7 text-center space-y-3">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">
+              Waiting for the first volunteer update
+            </p>
+            <p className="text-[12.5px] text-muted-foreground max-w-xs mx-auto leading-snug">
+              Create a volunteer link and share it with your course marshals — updates land here in real time.
+            </p>
+          </div>
+          <Button size="sm" onClick={onOpenStatusDialog} className="gap-1.5">
+            <Radio className="h-3 w-3" />
+            Generate volunteer link
+          </Button>
         </div>
       ) : (
         <ul className="divide-y divide-border">
@@ -688,7 +708,7 @@ const StatusRow = ({
   muted?: boolean;
 }) => {
   const tone = poi ? poiTone(poi.type) : null;
-  const label = poi?.title || tone?.label || 'Unknown POI';
+  const label = poi?.title || tone?.label || 'Unknown marker';
   const color = STATUS_DOT_COLORS[status.state];
 
   return (
@@ -721,7 +741,7 @@ const StatusRow = ({
         )}
       </div>
       {poi && (
-        <Button variant="ghost" size="sm" className="h-7 text-[11.5px]" onClick={onFlyTo}>
+        <Button variant="ghost" size="sm" className="h-9 sm:h-7 text-[11.5px]" onClick={onFlyTo}>
           Open in editor
         </Button>
       )}
@@ -774,7 +794,7 @@ const ScoutedPoisPanel = ({
       const nextScouted = scoutedPois.filter((p) => p.id !== poi.id);
       await persist(nextPois, nextScouted);
       onUpdated();
-      toast({ title: 'Accepted — POI added to your event' });
+      toast({ title: 'Accepted — marker added to your event' });
       logEvent('scouted_poi_accepted', event.id, { poi_id: poi.id });
     } catch (err) {
       console.error('[OpsCenter] accept failed', err);
@@ -810,7 +830,7 @@ const ScoutedPoisPanel = ({
             <span className="text-[13px]">🧭</span>
           </div>
           <h2 className="font-display font-semibold text-[15px] tracking-tight text-foreground">
-            Scouted POIs
+            Scouted markers
           </h2>
           <span
             className="font-display font-semibold text-[9.5px] uppercase tracking-wider px-1.5 py-0.5 rounded-full"
@@ -845,7 +865,7 @@ const ScoutedPoisPanel = ({
                 <div className="flex items-center gap-2 mt-2">
                   <Button
                     size="sm"
-                    className="h-7 gap-1.5 text-[12px]"
+                    className="h-9 sm:h-7 gap-1.5 text-[12px]"
                     onClick={() => handleAccept(poi)}
                     disabled={isMut}
                   >
@@ -855,7 +875,7 @@ const ScoutedPoisPanel = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-[12px] text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    className="h-9 sm:h-7 text-[12px] text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     onClick={() => handleReject(poi)}
                     disabled={isMut}
                   >
@@ -865,7 +885,7 @@ const ScoutedPoisPanel = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-[12px] ml-auto"
+                    className="h-9 sm:h-7 text-[12px] ml-auto"
                     onClick={() => navigate(`/editor?id=${event.id}&focus=${poi.id}`)}
                   >
                     Open in editor →
@@ -1115,7 +1135,7 @@ const ActivityFeed = ({
         created_at: string;
       };
       const poi = event.pois.find((p) => p.id === typedH.poi_id);
-      const label = poi?.title || poiTone(poi?.type ?? 'custom').label || 'POI';
+      const label = poi?.title || poiTone(poi?.type ?? 'custom').label || 'Marker';
       const who = typedH.updated_by_name || 'A volunteer';
       list.push({
         id: `status-${typedH.id}`,

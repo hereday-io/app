@@ -21,8 +21,7 @@ import SnapModePill from '@/components/editor/SnapModePill';
 import MobileEditorGate from '@/components/editor/MobileEditorGate';
 import ScoutLinkDialog from '@/components/editor/ScoutLinkDialog';
 import StatusTokenDialog from '@/components/editor/StatusTokenDialog';
-import ScoutReviewBanner from '@/components/editor/ScoutReviewBanner';
-import ScoutReviewPanel, { type ScoutedPoiRecord } from '@/components/editor/ScoutReviewPanel';
+import { type ScoutedPoiRecord } from '@/components/editor/ScoutReviewPanel';
 import EditorTour from '@/components/editor/EditorTour';
 import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
 import PoiEditPopover from '@/components/editor/PoiEditPopover';
@@ -97,7 +96,6 @@ const RouteEditor = () => {
   const [scoutLinkDialogOpen, setScoutLinkDialogOpen] = useState(false);
   const [statusTokenDialogOpen, setStatusTokenDialogOpen] = useState(false);
   const [scoutedPois, setScoutedPois] = useState<ScoutedPoiRecord[]>([]);
-  const [scoutReviewPanelOpen, setScoutReviewPanelOpen] = useState(false);
   const [eventStatus, setEventStatus] = useState('draft');
   const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>('idle');
   // Countdown (seconds) until the next auto-retry of a failed save.
@@ -893,15 +891,17 @@ const RouteEditor = () => {
         inner.textContent = tone.emoji;
         el.appendChild(inner);
         el.addEventListener('click', () => {
-          // Inlined rather than calling handleScoutedFlyTo so the
-          // render effect doesn't need that callback in its deps.
+          // Fly-to preview the scouted marker, then bounce to the
+          // Ops Center where the organizer accepts/dismisses.
           mapRef.current?.flyTo({
             center: poi.coordinates,
             zoom: 16,
             duration: 800,
             offset: [-176, 0],
           });
-          setScoutReviewPanelOpen(true);
+          if (eventId) {
+            setTimeout(() => navigate(`/dashboard/events/${eventId}`), 700);
+          }
         });
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat(poi.coordinates)
@@ -1132,7 +1132,7 @@ const RouteEditor = () => {
       const restored: RoutePoi = snapshot;
       const restoredIndex = snapshotIndex;
       toast({
-        title: 'POI deleted',
+        title: 'Marker deleted',
         description: restored.title || undefined,
         action: (
           <ToastAction
@@ -1450,34 +1450,6 @@ const RouteEditor = () => {
 
   const activeDistance = activeRoute ? totalDistanceMiles(activeRoute.routeCoords) : 0;
 
-  // ── Scout review handlers ──────────────────────────────────────────────
-  // Accept: strip the scout-specific fields and move the POI into the
-  // event's regular pois array. Reject: drop it. Both mutations flow
-  // through the existing autosave path — no new endpoint.
-  const handleAcceptScoutedPoi = useCallback((poi: ScoutedPoiRecord) => {
-    const { scouted_at: _sa, scouted_via_token: _svt, ...cleanPoi } = poi;
-    void _sa; void _svt;
-    setPois((prev) => [...prev, cleanPoi as RoutePoi]);
-    setScoutedPois((prev) => prev.filter((p) => p.id !== poi.id));
-    logEvent('scout_poi_accepted', eventId, { type: poi.type });
-  }, [eventId]);
-
-  const handleRejectScoutedPoi = useCallback((poi: ScoutedPoiRecord) => {
-    setScoutedPois((prev) => prev.filter((p) => p.id !== poi.id));
-    logEvent('scout_poi_rejected', eventId, { type: poi.type });
-  }, [eventId]);
-
-  const handleScoutedFlyTo = useCallback((coord: [number, number]) => {
-    // Offset the target leftward so the POI lands in the visible map
-    // area instead of being covered by the review panel on the right.
-    mapRef.current?.flyTo({
-      center: coord,
-      zoom: 16,
-      duration: 800,
-      offset: [-176, 0],
-    });
-  }, []);
-
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -1522,14 +1494,10 @@ const RouteEditor = () => {
           userId={user.id}
         />
       )}
-      <ScoutReviewPanel
-        open={scoutReviewPanelOpen}
-        onOpenChange={setScoutReviewPanelOpen}
-        scoutedPois={scoutedPois}
-        onAccept={handleAcceptScoutedPoi}
-        onReject={handleRejectScoutedPoi}
-        onFlyTo={handleScoutedFlyTo}
-      />
+      {/* Scout review was intentionally removed from the editor —
+          the organizer reviews scouted markers in the Ops Center now
+          (see agents/prd_organizer_experience.md). The editor shows
+          the pulsing scouted pin on the map + a topbar breadcrumb. */}
 
       <EditorTopBar
         eventName={eventName}
@@ -1558,6 +1526,7 @@ const RouteEditor = () => {
         isPublished={eventStatus === 'published'}
         canPublish={canPublish}
         pendingScoutedCount={scoutedPois.length}
+        onReviewScouts={() => navigate(`/dashboard/events/${eventId}`)}
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
         eventId={eventId}
         canFinishRoute={!!activeRoute && activeRoute.waypoints.length >= 3 && !finishedRouteIds.has(activeRouteId)}
@@ -1571,10 +1540,6 @@ const RouteEditor = () => {
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
 
-      <ScoutReviewBanner
-        count={scoutedPois.length}
-        onReview={() => setScoutReviewPanelOpen(true)}
-      />
 
       <div className="flex-1 flex overflow-hidden">
 

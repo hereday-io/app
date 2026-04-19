@@ -158,8 +158,8 @@ const ScoutLinkDialog = ({ open, onOpenChange, eventId, userId }: ScoutLinkDialo
             Scout mode link
           </DialogTitle>
           <DialogDescription>
-            Open this link on your phone while walking the course to drop POIs with
-            your GPS. POIs land in a review queue here on desktop before going live.
+            Open this link on your phone, then walk the course dropping markers where
+            you stand. Each one waits in a review queue here before going live.
           </DialogDescription>
         </DialogHeader>
 
@@ -198,7 +198,7 @@ const ScoutLinkDialog = ({ open, onOpenChange, eventId, userId }: ScoutLinkDialo
                   </button>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Anyone with this link can add POIs and view your routes. Share only
+                  Anyone with this link can add markers and view your routes. Share only
                   with people you trust. Revoke and regenerate if the link leaks.
                 </p>
               </div>

@@ -54,7 +54,7 @@ const DropPinSheet = ({ token, eventId, coordinates, onClose, onSubmitted }: Dro
     try {
       await submitScoutedPoi({ token, poi });
       logEvent('scout_poi_submitted', eventId, { type: selectedType });
-      toast({ title: 'POI saved for review' });
+      toast({ title: 'Marker saved for review' });
       // Try to flush any previously-pending items now that we know the
       // network is working.
       void flushScoutPending(token);
@@ -102,7 +102,7 @@ const DropPinSheet = ({ token, eventId, coordinates, onClose, onSubmitted }: Dro
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between px-4 pb-2">
           <div>
-            <h2 className="text-base font-display font-bold text-foreground">Add a POI</h2>
+            <h2 className="text-base font-display font-bold text-foreground">Add a marker</h2>
             <p className="text-[11px] text-muted-foreground font-mono">
               {coordinates[1].toFixed(5)}, {coordinates[0].toFixed(5)}
             </p>
@@ -208,7 +208,7 @@ const DropPinSheet = ({ token, eventId, coordinates, onClose, onSubmitted }: Dro
             ) : (
               <Check className="h-5 w-5" />
             )}
-            {saving ? 'Saving…' : 'Save POI'}
+            {saving ? 'Saving…' : 'Save marker'}
           </button>
         </div>
       </div>

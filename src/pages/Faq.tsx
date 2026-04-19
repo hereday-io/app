@@ -106,9 +106,9 @@ const planFaqs: FaqItem[] = [
     q: 'Can I try Pro features before paying?',
     a: (
       <p>
-        The free plan lets you build your entire event — routes, POIs, preview, publish, share.
+        The free plan lets you build your entire event — routes, markers, preview, publish, share.
         You'll only hit the upgrade prompt if you exceed {PAYWALL_LIMITS.routes} routes or{' '}
-        {PAYWALL_LIMITS.pois} POIs, or when you try to add custom branding. Build first,
+        {PAYWALL_LIMITS.pois} markers, or when you try to add custom branding. Build first,
         decide later.
       </p>
     ),

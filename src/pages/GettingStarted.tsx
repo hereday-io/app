@@ -61,16 +61,16 @@ const GettingStarted = () => {
             </p>
           </Step>
 
-          <Step number={4} title="Drop points of interest">
+          <Step number={4} title="Drop markers">
             <p>
-              Switch to the POI tool and pick a category — <strong>aid station</strong>,{' '}
+              Switch to the marker tool and pick a category — <strong>aid station</strong>,{' '}
               <strong>water</strong>, <strong>medical</strong>, <strong>restroom</strong>,{' '}
               <strong>parking</strong>, <strong>registration</strong>, <strong>start</strong>,{' '}
               or <strong>finish</strong>. Click the map to place it, then name it and add an
-              optional description. POIs cluster when zoomed out so your map stays clean.
+              optional description. Markers cluster when zoomed out so your map stays clean.
             </p>
             <Callout>
-              <strong>Free tier:</strong> up to 3 routes and 30 POIs per event. That covers a
+              <strong>Free tier:</strong> up to 3 routes and 30 markers per event. That covers a
               typical small race — marathon weekends and larger events hit Pro as a genuine
               "outgrew it" moment, not a demo wall.
             </Callout>
@@ -83,7 +83,7 @@ const GettingStarted = () => {
             </p>
             <ul className="list-disc pl-5 space-y-1.5 mt-2">
               <li><strong>Runner view</strong> — turn-by-turn with elevation profile and distance markers</li>
-              <li><strong>Spectator view</strong> — bird's-eye overview with all routes and POIs</li>
+              <li><strong>Spectator view</strong> — bird's-eye overview with all routes and markers</li>
             </ul>
           </Step>
 
@@ -101,7 +101,7 @@ const GettingStarted = () => {
             <ul className="list-disc pl-5 space-y-1.5 mt-2">
               <li><strong>Copy share link</strong> — paste into email, social media, or your race registration page</li>
               <li><strong>QR code</strong> — download a print-ready QR that links to your event page (great for race-day signage and printed race bibs)</li>
-              <li><strong>Race-day checklist</strong> — download a printable PDF with your course, POIs, QR code, and organizer contact info to hand volunteers on race morning</li>
+              <li><strong>Race-day checklist</strong> — download a printable PDF with your course, markers, QR code, and organizer contact info to hand volunteers on race morning</li>
             </ul>
           </Step>
         </div>
@@ -111,7 +111,7 @@ const GettingStarted = () => {
           <h2 className="text-xl font-display font-semibold text-foreground mb-4">What's next?</h2>
           <div className="space-y-4 text-foreground/90">
             <NextItem title="Upgrade to Pro" tag="$49 / event">
-              Unlock unlimited routes and POIs, remove the "Made with Hereday" footer, add your
+              Unlock unlimited routes and markers, remove the "Made with Hereday" footer, add your
               own logo and brand colors, and enable live GPS tracking for participants and
               spectators on race day.
             </NextItem>

@@ -26,6 +26,9 @@ interface EditorTopBarProps {
    *  yet. Used to show an amber dot badge on the Compass button so the
    *  icon alone stops being the only signal that work is waiting. */
   pendingScoutedCount?: number;
+  /** Fired when the organizer clicks the "N scouted markers" breadcrumb
+   *  — parent should navigate to `/dashboard/events/:id` (Ops Center). */
+  onReviewScouts?: () => void;
   publicUrl?: string;
   eventId?: string | null;
   mapboxToken: string;
@@ -60,6 +63,7 @@ const EditorTopBar = ({
   isPublished,
   canPublish = true,
   pendingScoutedCount = 0,
+  onReviewScouts,
   publicUrl,
   eventId,
   mapboxToken,
@@ -220,28 +224,49 @@ const EditorTopBar = ({
             variant="ghost"
             size="sm"
             onClick={onScoutLink}
-            title="Scout link — let volunteers drop pins from their phone"
-            className="h-8 gap-1.5 px-2 relative"
+            title="Scout link"
+            className="h-8 gap-1.5 px-2"
           >
             <Compass className="h-4 w-4" />
             <span className={labelClass}>Scout</span>
-            {/* Amber dot when scouted POIs are waiting for review.
-                Matches the banner pattern — the only surface signal for
-                pending volunteer work in the top chrome. */}
-            {pendingScoutedCount > 0 && (
-              <span
-                className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-amber-500 ring-1 ring-card"
-                aria-label={`${pendingScoutedCount} scouted POIs pending review`}
-              />
-            )}
           </Button>
         )}
-        {/* Autosave status chip — doubles as a manual-save trigger */}
+        {/* Scouted-markers breadcrumb — organizer review now lives in
+            the Ops Center (per prd_organizer_experience.md). This pill
+            is just the signpost; clicking opens the Ops Center. */}
+        {pendingScoutedCount > 0 && onReviewScouts && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onReviewScouts}
+            title="Review scouted markers in the ops center"
+            className="h-8 gap-1.5 px-2 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
+          >
+            <Compass className="h-4 w-4" />
+            <span className={labelClass}>
+              {pendingScoutedCount === 1 ? '1 scouted' : `${pendingScoutedCount} scouted`}
+            </span>
+            <span className="text-[10px] opacity-70 hidden md:inline">Review →</span>
+          </Button>
+        )}
+        {/* Autosave status chip — doubles as a manual-save trigger.
+            Tooltip reflects the live save state so it never lies; prior
+            hard-coded "Autosaved" was shown even when dirty or errored. */}
         <button
           onClick={onSave}
           disabled={isSaving}
           data-tour="save-button"
-          title="Autosaved · click to save now"
+          title={
+            saveState === 'saving'
+              ? 'Saving your changes…'
+              : saveState === 'error'
+                ? (typeof retryCountdown === 'number' && retryCountdown > 0
+                    ? `Retrying in ${retryCountdown}s — click to retry now`
+                    : 'Save failed · click to retry')
+                : saveState === 'dirty'
+                  ? 'Unsaved changes · click to save now'
+                  : `${savedAgoLabel} · click to save again`
+          }
           className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md text-xs font-medium transition-colors ${
             saveState === 'error'
               ? 'text-destructive hover:bg-destructive/10'

@@ -6,9 +6,12 @@ import { Crown, Route, MapPin, ImageIcon, Check } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 import { supabase } from '@/integrations/supabase/client';
 import { logEvent } from '@/lib/analytics';
+import ProWaitlistCapture from '@/components/ProWaitlistCapture';
 
-// Flip to true once LLC + bank + Stripe are fully configured
-const PAYMENTS_LIVE = false;
+// Flip to true once LLC + bank + Stripe are fully configured. Exported
+// so other Pro-CTA surfaces (Ops Center lock, paywall hits on editor)
+// can render waitlist capture instead of a dead checkout button.
+export const PAYMENTS_LIVE = false;
 
 interface UpgradeModalProps {
   open: boolean;
@@ -159,12 +162,13 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
           </div>
         ) : (
           <div className="flex flex-col gap-2 mt-2">
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-center">
-              <p className="text-sm font-medium text-amber-800">Pro upgrades coming soon</p>
-              <p className="text-xs text-amber-600 mt-1">We're finishing up payment setup. Check back shortly!</p>
-            </div>
+            <ProWaitlistCapture
+              variant="card"
+              eventId={eventId ?? null}
+              trigger={`upgrade_modal:${trigger}`}
+            />
             <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={onClose}>
-              Got it
+              Maybe later
             </Button>
           </div>
         )}
