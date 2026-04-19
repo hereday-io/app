@@ -496,6 +496,14 @@ const RouteEditor = () => {
     map.doubleClickZoom.disable();
 
     const onClick = async (e: mapboxgl.MapMouseEvent) => {
+      // Guard the click/dblclick race. On a double-click, browsers (and
+      // Mapbox) emit click → click → dblclick. Without this check the
+      // second click silently adds a stray waypoint at the finish
+      // coordinate right before the dblclick handler auto-places
+      // Start/Finish. `detail === 2` is set on the real OS event for
+      // that second click — ignore it.
+      if (e.originalEvent && (e.originalEvent as MouseEvent).detail > 1) return;
+
       const rawCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
 
       if (pendingPoiType) {
@@ -596,7 +604,16 @@ const RouteEditor = () => {
               : r
           )
         );
-        setStatusText('Road snap failed, using straight line.');
+        // Visible failure, not a silently-cleared status hint. Organizers
+        // need to know when a segment went straight-line so they can
+        // decide whether to retry (brief Directions outage) or rework
+        // the waypoint (road missing from Mapbox's network).
+        toast({
+          title: 'Snapping unavailable',
+          description: 'Drew a straight line for this segment. Undo and retry, or leave it as-is.',
+          variant: 'destructive',
+        });
+        setStatusText('Segment drawn straight — road snap unavailable.');
       } finally {
         isSnappingRef.current = false;
         setIsSnapping(false);
@@ -758,8 +775,13 @@ const RouteEditor = () => {
                 setPois((prev) => prev.map((p) => (p.id === poi.id ? { ...p, ...patch } : p)));
               }}
               onDelete={() => {
+                // Defer the popup teardown past this React event tick
+                // so the setPois update in deletePoiWithUndo finishes
+                // before Mapbox's close event schedules the root
+                // unmount. Otherwise the two setTimeout(0)s race and
+                // the Undo toast can reference a stale closure.
                 deletePoiWithUndo(poi.id);
-                popup.remove();
+                setTimeout(() => popup.remove(), 0);
               }}
               onClose={() => popup.remove()}
             />
@@ -1222,9 +1244,21 @@ const RouteEditor = () => {
           poi_count: cleanPois.length,
           branding_style: brandingStyle,
         });
+        // Post-publish CTA routes to the Ops Center — that's where
+        // organizers run race day. For Pro events it takes them
+        // straight in; for Free events the Ops Center renders its
+        // waitlist-gated preview so they see what they'd get.
         toast({
           title: 'Event is live',
-          description: 'Use the Share button to copy the public link.',
+          description: 'Share the link or head to the ops center for race-day tools.',
+          action: (
+            <ToastAction
+              altText="Open ops center"
+              onClick={() => navigate(`/dashboard/events/${eventId}`)}
+            >
+              Ops Center →
+            </ToastAction>
+          ),
         });
         // Soft Pro upsell at the publish moment — only for free events.
         // A slight delay lets the toast land first so the modal feels

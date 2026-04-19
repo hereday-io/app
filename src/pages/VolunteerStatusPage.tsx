@@ -129,11 +129,11 @@ const VolunteerStatusPage = () => {
 
   const submitStatus = async (poi: RoutePoi, state: PoiStatusState) => {
     if (!token) return;
-    if (!volunteerName.trim()) {
-      toast({ title: 'Add your name first', description: 'So the organizer knows who updated this.' });
-      nameInputRef.current?.focus();
-      return;
-    }
+    // Name is NOT blocking — volunteers stationed in cold rain shouldn't
+    // have to scroll up to type. If blank we submit anonymously and the
+    // organizer still gets the state change. We keep the field visible
+    // so they can add it between taps; a brief focus-prompt after the
+    // first save teaches them it's there.
     setSavingPoiId(poi.id);
 
     // Optimistic update — the realtime sub will reconcile if the server
@@ -160,6 +160,12 @@ const VolunteerStatusPage = () => {
       setStatuses((prev) => ({ ...prev, [poi.id]: result }));
       setNoteDraft('');
       setSelectedPoiId(null);
+      // Haptic on success — a marshal tapping in cold rain at 6am needs
+      // tactile confirmation their submit landed. Silent-failing on
+      // browsers without support is fine.
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(30);
+      }
       toast({ title: `Marked ${poi.title || poiTone(poi.type).label} ${STATES.find((s) => s.state === state)?.label}` });
       logEvent('poi_status_updated', resolved?.eventId ?? null, { poi_id: poi.id, state });
     } catch (err) {

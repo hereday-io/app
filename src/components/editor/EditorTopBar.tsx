@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass } from 'lucide-react';
+import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass, Radio } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
 import ShareQrCode from '@/components/editor/ShareQrCode';
 import { logEvent } from '@/lib/analytics';
@@ -389,6 +389,18 @@ const EditorTopBar = ({
                         <ExternalLink className="h-4 w-4 text-muted-foreground" />
                         Preview public page
                       </a>
+
+                      {/* Ops Center handoff — race-day operations */}
+                      {eventId && (
+                        <a
+                          href={`/dashboard/events/${eventId}`}
+                          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-foreground transition-colors"
+                        >
+                          <Radio className="h-4 w-4 text-primary" />
+                          <span className="flex-1">Open ops center</span>
+                          <span className="text-[11px] text-muted-foreground">race day →</span>
+                        </a>
+                      )}
                     </div>
                   </div>
                 )}

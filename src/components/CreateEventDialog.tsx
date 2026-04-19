@@ -103,8 +103,23 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
     setSaving(false);
   };
 
+  // Treat the form as dirty once the user has typed anything meaningful
+  // so the cancel/backdrop close path can confirm before discarding.
+  // Ignores the tracking-window defaults (start/end/startTime often get
+  // auto-filled alongside date — that's not "user input").
+  const isDirty = Boolean(name.trim() || city.trim() || date || startTime);
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next && isDirty && !saving) {
+      // eslint-disable-next-line no-alert
+      const ok = window.confirm('Discard your changes?');
+      if (!ok) return;
+    }
+    onOpenChange(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display">New Event</DialogTitle>
@@ -245,7 +260,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving || !name.trim()} className={wantsPro ? 'gap-2 bg-amber-600 hover:bg-amber-700' : ''}>

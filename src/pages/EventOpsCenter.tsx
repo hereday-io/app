@@ -673,7 +673,7 @@ const LiveStatusesPanel = ({
               key={`na-${r.status.updated_at}-${r.poi?.id ?? 'unknown'}`}
               poi={r.poi}
               status={r.status}
-              onFlyTo={() => navigate(`/editor?id=${event.id}&focus=${r.poi?.id ?? ''}`)}
+              onFlyTo={() => window.open(`/editor?id=${event.id}&focus=${r.poi?.id ?? ''}`, '_blank', 'noopener,noreferrer')}
             />
           ))}
           {reported.length > 0 && needsAttention.length > 0 && (
@@ -686,7 +686,7 @@ const LiveStatusesPanel = ({
               key={`o-${r.status.updated_at}-${r.poi?.id ?? 'unknown'}`}
               poi={r.poi}
               status={r.status}
-              onFlyTo={() => navigate(`/editor?id=${event.id}&focus=${r.poi?.id ?? ''}`)}
+              onFlyTo={() => window.open(`/editor?id=${event.id}&focus=${r.poi?.id ?? ''}`, '_blank', 'noopener,noreferrer')}
               muted
             />
           ))}
@@ -886,7 +886,7 @@ const ScoutedPoisPanel = ({
                     variant="ghost"
                     size="sm"
                     className="h-9 sm:h-7 text-[12px] ml-auto"
-                    onClick={() => navigate(`/editor?id=${event.id}&focus=${poi.id}`)}
+                    onClick={() => window.open(`/editor?id=${event.id}&focus=${poi.id}`, '_blank', 'noopener,noreferrer')}
                   >
                     Open in editor →
                   </Button>
@@ -1176,6 +1176,11 @@ const ActivityFeed = ({
 
   useEffect(() => {
     fetchItems();
+    // Poll every 30s — feed is organizer-only, low-volume, and
+    // the per-event query is cheap. Keeps the surface feeling alive
+    // during a race without subscribing to three separate tables.
+    const t = setInterval(() => { void fetchItems(); }, 30_000);
+    return () => clearInterval(t);
   }, [fetchItems]);
 
   return (
@@ -1186,6 +1191,13 @@ const ActivityFeed = ({
           <h2 className="font-display font-semibold text-[15px] tracking-tight text-foreground">
             Activity
           </h2>
+          <span className="inline-flex items-center gap-1 text-[10px] font-display font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            Live
+          </span>
         </div>
         <span className="text-[11.5px] text-muted-foreground font-display">
           {items === null ? '…' : `last ${items.length}`}

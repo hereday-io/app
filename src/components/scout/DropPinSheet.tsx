@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { X, Loader2, Check } from 'lucide-react';
 import type { PoiType } from '@/types/mapEditor';
 import {
@@ -83,13 +83,34 @@ const DropPinSheet = ({ token, eventId, coordinates, onClose, onSubmitted }: Dro
     }
   };
 
+  // Tap-vs-scroll detection on the backdrop. Previously a simple
+  // <button onClick=close> dismissed on any tap — including scroll
+  // gestures that started below the sheet — and wiped the form. We
+  // now only close if pointerdown and pointerup land within ~6px,
+  // meaning a deliberate tap rather than a slide.
+  const dismissAnchorRef = useRef<{ x: number; y: number } | null>(null);
+  const handlePointerDown = (e: React.PointerEvent) => {
+    dismissAnchorRef.current = { x: e.clientX, y: e.clientY };
+  };
+  const handlePointerUp = (e: React.PointerEvent) => {
+    const start = dismissAnchorRef.current;
+    dismissAnchorRef.current = null;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (dx * dx + dy * dy < 36) onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true">
-      {/* Backdrop */}
-      <button
-        onClick={onClose}
-        className="absolute inset-0 bg-black/40"
+      {/* Backdrop — tap to close, but ignore scroll/swipe gestures */}
+      <div
+        role="button"
+        tabIndex={-1}
         aria-label="Close"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        className="absolute inset-0 bg-black/40 cursor-default"
       />
 
       {/* Sheet */}
