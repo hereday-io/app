@@ -12,8 +12,10 @@ import {
   Lock,
   Megaphone,
   Navigation,
+  Pencil,
   QrCode,
   Radio,
+  Settings,
   TrendingUp,
   Trash2,
   Users,
@@ -36,7 +38,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { poiTone } from '@/lib/pois';
 import { STATUS_DOT_COLORS } from '@/lib/mapMarkers';
 import { logEvent } from '@/lib/analytics';
-import type { EventRoute, PoiStatusState, RoutePoi } from '@/types/mapEditor';
+import type { EventRoute, PoiStatusState, RoutePoi, VolunteerEntry } from '@/types/mapEditor';
 import StatusTokenDialog from '@/components/editor/StatusTokenDialog';
 import UpgradeModal, { PAYMENTS_LIVE } from '@/components/UpgradeModal';
 import ProWaitlistCapture from '@/components/ProWaitlistCapture';
@@ -60,6 +62,9 @@ interface EventRow {
   scouted_pois: ScoutedPoiRecord[];
   emergency_contacts: Record<string, string> | null;
   user_id: string;
+  volunteer_roster: VolunteerEntry[];
+  volunteer_active_minutes: number;
+  volunteer_idle_hours: number;
 }
 
 interface ActivityItem {
@@ -141,7 +146,7 @@ const EventOpsCenter = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, city, event_date, start_time, status, slug, paid_at, plan, pois, routes, scouted_pois, emergency_contacts, user_id')
+      .select('id, name, city, event_date, start_time, status, slug, paid_at, plan, pois, routes, scouted_pois, emergency_contacts, user_id, volunteer_roster, volunteer_active_minutes, volunteer_idle_hours')
       .eq('id', eventId)
       .maybeSingle();
     setLoading(false);
@@ -570,6 +575,7 @@ const OpsCenterContent = ({
               statuses={statuses}
               onOpenStatusDialog={onOpenStatusDialog}
             />
+            <VolunteerRosterPanel event={event} onEventUpdated={onEventUpdated} />
             <OrganizerOverridePanel event={event} statuses={statuses} />
             <StatusHistoryPanel event={event} />
             <ScoutedPoisPanel
@@ -751,6 +757,525 @@ const StatusRow = ({
     </li>
   );
 };
+
+// ────────────────────────────────────────────────────────────────────
+// Volunteer roster panel — organizer-registered crew + activity state
+// ────────────────────────────────────────────────────────────────────
+type VolunteerActivityState = 'active' | 'idle' | 'silent';
+
+interface VolunteerDerived {
+  entry: VolunteerEntry;
+  state: VolunteerActivityState;
+  lastSeenAt: number | null; // ms epoch; null = never
+}
+
+const VolunteerRosterPanel = ({
+  event,
+  onEventUpdated,
+}: {
+  event: EventRow;
+  onEventUpdated: () => void;
+}) => {
+  const { toast } = useToast();
+  const [history, setHistory] = useState<Array<{ updated_by_name: string | null; created_at: string }>>([]);
+  const [expanded, setExpanded] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [addingOpen, setAddingOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mutating, setMutating] = useState(false);
+
+  const activeMinutes = event.volunteer_active_minutes ?? 60;
+  const idleHours = event.volunteer_idle_hours ?? 6;
+  const roster = useMemo<VolunteerEntry[]>(
+    () => event.volunteer_roster ?? [],
+    [event.volunteer_roster],
+  );
+  const assignableMarkers = useMemo(
+    () => event.pois.filter((p) => !p.id.startsWith('auto-start-') && !p.id.startsWith('auto-finish-')),
+    [event.pois],
+  );
+
+  // Pull the most recent history rows once per panel mount + every 60s.
+  // We could share with StatusHistoryPanel, but two cheap queries/min is
+  // trivial at this scale and keeps the components independent.
+  const fetchHistory = useCallback(async () => {
+    const { data } = await supabase
+      .from('poi_status_history')
+      .select('updated_by_name, created_at')
+      .eq('event_id', event.id)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    setHistory((data ?? []) as Array<{ updated_by_name: string | null; created_at: string }>);
+  }, [event.id]);
+
+  useEffect(() => {
+    fetchHistory();
+    const t = setInterval(() => { void fetchHistory(); }, 60_000);
+    return () => clearInterval(t);
+  }, [fetchHistory]);
+
+  // Derive state per roster entry from the history rows.
+  const derived = useMemo<VolunteerDerived[]>(() => {
+    const activeMs = activeMinutes * 60_000;
+    const idleMs = idleHours * 3_600_000;
+    const now = Date.now();
+    return roster.map((entry) => {
+      const match = entry.name.trim().toLowerCase();
+      let lastSeenAt: number | null = null;
+      for (const row of history) {
+        const who = (row.updated_by_name ?? '').trim().toLowerCase();
+        if (who === match) {
+          const at = Date.parse(row.created_at);
+          if (!Number.isFinite(at)) continue;
+          if (lastSeenAt === null || at > lastSeenAt) lastSeenAt = at;
+        }
+      }
+      let state: VolunteerActivityState;
+      if (lastSeenAt === null) {
+        state = 'silent';
+      } else {
+        const age = now - lastSeenAt;
+        if (age <= activeMs) state = 'active';
+        else if (age <= idleMs) state = 'idle';
+        else state = 'silent';
+      }
+      return { entry, state, lastSeenAt };
+    });
+  }, [roster, history, activeMinutes, idleHours]);
+
+  const visible = expanded ? derived : derived.slice(0, 5);
+  const hiddenCount = derived.length - visible.length;
+
+  const persistRoster = async (next: VolunteerEntry[]) => {
+    setMutating(true);
+    const { error } = await supabase
+      .from('events')
+      .update({ volunteer_roster: next as unknown as object } as never)
+      .eq('id', event.id);
+    setMutating(false);
+    if (error) {
+      console.error('[OpsCenter] roster persist failed', error);
+      toast({ title: 'Failed to save', variant: 'destructive' });
+      return false;
+    }
+    onEventUpdated();
+    return true;
+  };
+
+  const handleAdd = async (name: string, email: string, assignedPoiIds: string[]) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast({ title: 'Name required', variant: 'destructive' });
+      return;
+    }
+    const entry: VolunteerEntry = {
+      id: crypto.randomUUID(),
+      name: trimmed,
+      email: email.trim() || undefined,
+      assignedPoiIds,
+      createdAt: new Date().toISOString(),
+    };
+    const ok = await persistRoster([...roster, entry]);
+    if (ok) {
+      setAddingOpen(false);
+      logEvent('volunteer_roster_added', event.id, { marker_count: assignedPoiIds.length });
+    }
+  };
+
+  const handleEdit = async (id: string, name: string, email: string, assignedPoiIds: string[]) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast({ title: 'Name required', variant: 'destructive' });
+      return;
+    }
+    const next = roster.map((e) =>
+      e.id === id ? { ...e, name: trimmed, email: email.trim() || undefined, assignedPoiIds } : e,
+    );
+    const ok = await persistRoster(next);
+    if (ok) setEditingId(null);
+  };
+
+  const handleRemove = async (id: string) => {
+    const target = roster.find((r) => r.id === id);
+    if (!target) return;
+    if (!window.confirm(`Remove ${target.name} from the roster?`)) return;
+    const next = roster.filter((e) => e.id !== id);
+    await persistRoster(next);
+  };
+
+  const handleSaveSettings = async (nextActive: number, nextIdle: number) => {
+    setMutating(true);
+    const { error } = await supabase
+      .from('events')
+      .update({
+        volunteer_active_minutes: nextActive,
+        volunteer_idle_hours: nextIdle,
+      })
+      .eq('id', event.id);
+    setMutating(false);
+    if (error) {
+      toast({ title: 'Failed to save thresholds', variant: 'destructive' });
+      return;
+    }
+    onEventUpdated();
+    setSettingsOpen(false);
+  };
+
+  return (
+    <section
+      className="rounded-[14px] border border-border bg-card overflow-hidden"
+      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}
+    >
+      <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-2 min-w-0">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display font-semibold text-[15px] tracking-tight text-foreground">
+            Volunteer roster
+          </h2>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11.5px] text-muted-foreground font-display">
+            {roster.length} on roster
+          </span>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((v) => !v)}
+            aria-label="Activity thresholds"
+            title="Activity thresholds"
+            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          >
+            <Settings className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </header>
+
+      {settingsOpen && (
+        <ThresholdsEditor
+          activeMinutes={activeMinutes}
+          idleHours={idleHours}
+          onCancel={() => setSettingsOpen(false)}
+          onSave={handleSaveSettings}
+          saving={mutating}
+        />
+      )}
+
+      <p className="px-5 pt-3 pb-1 text-[11.5px] text-muted-foreground leading-snug">
+        Register crew ahead of race day. Activity is matched against volunteer name — share links like{' '}
+        <code className="text-[11px] font-mono bg-muted px-1 rounded">/v/TOKEN?name=Kevin</code> so names auto-match.
+      </p>
+
+      {addingOpen && (
+        <VolunteerFormRow
+          markers={assignableMarkers}
+          onCancel={() => setAddingOpen(false)}
+          onSave={handleAdd}
+          saving={mutating}
+        />
+      )}
+
+      {derived.length === 0 ? (
+        <div className="px-5 py-6 text-center">
+          <p className="text-[12.5px] text-muted-foreground">
+            No volunteers on the roster yet.
+          </p>
+          {!addingOpen && (
+            <Button size="sm" variant="outline" className="mt-3 gap-1.5" onClick={() => setAddingOpen(true)}>
+              + Add volunteer
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          <ul className="divide-y divide-border">
+            {visible.map((row) => (
+              <li key={row.entry.id}>
+                {editingId === row.entry.id ? (
+                  <VolunteerFormRow
+                    initial={row.entry}
+                    markers={assignableMarkers}
+                    onCancel={() => setEditingId(null)}
+                    onSave={(name, email, assignedPoiIds) =>
+                      handleEdit(row.entry.id, name, email, assignedPoiIds)
+                    }
+                    saving={mutating}
+                  />
+                ) : (
+                  <VolunteerDisplayRow
+                    row={row}
+                    markers={assignableMarkers}
+                    onEdit={() => setEditingId(row.entry.id)}
+                    onRemove={() => handleRemove(row.entry.id)}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="w-full px-5 py-2 text-[12px] text-muted-foreground hover:text-foreground hover:bg-muted/40 border-t border-border transition-colors"
+            >
+              Show {hiddenCount} more volunteer{hiddenCount === 1 ? '' : 's'} →
+            </button>
+          )}
+          {!addingOpen && (
+            <div className="px-5 py-2.5 border-t border-border">
+              <Button size="sm" variant="ghost" className="h-8 w-full text-[12px] gap-1.5" onClick={() => setAddingOpen(true)}>
+                + Add volunteer
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+};
+
+const VOLUNTEER_STATE_META: Record<VolunteerActivityState, { label: string; color: string; dotClass: string }> = {
+  active: { label: 'Active', color: 'hsl(152 60% 42%)', dotClass: 'bg-emerald-500' },
+  idle: { label: 'Idle', color: 'hsl(38 92% 50%)', dotClass: 'bg-amber-500' },
+  silent: { label: 'Silent', color: 'hsl(215 15% 55%)', dotClass: 'bg-muted-foreground/50' },
+};
+
+const VolunteerDisplayRow = ({
+  row,
+  markers,
+  onEdit,
+  onRemove,
+}: {
+  row: VolunteerDerived;
+  markers: RoutePoi[];
+  onEdit: () => void;
+  onRemove: () => void;
+}) => {
+  const meta = VOLUNTEER_STATE_META[row.state];
+  const assigned = row.entry.assignedPoiIds
+    .map((id) => markers.find((m) => m.id === id))
+    .filter((m): m is RoutePoi => !!m);
+  const lastSeenLabel =
+    row.lastSeenAt === null ? 'never' : relTime(row.lastSeenAt);
+
+  return (
+    <div className="px-5 py-3 flex items-start gap-3">
+      <span
+        className={`w-2.5 h-2.5 rounded-full shrink-0 mt-[7px] ${meta.dotClass}`}
+        aria-label={meta.label}
+        title={meta.label}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-[13.5px] font-semibold text-foreground truncate">{row.entry.name}</p>
+          <span
+            className="text-[9.5px] font-display font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full text-white"
+            style={{ background: meta.color }}
+          >
+            {meta.label}
+          </span>
+        </div>
+        <p className="text-[11.5px] text-muted-foreground mt-0.5 truncate">
+          {assigned.length > 0
+            ? assigned.map((m) => m.title || poiTone(m.type).label).join(' · ')
+            : 'No assignments'}
+        </p>
+        <p className="text-[10.5px] text-muted-foreground mt-0.5">
+          {row.state === 'silent' && row.lastSeenAt === null
+            ? 'No activity yet'
+            : `Last seen ${lastSeenLabel}`}
+          {row.entry.email ? ` · ${row.entry.email}` : ''}
+        </p>
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label="Edit volunteer"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Remove volunteer"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const VolunteerFormRow = ({
+  initial,
+  markers,
+  onCancel,
+  onSave,
+  saving,
+}: {
+  initial?: VolunteerEntry;
+  markers: RoutePoi[];
+  onCancel: () => void;
+  onSave: (name: string, email: string, assignedPoiIds: string[]) => void;
+  saving: boolean;
+}) => {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [email, setEmail] = useState(initial?.email ?? '');
+  const [assigned, setAssigned] = useState<Set<string>>(new Set(initial?.assignedPoiIds ?? []));
+
+  const toggleMarker = (id: string) => {
+    setAssigned((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div className="px-5 py-3 bg-muted/30 border-t border-border space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name"
+          autoFocus
+          className="h-9 px-2.5 rounded-md border border-border bg-background text-[13px] focus:border-primary outline-none"
+        />
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          type="email"
+          placeholder="Email (optional)"
+          className="h-9 px-2.5 rounded-md border border-border bg-background text-[13px] focus:border-primary outline-none"
+        />
+      </div>
+      <div>
+        <p className="text-[10.5px] uppercase tracking-wider font-display font-semibold text-muted-foreground mb-1">
+          Assigned markers
+        </p>
+        {markers.length === 0 ? (
+          <p className="text-[11.5px] text-muted-foreground">No markers on this event yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {markers.map((m) => {
+              const tone = poiTone(m.type);
+              const on = assigned.has(m.id);
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleMarker(m.id)}
+                  className={`inline-flex items-center gap-1 h-7 px-2 rounded-full text-[11.5px] font-medium transition-colors ${
+                    on
+                      ? 'bg-primary/10 text-foreground ring-1 ring-primary/30'
+                      : 'text-muted-foreground bg-secondary/60 hover:bg-secondary'
+                  }`}
+                >
+                  <span>{tone.emoji}</span>
+                  <span className="max-w-[100px] truncate">{m.title || tone.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <Button variant="ghost" size="sm" className="h-8" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          className="h-8"
+          disabled={saving || !name.trim()}
+          onClick={() => onSave(name, email, Array.from(assigned))}
+        >
+          {saving ? 'Saving…' : initial ? 'Save' : 'Add'}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const ThresholdsEditor = ({
+  activeMinutes,
+  idleHours,
+  onCancel,
+  onSave,
+  saving,
+}: {
+  activeMinutes: number;
+  idleHours: number;
+  onCancel: () => void;
+  onSave: (activeMinutes: number, idleHours: number) => void;
+  saving: boolean;
+}) => {
+  const [active, setActive] = useState(String(activeMinutes));
+  const [idle, setIdle] = useState(String(idleHours));
+
+  return (
+    <div className="px-5 py-3 bg-muted/30 border-b border-border space-y-2">
+      <p className="text-[11.5px] font-semibold text-foreground">Activity thresholds</p>
+      <p className="text-[10.5px] text-muted-foreground leading-snug">
+        Volunteers go <span className="font-semibold">Idle</span> after their last update exceeds the active window,
+        then <span className="font-semibold">Silent</span> after the idle window. Matches your race cadence.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-[11px] font-display font-semibold uppercase tracking-wider text-muted-foreground">
+          Active window (min)
+          <input
+            type="number"
+            min={1}
+            max={1440}
+            value={active}
+            onChange={(e) => setActive(e.target.value)}
+            className="mt-1 h-9 w-full px-2.5 rounded-md border border-border bg-background text-[13px] font-normal normal-case tracking-normal text-foreground focus:border-primary outline-none"
+          />
+        </label>
+        <label className="text-[11px] font-display font-semibold uppercase tracking-wider text-muted-foreground">
+          Idle window (hrs)
+          <input
+            type="number"
+            min={1}
+            max={72}
+            value={idle}
+            onChange={(e) => setIdle(e.target.value)}
+            className="mt-1 h-9 w-full px-2.5 rounded-md border border-border bg-background text-[13px] font-normal normal-case tracking-normal text-foreground focus:border-primary outline-none"
+          />
+        </label>
+      </div>
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <Button variant="ghost" size="sm" className="h-8" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          className="h-8"
+          disabled={saving || !active || !idle}
+          onClick={() => {
+            const a = Math.max(1, Math.min(1440, parseInt(active, 10) || 60));
+            const i = Math.max(1, Math.min(72, parseInt(idle, 10) || 6));
+            onSave(a, i);
+          }}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+function relTime(ms: number): string {
+  const diff = Math.max(0, Date.now() - ms);
+  const mins = Math.round(diff / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
 
 // ────────────────────────────────────────────────────────────────────
 // Organizer override panel — set any marker's status directly

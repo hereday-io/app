@@ -82,6 +82,9 @@ export type Database = {
           tracking_start: string | null
           updated_at: string
           user_id: string
+          volunteer_roster: Json
+          volunteer_active_minutes: number
+          volunteer_idle_hours: number
         }
         Insert: {
           branding_style?: string
@@ -108,6 +111,9 @@ export type Database = {
           tracking_start?: string | null
           updated_at?: string
           user_id: string
+          volunteer_roster?: Json
+          volunteer_active_minutes?: number
+          volunteer_idle_hours?: number
         }
         Update: {
           branding_style?: string
@@ -134,6 +140,9 @@ export type Database = {
           tracking_start?: string | null
           updated_at?: string
           user_id?: string
+          volunteer_roster?: Json
+          volunteer_active_minutes?: number
+          volunteer_idle_hours?: number
         }
         Relationships: []
       }

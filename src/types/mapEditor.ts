@@ -65,6 +65,20 @@ export interface BasemapOption {
 }
 
 /**
+ * Organizer-registered volunteer on an event. Stored as an array at
+ * `events.volunteer_roster`. Activity state (Active / Idle / Silent)
+ * is derived in the Ops Center by matching `name` against recent
+ * `poi_status_history.updated_by_name` rows — not stored.
+ */
+export interface VolunteerEntry {
+  id: string;                // crypto.randomUUID() at add time
+  name: string;              // display name; matches volunteer self-typed name
+  email?: string;            // optional — organizer reference only
+  assignedPoiIds: string[];  // markers this volunteer covers
+  createdAt: string;         // ISO
+}
+
+/**
  * Volunteer-reported live state of a POI. Updated from the tokenized
  * /v/:token volunteer page; rendered as a colored dot overlay on the
  * public map + status line in the popover.

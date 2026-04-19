@@ -86,6 +86,17 @@ const VolunteerStatusPage = () => {
   const [savingPoiId, setSavingPoiId] = useState<string | null>(null);
   const [volunteerName, setVolunteerName] = useState<string>(() => {
     if (typeof window === 'undefined') return '';
+    // Priority order for the initial name:
+    //   1. ?name=Kevin URL param — so an organizer can share
+    //      per-volunteer links like /v/TOKEN?name=Kevin%20P. that
+    //      auto-match their roster entry.
+    //   2. localStorage (returning volunteer on the same device).
+    //   3. empty — volunteer types it themselves.
+    try {
+      const url = new URL(window.location.href);
+      const fromUrl = url.searchParams.get('name');
+      if (fromUrl && fromUrl.trim()) return fromUrl.trim().slice(0, 80);
+    } catch { /* fall through */ }
     return window.localStorage.getItem(VOLUNTEER_NAME_KEY) ?? '';
   });
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
