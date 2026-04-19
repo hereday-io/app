@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight } from 'lucide-react';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
@@ -35,13 +35,12 @@ const Login = () => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
           <img src="/hereday-logo.png" alt="Hereday" className="w-96 max-h-24 object-contain mx-auto" />
-          <p className="text-muted-foreground">Sign in to manage your event maps</p>
+          <p className="text-muted-foreground">Sign in to your events</p>
         </div>
 
         <Card className="border-border/60 shadow-lg">
           <CardHeader className="pb-4">
             <CardTitle className="font-display text-xl">Welcome back</CardTitle>
-            <CardDescription>Enter your credentials to continue</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

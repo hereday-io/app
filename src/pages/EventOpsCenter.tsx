@@ -570,6 +570,7 @@ const OpsCenterContent = ({
               statuses={statuses}
               onOpenStatusDialog={onOpenStatusDialog}
             />
+            <OrganizerOverridePanel event={event} statuses={statuses} />
             <StatusHistoryPanel event={event} />
             <ScoutedPoisPanel
               event={event}
@@ -581,6 +582,7 @@ const OpsCenterContent = ({
           {/* RIGHT column */}
           <aside className="space-y-5">
             <AnalyticsColumn analytics={analytics} loading={analyticsLoading} />
+            <SubscribersPanel event={event} />
           </aside>
         </div>
 
@@ -747,6 +749,297 @@ const StatusRow = ({
         </Button>
       )}
     </li>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────
+// Organizer override panel — set any marker's status directly
+// ────────────────────────────────────────────────────────────────────
+const OVERRIDE_STATES: Array<{ state: PoiStatusState; label: string; color: string }> = [
+  { state: 'open', label: 'Open', color: STATUS_DOT_COLORS.open },
+  { state: 'low', label: 'Low', color: STATUS_DOT_COLORS.low },
+  { state: 'closed', label: 'Closed', color: STATUS_DOT_COLORS.closed },
+  { state: 'moved', label: 'Moved', color: STATUS_DOT_COLORS.moved },
+];
+
+const OrganizerOverridePanel = ({
+  event,
+  statuses,
+}: {
+  event: EventRow;
+  statuses: Map<string, { state: string; poi_id: string }>;
+}) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [mutating, setMutating] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  // Skip auto-placed start/finish — the editor owns those. Organizer
+  // shouldn't be flipping "race finish line is LOW" from an ops panel.
+  const markers = useMemo(
+    () => event.pois.filter((p) => !p.id.startsWith('auto-start-') && !p.id.startsWith('auto-finish-')),
+    [event.pois],
+  );
+
+  if (markers.length === 0) return null;
+
+  const visible = expanded ? markers : markers.slice(0, 3);
+  const hiddenCount = markers.length - visible.length;
+
+  const setStatus = async (poi: RoutePoi, state: PoiStatusState) => {
+    if (!user) return;
+    setMutating(poi.id);
+    const nowIso = new Date().toISOString();
+    try {
+      // Upsert current state
+      const { error: upsertErr } = await supabase
+        .from('poi_statuses')
+        .upsert(
+          {
+            event_id: event.id,
+            poi_id: poi.id,
+            state,
+            note: null,
+            moved_to_lng: null,
+            moved_to_lat: null,
+            updated_by_name: 'Organizer',
+            updated_via_token: 'organizer',
+            updated_at: nowIso,
+          },
+          { onConflict: 'event_id,poi_id' },
+        );
+      if (upsertErr) throw upsertErr;
+
+      // Append to history
+      const { error: histErr } = await supabase.from('poi_status_history').insert({
+        event_id: event.id,
+        poi_id: poi.id,
+        state,
+        note: null,
+        moved_to_lng: null,
+        moved_to_lat: null,
+        updated_by_name: 'Organizer',
+        updated_via_token: 'organizer',
+      });
+      if (histErr) console.warn('[OpsCenter] history insert failed (non-fatal)', histErr);
+
+      logEvent('poi_status_organizer_override', event.id, { poi_id: poi.id, state });
+      toast({
+        title: `Marked ${poi.title || poiTone(poi.type).label} ${OVERRIDE_STATES.find((s) => s.state === state)?.label}`,
+      });
+    } catch (err) {
+      console.error('[OpsCenter] override failed', err);
+      toast({ title: 'Override failed', variant: 'destructive' });
+    } finally {
+      setMutating(null);
+    }
+  };
+
+  return (
+    <section
+      className="rounded-[14px] border border-border bg-card overflow-hidden"
+      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}
+    >
+      <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-2 min-w-0">
+          <Megaphone className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display font-semibold text-[15px] tracking-tight text-foreground">
+            Override status
+          </h2>
+        </div>
+        <span className="text-[11.5px] text-muted-foreground font-display">
+          {markers.length} marker{markers.length === 1 ? '' : 's'}
+        </span>
+      </header>
+      <p className="px-5 pt-3 pb-1 text-[11.5px] text-muted-foreground leading-snug">
+        Set a marker's status directly when no volunteer is at the station.
+      </p>
+      <ul className="divide-y divide-border">
+        {visible.map((poi) => {
+          const tone = poiTone(poi.type);
+          const current = statuses.get(poi.id);
+          const isMut = mutating === poi.id;
+          return (
+            <li key={poi.id} className="px-5 py-3 space-y-2">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0 border-2"
+                  style={{ background: `${tone.dot}15`, borderColor: `${tone.dot}40` }}
+                >
+                  {tone.emoji}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-foreground truncate">
+                    {poi.title || tone.label}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {current
+                      ? `Currently ${OVERRIDE_STATES.find((s) => s.state === current.state)?.label ?? current.state}`
+                      : 'Not yet reported'}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {OVERRIDE_STATES.map((s) => {
+                  const isActive = current?.state === s.state;
+                  return (
+                    <button
+                      key={s.state}
+                      type="button"
+                      onClick={() => setStatus(poi, s.state)}
+                      disabled={isMut}
+                      className={`h-8 rounded-md text-[11.5px] font-display font-semibold transition-all disabled:opacity-50 ${
+                        isActive
+                          ? 'text-white shadow-sm'
+                          : 'text-muted-foreground bg-secondary/60 hover:bg-secondary'
+                      }`}
+                      style={isActive ? { background: s.color } : undefined}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="w-full px-5 py-2 text-[12px] text-muted-foreground hover:text-foreground hover:bg-muted/40 border-t border-border transition-colors"
+        >
+          Show {hiddenCount} more marker{hiddenCount === 1 ? '' : 's'} →
+        </button>
+      )}
+    </section>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────
+// Subscribers panel — organizer-only list of captured emails
+// ────────────────────────────────────────────────────────────────────
+interface SubscriberRow {
+  id: number;
+  email: string;
+  source: string | null;
+  created_at: string;
+  unsubscribed_at: string | null;
+}
+
+const SubscribersPanel = ({ event }: { event: EventRow }) => {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<SubscriberRow[] | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [mutating, setMutating] = useState<number | null>(null);
+
+  const fetchRows = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('event_subscribers')
+      .select('id, email, source, created_at, unsubscribed_at')
+      .eq('event_id', event.id)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) {
+      console.warn('[OpsCenter] subscribers fetch failed', error);
+      setRows([]);
+      return;
+    }
+    setRows((data ?? []) as SubscriberRow[]);
+  }, [event.id]);
+
+  useEffect(() => {
+    fetchRows();
+  }, [fetchRows]);
+
+  const active = useMemo(() => (rows ?? []).filter((r) => !r.unsubscribed_at), [rows]);
+  const visible = expanded ? (rows ?? []) : (rows ?? []).slice(0, 5);
+
+  const handleUnsub = async (row: SubscriberRow) => {
+    if (!window.confirm(`Unsubscribe ${row.email}? They won't receive future updates.`)) return;
+    setMutating(row.id);
+    const { error } = await supabase
+      .from('event_subscribers')
+      .update({ unsubscribed_at: new Date().toISOString() })
+      .eq('id', row.id);
+    setMutating(null);
+    if (error) {
+      toast({ title: 'Unsubscribe failed', variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Unsubscribed' });
+    fetchRows();
+  };
+
+  if (rows === null) {
+    return (
+      <Card>
+        <CardContent className="p-4"><Skeleton className="h-24 w-full" /></CardContent>
+      </Card>
+    );
+  }
+  if (rows.length === 0) return null;
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">Subscribers</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground">
+            {active.length} active
+          </span>
+        </div>
+        <ul className="space-y-1.5">
+          {visible.map((row) => {
+            const isUnsub = !!row.unsubscribed_at;
+            return (
+              <li
+                key={row.id}
+                className="flex items-center gap-2 py-1.5 border-b border-border/40 last:border-b-0"
+              >
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`text-[12px] truncate ${isUnsub ? 'text-muted-foreground line-through' : 'text-foreground'}`}
+                    title={row.email}
+                  >
+                    {row.email}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground font-display">
+                    {row.source ? `via ${row.source}` : 'direct'}
+                    {' · '}
+                    {new Date(row.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </p>
+                </div>
+                {!isUnsub && (
+                  <button
+                    type="button"
+                    onClick={() => handleUnsub(row)}
+                    disabled={mutating === row.id}
+                    title="Unsubscribe this email"
+                    className="text-[10px] text-muted-foreground hover:text-destructive transition-colors px-1.5 py-0.5 rounded disabled:opacity-50"
+                  >
+                    {mutating === row.id ? '…' : 'Unsub'}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {rows.length > 5 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full mt-2 pt-2 border-t border-border/40 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {expanded ? 'Collapse' : `Show ${rows.length - 5} more →`}
+          </button>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

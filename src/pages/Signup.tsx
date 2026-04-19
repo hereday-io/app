@@ -63,7 +63,7 @@ const Signup = () => {
       toast({ title: 'Signup failed', description: error.message, variant: 'destructive' });
     } else {
       logEvent('signup_form_submitted', null, { method: 'email' });
-      toast({ title: 'Account created', description: 'Check your email to verify — you can start building your event now.' });
+      toast({ title: 'Account created', description: 'Check your inbox to verify your email. You can start building right away.' });
       navigate('/dashboard');
     }
     setLoading(false);
@@ -80,7 +80,7 @@ const Signup = () => {
         <Card className="border-border/60 shadow-lg">
           <CardHeader className="pb-4">
             <CardTitle className="font-display text-xl">Get started</CardTitle>
-            <CardDescription>You'll be drawing routes in two minutes</CardDescription>
+            <CardDescription>Your first route is two minutes away.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 mb-4">

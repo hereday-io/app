@@ -40,7 +40,7 @@ const ForgotPassword = () => {
 
         <Card className="border-border/60 shadow-lg">
           <CardHeader className="pb-4">
-            <CardTitle className="font-display text-xl">Forgot password</CardTitle>
+            <CardTitle className="font-display text-xl">Reset your password</CardTitle>
             <CardDescription>
               {sent
                 ? 'Check your inbox for a reset link.'
