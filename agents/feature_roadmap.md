@@ -8,6 +8,40 @@ reference.
 
 ---
 
+## 🚀 Recently shipped (since 2026-04-15)
+
+Three major headlines from the last two weeks of work. Details
+absorbed into the sections below; this callout is the quick-orient
+summary for anyone dropping back into the roadmap.
+
+- **Sponsor POIs** (~1 week target, shipped) — branded markers with
+  logo + CTA + promo code, impression/click analytics card, soft-wall
+  for Free tier at 1 branded sponsor. See original plan in "Advanced
+  POIs" below.
+- **Live-status POIs** (~1.5 weeks target, shipped) — volunteer
+  status reporting via `/v/:token`, realtime `postgres_changes`
+  subscription, colored status dots on public markers, status history
+  log, Pro-gated.
+- **Event Ops Center** (new surface, not in original roadmap) — a
+  Pro-gated `/dashboard/events/:id` page that consolidates live
+  volunteer statuses, scouted-marker review, analytics, and a unified
+  activity feed. Driven by
+  [prd_organizer_experience.md](prd_organizer_experience.md); started
+  splitting organizer tooling off the public views so runners /
+  spectators stay map-first.
+- **Audit-driven polish pass** — full PM / Copy / Interaction /
+  Synthesis agent audit surfaced ~20 fixes (terminology unification,
+  touch targets, cold-stranger copy rewrites, click/dblclick race,
+  delete/undo race, autosave tooltip state, volunteer haptic +
+  sticky mini-header, waitlist capture replacing dead Stripe CTAs).
+  All shipped.
+
+**Focus now:** polish existing surfaces + close Stripe loop. No new
+headline features until we have a paying customer or a clear signal
+from usage that one would earn the investment.
+
+---
+
 ## Now — "make it buyable" (this month)
 
 The landing page sells Pro. The product can't take money. Close that
@@ -20,16 +54,20 @@ the dead-month churn problem seasonal SaaS always hits. Annual /
 team plans stay parked until we see large orgs running multiple
 events per season; that's a real signal, not a guess.
 
-- [ ] **Billing schema migration.** Pro is an *event* attribute, not
-  a user attribute. One migration: `events.paid_at TIMESTAMPTZ`,
-  `events.stripe_session_id TEXT`. The `public_events` view already
-  computes `plan` from `owner_is_paid` — swap that to
-  `paid_at IS NOT NULL`.
-- [ ] **Stripe integration.** Checkout session in payment mode (not
-  subscription), webhook handler for `checkout.session.completed`,
-  both in Supabase edge functions. Requires keys + a single $49
-  product/price in Stripe dashboard. **Blocked on external Stripe
-  account factors — resume the moment the account is live.**
+- [x] **Billing schema migration.** Shipped — `events.paid_at`,
+  `events.stripe_session_id`, `events.stripe_payment_id` all live.
+  `public_events` view reads `paid_at IS NOT NULL` as canonical.
+- [x] **Stripe integration — code complete.** All 9 edge functions
+  deployed (`create-checkout`, `list-charges`, `get-receipt`,
+  `get-payment-method`, `open-billing-portal`,
+  `detach-payment-method`, `apply-promo`, `remove-promo`,
+  `stripe-webhook`). Billing page at `/billing` is built. Promo
+  code flow works. **Still blocked on the business bank account —
+  `PAYMENTS_LIVE = false` in UpgradeModal, and every paid CTA now
+  captures email to `pro_waitlist` instead of calling dead Stripe.**
+  The day the bank clears: set `STRIPE_SECRET_KEY` +
+  `STRIPE_PRICE_ID` + `STRIPE_WEBHOOK_SECRET` in Supabase, flip
+  `PAYMENTS_LIVE = true`, redeploy frontend. Email the waitlist.
 - [x] **Decide free-tier limits.** Set to 3 routes / 30 POIs. Sized so a
   typical small race (5K/10K/half trio, single aid-station set) fits
   entirely inside free. Marathon weekends and larger events hit Pro as
@@ -115,35 +153,31 @@ turning POIs into surfaces that sell Pro, drive differentiation, and
 bring runners back after the event. Ship in this order — each plan
 builds infrastructure the next one reuses.
 
-- [ ] **Sponsor POIs — done right (revenue story).** Extend `RoutePoi`
-  with an optional `sponsor: { logoUrl, brandColor, ctaText, ctaUrl,
-  promoCode }` block (no migration — POIs live in the `events` JSON
-  column). Sponsor markers render with the sponsor's logo in the
-  circle instead of the ⭐ emoji and a "SPONSORED" ribbon. Public
-  popover becomes a branded ad unit: logo, filled CTA button in
-  `brandColor`, copyable promo code, no directions link. Fire
-  `sponsor_impression` on popover open and `sponsor_click` on CTA tap
-  into the existing `product_events` table. New "Sponsors" card in
-  the per-event analytics panel ranked by clicks. Free tier = 1
-  sponsor; Pro = unlimited + CSV bulk import + analytics card. The
-  pitch: "Hereday lets your sponsor sales guy prove $500/marker."
-  ~1 week.
+- [x] **Sponsor POIs — done right (revenue story).** Shipped.
+  `RoutePoi.sponsor: { logoUrl, logoDataUrl, brandColor, ctaText,
+  ctaUrl, promoCode }` nested on POIs (no migration). Branded marker
+  with logo + "SPONSORED" pill, ad-unit popover with copyable promo,
+  three analytics events (`sponsor_impression`, `sponsor_click`,
+  `sponsor_promo_copied`) rolled into a Sponsors card in the
+  analytics sheet + Ops Center. Soft-wall on Free: overflow sponsors
+  render as generic ⭐, organizer sees amber "Showing as a generic
+  pin publicly" hint in the editor. **Not yet shipped:** CSV bulk
+  import (deferred — not worth it until sponsors actually ask).
 
-- [ ] **Live-status POIs (differentiation story).** Three new tables:
-  `poi_statuses` (current state: `open | low | closed | moved` + note
-  + `moved_to` coord), `poi_status_history` (append-only timeline),
-  `poi_volunteer_tokens` (unauthenticated scoped tokens). Organizers
-  generate volunteer links per POI (or event-wide for Pro) from the
-  editor — each link opens a tokenized `/v/:token` page with giant
-  status buttons, no login. Updates propagate via Supabase
-  `postgres_changes` subscription (reuses the tracking subscription
-  pattern). Public markers get a colored dot overlay (yellow/low,
-  red/closed, blue/moved) and the popover shows "Low · updated 3
-  minutes ago by Kevin." Organizer analytics gets a "Status history"
-  timeline ("water ran low at mile 6 at 10:42 AM"). Pro gates
-  unlimited tokens + event-wide tokens + history panel. Watch out
-  for: rate-limit per token, log IPs in history, let organizers
-  revoke. ~1.5 weeks.
+- [x] **Live-status POIs (differentiation story).** Shipped.
+  `poi_statuses` + `poi_status_history` tables live, reused the
+  pre-existing `poi_volunteer_tokens` (purpose='status' was
+  pre-scaffolded). Event-wide tokens for v1 (simpler than per-POI);
+  `/v/:token` page with giant Open/Low/Closed/Moved buttons, name
+  capture, haptic on submit, sticky mini-header when editing,
+  optimistic updates + rollback, offline resilience inherited from
+  scout path. Public map renders colored status dots via
+  `postgres_changes` subscription. Simplified public popover per PRD
+  — state pill + short note only, organizer metadata moved to Ops
+  Center. **Not yet shipped:** per-POI token scoping (deferred to
+  v2), status history timeline in analytics (next item in polish
+  pile), `moved_to` coordinate flow + ghosted original pin, rate
+  limits per token.
 
 - [ ] **Photographer POIs + post-race galleries (retention story).**
   New `photo` POI type (📸 in the amenities category). New
@@ -168,6 +202,11 @@ builds infrastructure the next one reuses.
   parked until the capture table has real volume. ~2 weeks.
 
 ### Organizer-to-subscriber messaging
+
+**Status:** Next-in-line once we have a paying customer or a clear
+usage signal. Scoped below; hold on implementation until polish pile
+is drained. When Stripe unblocks and the first paid event ships, this
+is the natural retention lever to build next.
 
 The `event_subscribers` table already collects email addresses across
 three surfaces (runner view, spectator view, event ended page). This
@@ -211,6 +250,81 @@ back to Hereday between events — retention, not just activation.
 sending domain on hereday.io), bounce handling (mark hard-bounced
 addresses), and abuse prevention (rate limits + content review if
 volume grows).
+
+## Polish pile — the current focus (2026-04-18 → first paying user)
+
+Agreed with Kevin: **no new headline features until we have a paying
+customer or clear usage signal.** The existing product is already
+broader than most solo-founder SaaS at this stage; the leverage is in
+tightening what's here, not adding more doors.
+
+This section absorbs the remainder of the PM / Copy / Interaction
+audit backlog plus deferrals from recent PRs. Order is rough — grab
+what matches the mood.
+
+### Quality of life (existing surfaces)
+- [ ] **Editor thin-sidebar-rail** — today sidebar toggles between
+  full width and hidden. 40px rail with section icons (Routes /
+  Markers / Branding / Basemap) lets organizers keep map width while
+  still seeing context. (Interaction P1)
+- [ ] **Universal Escape handler in editor** — dismissal inconsistent
+  across Share popover, Live popover, Shortcuts overlay, pending POI
+  mode. One window-level listener with priority ordering.
+- [ ] **Volunteer page keyboard-push fix polish** — sticky mini-header
+  shipped; still worth adding a small "Saved" visual between the
+  action and the row closing for haptic confirmation parity.
+- [ ] **Signup microcopy tightening** — Copy agent flagged a few P2
+  lines ("Check your email to verify — you can start building" splits
+  two ideas). Minor, drive-by.
+- [ ] **Signup password strength meter** — prior audit item (F-line),
+  still open. Premium SaaS bar.
+- [ ] **Snap-to-roads dashed-line fallback per-segment** — shipped a
+  destructive toast for visibility; the premium fix is tracking
+  failed segment indices and rendering them dashed in the route's
+  own color. Medium effort.
+
+### Deepen Ops Center (PRD v2 items)
+- [ ] **Status history timeline card** — full `poi_status_history`
+  timeline with filters by marker / volunteer / date range. Table is
+  live and growing; frontend view not built.
+- [ ] **Subscriber list view** — who's subscribed, source attribution,
+  organizer can unsubscribe anyone. `event_subscribers` + source
+  column already exist.
+- [ ] **Organizer status override** — let organizer set a marker's
+  status directly from Ops Center, not only via the volunteer link.
+  Useful when volunteers flake or connectivity drops.
+- [ ] **Volunteer roster** — named volunteers per event, assign to
+  markers, see who's been active vs silent. Lightweight; could be a
+  JSON column on events or a new small table.
+- [ ] **Export race-day ops sheet** — single-page printable PDF with
+  every marker's current status for the race director's clipboard.
+  Reuses the `generateRaceDayChecklist` pattern.
+
+### Delight tier (cheap wins that make it feel premium)
+- [ ] **Confetti on first publish** — in progress (handled by Claude
+  Design, not me).
+- [ ] **Cursor trail while drawing a route** — Strava-web pattern.
+  Tiny canvas overlay above Mapbox.
+- [ ] **Live pulse on Volunteer page header** — postgres_changes is
+  wired but nothing on-screen says "live." 1.5s pulse on the radio
+  icon, costs nothing.
+- [ ] **Marker drop-in sound effect** (first placement per session) —
+  the animation shipped; soft tap SFX for the first one of a session
+  would round it out.
+- [ ] **Live pill inner glow** — static green pill → 2-second inner
+  glow cycle for subtle signal that the event is alive.
+- [ ] **Drag-drop reorder slide animation in route sidebar** — rows
+  currently jump; a 150ms transform ease would feel Apple-level.
+
+### Infra + correctness
+- [ ] **Re-deploy scout rate-limit logic** — `submit-scouted-poi` v2
+  is live with the new table but keep an eye on whether the legacy
+  array-scan fallback ever fires in logs.
+- [ ] **Activity feed polling → realtime** — currently polls every
+  30s. When it's clear volume doesn't swamp the realtime channel,
+  swap to `postgres_changes` on `poi_status_history` + `event_subscribers`.
+
+---
 
 ## Parking lot — don't build until a paying user asks
 
