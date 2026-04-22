@@ -74,7 +74,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
     if (wantsPro && data.id) {
       try {
         const { data: checkout, error: checkoutErr } = await supabase.functions.invoke('create-checkout', {
-          body: { eventId: data.id, returnUrl: window.location.origin },
+          body: { eventId: data.id, returnUrl: `${window.location.origin}/dashboard` },
         });
         if (!checkoutErr && checkout?.url) {
           // Stripe checkout will redirect back; don't navigate to editor

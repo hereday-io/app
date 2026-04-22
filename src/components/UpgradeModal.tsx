@@ -125,7 +125,11 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
                   const { data, error } = await supabase.functions.invoke('create-checkout', {
                     body: {
                       eventId,
-                      returnUrl: window.location.origin,
+                      // Land on the dashboard after checkout so the session
+                      // rehydrates and the user sees the updated Pro state.
+                      // Sending them to the landing page caused an apparent
+                      // logout because `/` doesn't exercise the auth bootstrap.
+                      returnUrl: `${window.location.origin}/dashboard`,
                       ...(activePromo ? { discountCode: activePromo } : {}),
                     },
                   });
