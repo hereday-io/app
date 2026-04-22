@@ -3,7 +3,7 @@
 // Stripe client, and the CORS headers are identical across them.
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import Stripe from "npm:stripe@17.3.1";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

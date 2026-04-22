@@ -22,7 +22,7 @@
 //   replay doesn't bump the timestamp; refund revocation is a simple
 //   NULL which is also safely repeatable.
 
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import Stripe from "npm:stripe@17.3.1";
 import { getServiceClient, getStripe } from "../_shared/billing.ts";
 
 const corsHeaders = {
