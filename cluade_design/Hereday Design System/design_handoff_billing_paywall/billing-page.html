@@ -1,0 +1,404 @@
+<!-- Billing page — per-event one-time unlocks. Lives at /billing -->
+<!-- No subscriptions. Source: src/pages/Refund.tsx for header/footer, UpgradeModal for unlock copy -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Billing — Hereday</title>
+<link rel="stylesheet" href="colors_and_type.css" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: hsl(210 20% 98%); font-family: var(--font-body); color: hsl(var(--foreground)); }
+
+  /* Header — same pattern as Refund.tsx */
+  header.top {
+    position: sticky; top: 0; z-index: 50;
+    border-bottom: 1px solid hsl(var(--border));
+    background: hsl(0 0% 100% / 0.8);
+    backdrop-filter: blur(12px);
+  }
+  header.top .row { max-width: 1180px; margin: 0 auto; padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; }
+  header.top .brand { display: flex; align-items: center; gap: 12px; }
+  header.top .brand img { height: 56px; margin: -12px 0; width: auto; }
+  header.top nav { display: flex; align-items: center; gap: 22px; font-size: 13.5px; color: hsl(var(--muted-foreground)); }
+  header.top nav a { color: inherit; text-decoration: none; }
+  header.top nav a.active { color: hsl(var(--foreground)); font-weight: 500; }
+  header.top .avatar { width: 30px; height: 30px; border-radius: 999px; background: hsl(217 91% 50%); color: white; font-family: var(--font-display); font-weight: 600; font-size: 12px; display: flex; align-items: center; justify-content: center; letter-spacing: 0.02em; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 36px 24px 64px; }
+
+  .crumb { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: hsl(var(--muted-foreground)); margin-bottom: 12px; }
+  .crumb svg { width: 12px; height: 12px; }
+
+  h1.page { font-family: var(--font-display); font-weight: 700; font-size: 32px; letter-spacing: -0.02em; margin: 0 0 6px; color: hsl(var(--foreground)); }
+  p.lede { font-size: 14.5px; color: hsl(var(--muted-foreground)); margin: 0 0 28px; max-width: 62ch; line-height: 1.6; }
+
+  /* Callout under lede — tone-setter: "one-time, not subscription" */
+  .callout {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: hsl(217 91% 50% / 0.06);
+    border: 1px solid hsl(217 91% 50% / 0.18);
+    border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 36px;
+  }
+  .callout .ico { width: 32px; height: 32px; border-radius: 8px; background: white; border: 1px solid hsl(217 91% 50% / 0.22); display: flex; align-items: center; justify-content: center; color: hsl(217 91% 45%); flex-shrink: 0; }
+  .callout .ico svg { width: 16px; height: 16px; }
+  .callout .t1 { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: hsl(var(--foreground)); margin: 2px 0 3px; letter-spacing: -0.005em; }
+  .callout .t2 { font-size: 13px; color: hsl(215 20% 35%); margin: 0; line-height: 1.55; }
+  .callout .t2 a { color: hsl(217 91% 45%); text-decoration: none; border-bottom: 1px solid hsl(217 91% 50% / 0.3); }
+
+  /* Two-column layout: main list + side rail */
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; align-items: start; }
+
+  section.panel { background: white; border: 1px solid hsl(var(--border)); border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); overflow: hidden; }
+  section.panel .phead { padding: 18px 22px 14px; border-bottom: 1px solid hsl(var(--border)); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  section.panel h2 { font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.005em; margin: 0; color: hsl(var(--foreground)); }
+  section.panel .phead .count { font-size: 12px; color: hsl(var(--muted-foreground)); font-family: var(--font-display); }
+
+  /* Event unlocks list */
+  .event-row {
+    display: grid;
+    grid-template-columns: 4px 1fr auto auto;
+    align-items: stretch;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .event-row:last-child { border-bottom: none; }
+  .event-row .bar { background: hsl(var(--border)); }
+  .event-row.live .bar { background: hsl(152 60% 42%); }
+  .event-row.pro .bar { background: hsl(217 91% 50%); }
+
+  .event-row .body { padding: 16px 20px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .event-row h3 { font-family: var(--font-display); font-weight: 600; font-size: 15.5px; letter-spacing: -0.01em; margin: 0; color: hsl(var(--foreground)); display: flex; align-items: center; gap: 8px; }
+  .event-row .meta { font-size: 12px; color: hsl(var(--muted-foreground)); display: flex; flex-wrap: wrap; gap: 6px 12px; }
+  .event-row .meta b { color: hsl(215 20% 35%); font-weight: 500; }
+
+  .chip { font-family: var(--font-display); font-weight: 600; font-size: 9.5px; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.07em; display: inline-flex; align-items: center; gap: 5px; }
+  .chip.live { background: hsl(152 60% 42%); color: white; }
+  .chip.live .dot { width: 4px; height: 4px; border-radius: 50%; background: white; }
+  .chip.draft { background: hsl(210 15% 93%); color: hsl(215 20% 45%); }
+  .chip.pro { background: hsl(217 91% 50% / 0.1); color: hsl(217 91% 40%); border: 1px solid hsl(217 91% 50% / 0.2); }
+  .chip.free { background: hsl(45 93% 94%); color: hsl(32 65% 35%); }
+
+  .event-row .status {
+    padding: 16px 12px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 3px;
+    min-width: 140px;
+  }
+  .event-row .status .k1 { font-family: var(--font-display); font-weight: 600; font-size: 13px; color: hsl(var(--foreground)); }
+  .event-row .status .k2 { font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+
+  .event-row .act { padding: 16px 20px 16px 8px; display: flex; align-items: center; }
+  .btn-unlock { height: 32px; padding: 0 14px; border-radius: 8px; background: hsl(217 91% 50%); color: white; font-weight: 500; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: default; white-space: nowrap; }
+  .btn-unlock svg { width: 13px; height: 13px; }
+  .btn-receipt { height: 32px; padding: 0 12px; border-radius: 8px; background: white; color: hsl(var(--foreground)); font-weight: 500; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid hsl(var(--border)); cursor: default; white-space: nowrap; }
+  .btn-receipt svg { width: 12px; height: 12px; color: hsl(var(--muted-foreground)); }
+
+  /* Receipts table */
+  .receipts { padding: 4px 0 0; }
+  .rcpt { display: grid; grid-template-columns: 1fr auto auto auto; gap: 16px; align-items: center; padding: 12px 22px; border-bottom: 1px solid hsl(var(--border)); font-size: 13px; }
+  .rcpt:last-child { border-bottom: none; }
+  .rcpt .event-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rcpt .event-name .n { font-weight: 500; color: hsl(var(--foreground)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rcpt .event-name .d { font-size: 11.5px; color: hsl(var(--muted-foreground)); font-family: var(--font-display); }
+  .rcpt .amt { font-family: var(--font-display); font-weight: 600; color: hsl(var(--foreground)); font-variant-numeric: tabular-nums; }
+  .rcpt .state { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; font-family: var(--font-display); font-weight: 600; }
+  .rcpt .state.paid { color: hsl(152 60% 32%); }
+  .rcpt .state.refunded { color: hsl(215 15% 50%); }
+  .rcpt .dl { height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid hsl(var(--border)); background: white; font-size: 12px; color: hsl(var(--foreground)); display: inline-flex; align-items: center; gap: 5px; cursor: default; }
+  .rcpt .dl svg { width: 11px; height: 11px; color: hsl(var(--muted-foreground)); }
+
+  /* Side rail */
+  .side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 88px; }
+
+  .summary { background: white; border: 1px solid hsl(var(--border)); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+  .summary h2 { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase; color: hsl(var(--muted-foreground)); margin: 0 0 14px; }
+  .summary .big { font-family: var(--font-display); font-weight: 700; font-size: 32px; color: hsl(var(--foreground)); letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .summary .sub { font-size: 12.5px; color: hsl(var(--muted-foreground)); margin: 6px 0 14px; }
+  .summary .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 14px; border-top: 1px solid hsl(var(--border)); }
+  .summary .split .stat .v { font-family: var(--font-display); font-weight: 600; font-size: 18px; color: hsl(var(--foreground)); }
+  .summary .split .stat .l { font-size: 11px; color: hsl(var(--muted-foreground)); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 2px; font-family: var(--font-display); font-weight: 600; }
+
+  /* Payment method card — with real Stripe card art */
+  .pay { background: white; border: 1px solid hsl(var(--border)); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+  .pay h2 { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase; color: hsl(var(--muted-foreground)); margin: 0 0 12px; }
+  .pay .card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px;
+    background: hsl(210 20% 99%);
+  }
+  .pay .brand {
+    width: 40px; height: 28px; border-radius: 5px; flex-shrink: 0;
+    background: linear-gradient(135deg, #1a1f71 0%, #1a1f71 55%, #f7b600 55%, #f7b600 100%);
+    color: white; font-family: var(--font-display); font-weight: 800; font-size: 10px; letter-spacing: 0.02em;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pay .card .info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+  .pay .card .n { font-family: var(--font-display); font-weight: 500; font-size: 13px; color: hsl(var(--foreground)); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+  .pay .card .e { font-size: 11.5px; color: hsl(var(--muted-foreground)); font-family: var(--font-display); }
+  .pay .card .default { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; color: hsl(152 60% 32%); font-family: var(--font-display); font-weight: 600; }
+  .pay .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .pay .actions button { flex: 1; height: 32px; border-radius: 8px; border: 1px solid hsl(var(--border)); background: white; font-size: 12.5px; color: hsl(var(--foreground)); cursor: default; font-weight: 500; }
+
+  /* Stripe footer pill */
+  .stripe-note {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 8px; padding: 9px 12px;
+    font-size: 11.5px; color: hsl(var(--muted-foreground));
+    background: hsl(210 20% 99%);
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+  }
+  .stripe-note .lock svg { width: 11px; height: 11px; color: hsl(var(--muted-foreground)); }
+  .stripe-note b { color: #635BFF; font-weight: 600; font-family: var(--font-display); letter-spacing: -0.01em; }
+
+  /* Help card */
+  .help { background: white; border: 1px solid hsl(var(--border)); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+  .help h2 { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase; color: hsl(var(--muted-foreground)); margin: 0 0 10px; }
+  .help p { font-size: 12.5px; color: hsl(215 20% 35%); margin: 0 0 12px; line-height: 1.55; }
+  .help a { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: hsl(217 91% 45%); text-decoration: none; font-weight: 500; }
+  .help a svg { width: 11px; height: 11px; }
+
+  section + section { margin-top: 28px; }
+
+  footer.bot { border-top: 1px solid hsl(var(--border)); background: white; padding: 24px 0; margin-top: 48px; }
+  footer.bot .row { max-width: 1180px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  footer.bot img { height: 56px; margin: -12px 0; opacity: 0.7; }
+  footer.bot p { font-size: 11.5px; color: hsl(var(--muted-foreground)); margin: 0; }
+  footer.bot .links { display: flex; gap: 16px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+  footer.bot .links a { color: inherit; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="row">
+    <div class="brand"><img src="assets/hereday-logo.png" alt="Hereday" /></div>
+    <nav>
+      <a>Events</a>
+      <a>Settings</a>
+      <a class="active">Billing</a>
+      <div class="avatar">SK</div>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="crumb">
+    <span>Settings</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    <span style="color:hsl(var(--foreground));font-weight:500;">Billing</span>
+  </div>
+
+  <h1 class="page">Billing</h1>
+  <p class="lede">Hereday Pro is a one-time $49 upgrade per event — <b style="color:hsl(var(--foreground));font-weight:500;">no subscription, no auto-renew</b>. Manage unlocked events, download receipts, and update the card on file for future unlocks.</p>
+
+  <div class="callout">
+    <div class="ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+    </div>
+    <div>
+      <div class="t1">You'll only see a charge here when you unlock an event.</div>
+      <p class="t2">Free events stay free forever. Upgrades unlock Pro features on a specific event — they don't renew and don't transfer. See our <a>refund policy</a> for details on how refunds work.</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+
+      <!-- ─── Events ─── -->
+      <section class="panel">
+        <div class="phead">
+          <h2>Your events</h2>
+          <span class="count">4 events · 2 unlocked</span>
+        </div>
+
+        <div class="event-row pro">
+          <div class="bar"></div>
+          <div class="body">
+            <h3>Crystal Lake 5K <span class="chip live"><span class="dot"></span>Live</span> <span class="chip pro">Pro</span></h3>
+            <div class="meta">
+              <span>Oct 12, 2025 · Crystal Lake, IL</span>
+              <span>·</span>
+              <span><b>3 routes</b> · <b>18 markers</b></span>
+            </div>
+          </div>
+          <div class="status">
+            <div class="k1">Unlocked Oct 3, 2025</div>
+            <div class="k2">Receipt #hd_3A29F · $49.00</div>
+          </div>
+          <div class="act">
+            <button class="btn-receipt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Receipt
+            </button>
+          </div>
+        </div>
+
+        <div class="event-row pro">
+          <div class="bar"></div>
+          <div class="body">
+            <h3>Ridgeline Trail Half <span class="chip live"><span class="dot"></span>Live</span> <span class="chip pro">Pro</span></h3>
+            <div class="meta">
+              <span>Nov 2, 2025 · Boulder, CO</span>
+              <span>·</span>
+              <span><b>4 routes</b> · <b>47 markers</b></span>
+            </div>
+          </div>
+          <div class="status">
+            <div class="k1">Unlocked Aug 18, 2025</div>
+            <div class="k2">Receipt #hd_2B14C · $49.00</div>
+          </div>
+          <div class="act">
+            <button class="btn-receipt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Receipt
+            </button>
+          </div>
+        </div>
+
+        <div class="event-row live">
+          <div class="bar"></div>
+          <div class="body">
+            <h3>Harbor City 10K <span class="chip live"><span class="dot"></span>Live</span> <span class="chip free">Free plan</span></h3>
+            <div class="meta">
+              <span>Mar 21, 2026 · San Francisco, CA</span>
+              <span>·</span>
+              <span><b>2 routes</b> · <b>22 markers</b></span>
+              <span style="color: hsl(38 92% 40%);">· 8 markers until limit</span>
+            </div>
+          </div>
+          <div class="status">
+            <div class="k1" style="color: hsl(var(--muted-foreground));">Not unlocked</div>
+            <div class="k2">Free features only</div>
+          </div>
+          <div class="act">
+            <button class="btn-unlock">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/></svg>
+              Unlock — $49
+            </button>
+          </div>
+        </div>
+
+        <div class="event-row">
+          <div class="bar"></div>
+          <div class="body">
+            <h3>Summer Series Sprint Tri <span class="chip draft">Draft</span> <span class="chip free">Free plan</span></h3>
+            <div class="meta">
+              <span>Jun 14, 2026 · Madison, WI</span>
+              <span>·</span>
+              <span><b>1 route</b> · <b>6 markers</b></span>
+            </div>
+          </div>
+          <div class="status">
+            <div class="k1" style="color: hsl(var(--muted-foreground));">Not unlocked</div>
+            <div class="k2">Free features only</div>
+          </div>
+          <div class="act">
+            <button class="btn-unlock">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/></svg>
+              Unlock — $49
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Purchase history ─── -->
+      <section class="panel">
+        <div class="phead">
+          <h2>Purchase history</h2>
+          <span class="count">3 transactions</span>
+        </div>
+
+        <div class="receipts">
+          <div class="rcpt">
+            <div class="event-name">
+              <span class="n">Crystal Lake 5K — Pro unlock</span>
+              <span class="d">Oct 3, 2025 · Visa •••• 4242</span>
+            </div>
+            <div class="amt">$49.00</div>
+            <div class="state paid">Paid</div>
+            <button class="dl">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              PDF
+            </button>
+          </div>
+
+          <div class="rcpt">
+            <div class="event-name">
+              <span class="n">Ridgeline Trail Half — Pro unlock</span>
+              <span class="d">Aug 18, 2025 · Visa •••• 4242</span>
+            </div>
+            <div class="amt">$49.00</div>
+            <div class="state paid">Paid</div>
+            <button class="dl">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              PDF
+            </button>
+          </div>
+
+          <div class="rcpt">
+            <div class="event-name">
+              <span class="n">Lakefront Turkey Trot — Pro unlock</span>
+              <span class="d">Nov 14, 2024 · Visa •••• 4242 · Event cancelled</span>
+            </div>
+            <div class="amt" style="text-decoration: line-through; color: hsl(var(--muted-foreground));">$49.00</div>
+            <div class="state refunded">Refunded</div>
+            <button class="dl">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              PDF
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ─── Side rail ─── -->
+    <aside class="side">
+      <div class="summary">
+        <h2>Lifetime spend</h2>
+        <div class="big">$98.00</div>
+        <p class="sub">Across 2 unlocked events. You'll never be charged unless you unlock another event.</p>
+        <div class="split">
+          <div class="stat"><div class="v">2</div><div class="l">Unlocked</div></div>
+          <div class="stat"><div class="v">1</div><div class="l">Refunded</div></div>
+        </div>
+      </div>
+
+      <div class="pay">
+        <h2>Payment method</h2>
+        <div class="card">
+          <div class="brand">VISA</div>
+          <div class="info">
+            <span class="n">•••• •••• •••• 4242</span>
+            <span class="e">Expires 08 / 2028</span>
+          </div>
+          <span class="default">Default</span>
+        </div>
+        <div class="actions">
+          <button>Update</button>
+          <button>Remove</button>
+        </div>
+        <div class="stripe-note">
+          <span class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          Payments secured by <b>stripe</b>
+        </div>
+      </div>
+
+      <div class="help">
+        <h2>Need help?</h2>
+        <p>Refunds available within 7 days for unpublished events, or for cancelled races within 30 days.</p>
+        <a>legal@hereday.io <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg></a>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer class="bot">
+  <div class="row">
+    <img src="assets/hereday-logo.png" alt="Hereday" />
+    <p>&copy; 2026 Hereday LLC. All rights reserved.</p>
+    <div class="links"><a>Terms</a><a>Privacy</a><a>Refund</a></div>
+  </div>
+</footer>
+
+</body>
+</html>

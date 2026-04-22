@@ -66,12 +66,15 @@ Deno.serve(async (req) => {
   // profile's stored code so subsequent unlocks still auto-apply.
   const couponId = body.discountCode?.trim() || auth.profile.active_promo_code || null;
 
+  // Append status params with & or ? depending on whether returnUrl
+  // already has a query string (e.g. /editor?id=<id>).
+  const sep = body.returnUrl.includes("?") ? "&" : "?";
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer: customerId,
     line_items: [{ price: PRICE_ID, quantity: 1 }],
-    success_url: `${body.returnUrl}?paid=1&event=${encodeURIComponent(event.id)}`,
-    cancel_url: `${body.returnUrl}?canceled=1&event=${encodeURIComponent(event.id)}`,
+    success_url: `${body.returnUrl}${sep}paid=1&event=${encodeURIComponent(event.id)}`,
+    cancel_url: `${body.returnUrl}${sep}canceled=1&event=${encodeURIComponent(event.id)}`,
     allow_promotion_codes: !couponId, // let users enter a code at checkout if none is pre-applied
     ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
     metadata: {

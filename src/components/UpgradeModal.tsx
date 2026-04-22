@@ -122,14 +122,18 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
                 setLoading(true);
                 logEvent('upgrade_clicked', eventId, { trigger });
                 try {
+                  // Return to wherever the user triggered the upgrade
+                  // from — editor if they hit a paywall mid-draw, ops
+                  // center if they were configuring tracking, dashboard
+                  // if they upgraded from there. Fall back to /dashboard
+                  // only for the landing page (which doesn't rehydrate
+                  // auth state cleanly).
+                  const here = `${window.location.pathname}${window.location.search}`;
+                  const returnPath = here === '/' ? '/dashboard' : here;
                   const { data, error } = await supabase.functions.invoke('create-checkout', {
                     body: {
                       eventId,
-                      // Land on the dashboard after checkout so the session
-                      // rehydrates and the user sees the updated Pro state.
-                      // Sending them to the landing page caused an apparent
-                      // logout because `/` doesn't exercise the auth bootstrap.
-                      returnUrl: `${window.location.origin}/dashboard`,
+                      returnUrl: `${window.location.origin}${returnPath}`,
                       ...(activePromo ? { discountCode: activePromo } : {}),
                     },
                   });

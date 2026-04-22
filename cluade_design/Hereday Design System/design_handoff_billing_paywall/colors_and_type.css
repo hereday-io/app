@@ -1,0 +1,228 @@
+/* ============================================================
+   Hereday — Design Tokens
+   Colors + Type, mirrored from the production app (tailwind.config.ts
+   + src/index.css). Values are expressed as raw CSS for consumers
+   that don't use Tailwind.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ---------- Type ---------- */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-mono:    ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, monospace;
+
+  /* Type scale (from Tailwind text-* on the marketing page) */
+  --text-hero: 3.75rem;      /* 60px — sm:text-6xl hero */
+  --text-hero-sm: 2.25rem;   /* 36px — text-4xl mobile */
+  --text-h1: 2.25rem;        /* 36px */
+  --text-h2: 1.875rem;       /* 30px */
+  --text-h3: 1.5rem;         /* 24px */
+  --text-h4: 1.125rem;       /* 18px */
+  --text-body: 1rem;         /* 16px */
+  --text-sm: 0.875rem;       /* 14px */
+  --text-xs: 0.75rem;        /* 12px */
+  --text-tiny: 0.625rem;     /* 10px — used on eyebrow/meta pills */
+
+  /* Weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Tracking — the app uses "uppercase tracking-widest" on eyebrows. */
+  --tracking-wide: 0.05em;
+  --tracking-widest: 0.1em;
+  --leading-tight: 1.05;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* ---------- Core palette (HSL channels, compose with hsl()) ---------- */
+  --background: 210 20% 98%;
+  --foreground: 215 25% 15%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 215 25% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 25% 15%;
+
+  /* Hereday blue — primary CTA / links / focus ring */
+  --primary: 217 91% 50%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 215 20% 94%;
+  --secondary-foreground: 215 25% 15%;
+  --muted: 215 15% 92%;
+  --muted-foreground: 215 15% 48%;
+
+  /* Teal accent — very rarely used; brand orange carries most accents */
+  --accent: 170 65% 45%;
+  --accent-foreground: 0 0% 100%;
+
+  /* Brand orange — pulled from the logo sun. Decoration, step numbers,
+     the "Built for race organizers" eyebrow pill. NEVER primary CTA. */
+  --brand: 25 95% 58%;
+  --brand-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 60% 42%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  --border: 215 20% 90%;
+  --input: 215 20% 90%;
+  --ring: 217 91% 50%;
+
+  /* ---------- POI marker palette (src/lib/pois.ts) ---------- */
+  --poi-start:        #16a34a;
+  --poi-finish:       #dc2626;
+  --poi-aid-station:  #f97316;
+  --poi-water:        #0ea5e9;
+  --poi-medical:      #ef4444;
+  --poi-sponsor:      #f59e0b;
+  --poi-registration: #8b5cf6;
+  --poi-parking:      #6b7280;
+  --poi-restroom:     #06b6d4;
+  --poi-custom:       #64748b;
+
+  /* ---------- Radii ---------- */
+  --radius: 0.625rem;              /* 10px, shadcn base */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: 1rem;               /* rounded-2xl — hero & feature cards */
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;           /* CTAs + pills, the dominant shape */
+
+  /* ---------- Shadows ---------- */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow:    0 2px 8px 0 rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 10px 30px -8px rgb(0 0 0 / 0.12);
+  --shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.18);
+  /* Tinted glow used on primary CTAs + hero map frame */
+  --shadow-primary-glow: 0 10px 30px -8px hsl(217 91% 50% / 0.25);
+  --shadow-brand-glow:   0 10px 30px -8px hsl(25 95% 58% / 0.25);
+
+  /* ---------- Spacing scale (mirrors Tailwind) ---------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+}
+
+.dark {
+  --background: 220 20% 8%;
+  --foreground: 210 20% 95%;
+  --card: 220 18% 12%;
+  --card-foreground: 210 20% 95%;
+  --popover: 220 18% 12%;
+  --popover-foreground: 210 20% 95%;
+  --primary: 217 91% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 15% 18%;
+  --secondary-foreground: 210 20% 95%;
+  --muted: 220 15% 18%;
+  --muted-foreground: 215 15% 60%;
+  --accent: 170 65% 45%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 220 15% 20%;
+  --input: 220 15% 20%;
+  --ring: 217 91% 55%;
+  --brand: 25 95% 62%;
+  --brand-foreground: 0 0% 100%;
+}
+
+/* ============================================================
+   Semantic element styles — drop this stylesheet in and headings
+   pick up Space Grotesk, body copy picks up DM Sans.
+   ============================================================ */
+
+html {
+  font-family: var(--font-body);
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body { font-family: var(--font-body); }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  color: hsl(var(--foreground));
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+h1 { font-size: var(--text-h1); }
+h2 { font-size: var(--text-h2); }
+h3 { font-size: var(--text-h3); }
+h4 { font-size: var(--text-h4); font-weight: var(--weight-semibold); }
+
+p  { font-size: var(--text-body); line-height: var(--leading-relaxed); color: hsl(var(--foreground)); text-wrap: pretty; }
+small, .text-sm { font-size: var(--text-sm); }
+
+a  { color: hsl(var(--primary)); text-underline-offset: 3px; }
+a:hover { text-decoration: underline; }
+
+code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
+code {
+  background: hsl(var(--muted));
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+}
+kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  font-size: 0.625rem;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
+  color: hsl(var(--muted-foreground));
+}
+
+/* Eyebrow — used above section titles. "FEATURES", "HOW IT WORKS", etc */
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: hsl(var(--primary));
+}
+
+/* Pill — the rounded-full label. "Live", "Pro", "Most popular". */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.5rem;
+  padding: 0 0.625rem;
+  border-radius: var(--radius-full);
+  font-size: 0.625rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+::selection {
+  background: hsl(var(--primary) / 0.2);
+  color: hsl(var(--foreground));
+}
