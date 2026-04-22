@@ -67,14 +67,44 @@ export async function authenticate(req: Request): Promise<
   };
 }
 
-/** Ensure a Stripe customer exists for the authed user, creating one on first touch. */
+/**
+ * Ensure a Stripe customer exists for the authed user. Self-heals if the
+ * stored customer ID is stale — e.g. after a test↔live mode swap, after
+ * a manual deletion in the Stripe Dashboard, or any other drift between
+ * the profiles row and Stripe's records. In that case we silently create
+ * a new customer in the current mode and persist it over the old ID.
+ */
 export async function ensureStripeCustomer(params: {
   userId: string;
   email: string | null;
   existingCustomerId: string | null;
 }): Promise<string> {
-  if (params.existingCustomerId) return params.existingCustomerId;
   const stripe = getStripe();
+
+  if (params.existingCustomerId) {
+    try {
+      // retrieve() throws with code "resource_missing" if the customer
+      // doesn't exist in the current mode. Stripe also marks deleted
+      // customers with a `deleted: true` flag rather than 404'ing, so
+      // handle both cases.
+      const existing = await stripe.customers.retrieve(params.existingCustomerId);
+      if (!(existing as { deleted?: boolean }).deleted) {
+        return params.existingCustomerId;
+      }
+    } catch (err) {
+      const code = (err as { code?: string; statusCode?: number }).code;
+      const status = (err as { code?: string; statusCode?: number }).statusCode;
+      if (code !== "resource_missing" && status !== 404) {
+        // Unexpected error — surface it rather than silently creating
+        // a duplicate customer.
+        throw err;
+      }
+      console.warn(
+        `[billing] stored stripe_customer_id ${params.existingCustomerId} not found in current mode — creating a fresh one`,
+      );
+    }
+  }
+
   const customer = await stripe.customers.create({
     email: params.email ?? undefined,
     metadata: { hereday_user_id: params.userId },
