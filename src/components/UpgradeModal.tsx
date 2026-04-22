@@ -11,7 +11,7 @@ import ProWaitlistCapture from '@/components/ProWaitlistCapture';
 // Flip to true once LLC + bank + Stripe are fully configured. Exported
 // so other Pro-CTA surfaces (Ops Center lock, paywall hits on editor)
 // can render waitlist capture instead of a dead checkout button.
-export const PAYMENTS_LIVE = false;
+export const PAYMENTS_LIVE = true;
 
 interface UpgradeModalProps {
   open: boolean;
