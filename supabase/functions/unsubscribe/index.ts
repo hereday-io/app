@@ -69,22 +69,48 @@ Deno.serve(async (req) => {
   }
 
   if (payload.a === "s") {
-    // Subscriber unsubscribe. Idempotent — setting unsubscribed_at again
-    // is harmless but we only update if null to preserve the original
-    // timestamp.
+    // Subscriber unsubscribe. Look up first so we can detect a missing
+    // row and preserve the original timestamp if already unsubscribed.
     const subId = Number(payload.i);
     if (!Number.isFinite(subId)) return json({ error: "Malformed token" }, 400);
 
-    const { error: updateErr } = await service
+    const { data: current, error: selectErr } = await service
       .from("event_subscribers")
-      .update({ unsubscribed_at: new Date().toISOString() })
+      .select("id, unsubscribed_at")
       .eq("id", subId)
       .eq("event_id", payload.e)
-      .is("unsubscribed_at", null);
-    if (updateErr) {
-      console.error("[unsubscribe] subscriber update failed", updateErr);
+      .maybeSingle();
+
+    if (selectErr) {
+      console.error("[unsubscribe] subscriber lookup failed", { subId, eventId: payload.e, selectErr });
       return json({ error: "Unsubscribe failed" }, 500);
     }
+    if (!current) {
+      console.warn("[unsubscribe] subscriber not found", { subId, eventId: payload.e });
+      return json({ error: "Subscriber not found" }, 404);
+    }
+
+    if (!current.unsubscribed_at) {
+      const { data: updated, error: updateErr } = await service
+        .from("event_subscribers")
+        .update({ unsubscribed_at: new Date().toISOString() })
+        .eq("id", subId)
+        .eq("event_id", payload.e)
+        .select("id");
+
+      if (updateErr) {
+        console.error("[unsubscribe] subscriber update failed", updateErr);
+        return json({ error: "Unsubscribe failed" }, 500);
+      }
+      if (!updated || updated.length === 0) {
+        console.error("[unsubscribe] subscriber update affected 0 rows", { subId, eventId: payload.e });
+        return json({ error: "Unsubscribe failed" }, 500);
+      }
+      console.log("[unsubscribe] subscriber unsubscribed", { subId, eventId: payload.e });
+    } else {
+      console.log("[unsubscribe] subscriber already unsubscribed", { subId, eventId: payload.e });
+    }
+
     return json({ status: "unsubscribed", audience: "subscriber", eventName: eventRow.name });
   }
 
