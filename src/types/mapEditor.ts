@@ -71,11 +71,12 @@ export interface BasemapOption {
  * `poi_status_history.updated_by_name` rows — not stored.
  */
 export interface VolunteerEntry {
-  id: string;                // crypto.randomUUID() at add time
-  name: string;              // display name; matches volunteer self-typed name
-  email?: string;            // optional — organizer reference only
-  assignedPoiIds: string[];  // markers this volunteer covers
-  createdAt: string;         // ISO
+  id: string;                   // crypto.randomUUID() at add time
+  name: string;                 // display name; matches volunteer self-typed name
+  email?: string;               // optional — organizer can email if present
+  assignedPoiIds: string[];     // markers this volunteer covers
+  createdAt: string;            // ISO
+  emailUnsubscribedAt?: string; // ISO — set when the volunteer clicks the unsubscribe link in a Hereday email
 }
 
 /**

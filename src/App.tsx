@@ -21,6 +21,7 @@ import Refund from "./pages/Refund.tsx";
 import Billing from "./pages/Billing.tsx";
 import GettingStarted from "./pages/GettingStarted.tsx";
 import Faq from "./pages/Faq.tsx";
+import Unsubscribe from "./pages/Unsubscribe.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/billing" element={<Billing />} />
             <Route path="/getting-started" element={<GettingStarted />} />
             <Route path="/faq" element={<Faq />} />
+            <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

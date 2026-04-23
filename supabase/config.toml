@@ -5,3 +5,8 @@ project_id = "vbhpvboccvufdkujgnmd"
 # signature check inside the function is what prevents forgery.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Unsubscribe — public endpoint reachable from email clicks without a
+# Supabase session. The HMAC-signed token IS the auth; no JWT required.
+[functions.unsubscribe]
+verify_jwt = false

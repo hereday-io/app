@@ -56,6 +56,50 @@ export type Database = {
           },
         ]
       }
+      email_sends: {
+        Row: {
+          audiences: string[]
+          body_preview: string
+          event_id: string
+          id: number
+          recipient_count: number
+          resend_batch_id: string | null
+          sent_at: string
+          sent_by_user_id: string
+          subject: string
+        }
+        Insert: {
+          audiences?: string[]
+          body_preview: string
+          event_id: string
+          id?: number
+          recipient_count?: number
+          resend_batch_id?: string | null
+          sent_at?: string
+          sent_by_user_id: string
+          subject: string
+        }
+        Update: {
+          audiences?: string[]
+          body_preview?: string
+          event_id?: string
+          id?: number
+          recipient_count?: number
+          resend_batch_id?: string | null
+          sent_at?: string
+          sent_by_user_id?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_sends_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       events: {
         Row: {
           branding_style: string

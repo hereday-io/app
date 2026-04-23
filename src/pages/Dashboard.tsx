@@ -12,8 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Eye, Users, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, Route, MapPinned, ListChecks, CreditCard } from 'lucide-react';
+import { Eye, Users, Plus, LogOut, FileText, MoreVertical, Pencil, Trash2, Globe, EyeOff, Link, Copy, ExternalLink, Calendar, BarChart3, Search, X, Route, MapPinned, ListChecks, CreditCard, MailPlus } from 'lucide-react';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
+import SendUpdateDialog from '@/components/SendUpdateDialog';
 import { useToast } from '@/hooks/use-toast';
 import CreateEventDialog from '@/components/CreateEventDialog';
 
@@ -54,6 +55,7 @@ const Dashboard = () => {
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null);
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
   const [analyticsEvent, setAnalyticsEvent] = useState<Event | null>(null);
+  const [sendUpdateEvent, setSendUpdateEvent] = useState<Event | null>(null);
   const [isPro, setIsPro] = useState(false);
   // Pulled from profiles.display_name so the top-right avatar + welcome
   // header stop showing the email slug. Falls back to user metadata (for
@@ -472,6 +474,25 @@ const Dashboard = () => {
                       </Button>
                     )}
 
+                    {/* Send update — published + Pro events only. The paywall
+                        gate is authoritative server-side; this just hides the
+                        button for events that shouldn't surface it. */}
+                    {isPublished && !!event.paid_at && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 hidden sm:inline-flex items-center gap-1.5 border-primary/40 text-primary hover:bg-primary/5 hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          menuActionRef.current = true;
+                          setSendUpdateEvent(event);
+                        }}
+                      >
+                        <MailPlus className="h-3.5 w-3.5" />
+                        Send update
+                      </Button>
+                    )}
+
                     {/* View live — published only */}
                     {isPublished && event.slug && (
                       <a
@@ -690,6 +711,15 @@ const Dashboard = () => {
         eventName={analyticsEvent?.name ?? ''}
         isPro={isPro}
       />
+
+      {sendUpdateEvent && (
+        <SendUpdateDialog
+          open={!!sendUpdateEvent}
+          onOpenChange={(open) => !open && setSendUpdateEvent(null)}
+          eventId={sendUpdateEvent.id}
+          eventName={sendUpdateEvent.name}
+        />
+      )}
     </div>
   );
 };
