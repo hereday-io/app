@@ -21,6 +21,8 @@ import { useToast } from '@/hooks/use-toast';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 import UpgradeModal from '@/components/UpgradeModal';
 import StripeWordmark from '@/components/StripeWordmark';
+import { EventChip } from '@/components/ui/event-chip';
+import { InfoCallout } from '@/components/ui/info-callout';
 import { logEvent } from '@/lib/analytics';
 
 // ────────────────────────────────────────────────────────────────────
@@ -411,38 +413,22 @@ const Billing = () => {
           events, download receipts, and update the card on file for future unlocks.
         </p>
 
-        {/* Info callout */}
-        <div
-          className="flex items-start gap-3 rounded-xl px-4 py-3.5 mb-9"
-          style={{
-            background: 'hsl(217 91% 50% / 0.06)',
-            border: '1px solid hsl(217 91% 50% / 0.18)',
-          }}
+        <InfoCallout
+          className="mb-9"
+          icon={<Info className="h-4 w-4" />}
+          title="You'll only see a charge here when you unlock an event."
         >
-          <div
-            className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0"
-            style={{ border: '1px solid hsl(217 91% 50% / 0.22)', color: 'hsl(217 91% 45%)' }}
+          Free events stay free forever. Upgrades unlock Pro features on a specific event — they
+          don't renew and don't transfer. Got a promo code? Apply it on the right. See our{' '}
+          <Link
+            to="/refund"
+            className="no-underline border-b"
+            style={{ color: 'hsl(217 91% 45%)', borderColor: 'hsl(217 91% 50% / 0.3)' }}
           >
-            <Info className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="font-display font-semibold text-[14px] text-foreground mb-0.5">
-              You'll only see a charge here when you unlock an event.
-            </div>
-            <p className="text-[13px] m-0 leading-[1.55]" style={{ color: 'hsl(215 20% 35%)' }}>
-              Free events stay free forever. Upgrades unlock Pro features on a specific event — they
-              don't renew and don't transfer. Got a promo code? Apply it on the right. See our{' '}
-              <Link
-                to="/refund"
-                className="no-underline border-b"
-                style={{ color: 'hsl(217 91% 45%)', borderColor: 'hsl(217 91% 50% / 0.3)' }}
-              >
-                refund policy
-              </Link>{' '}
-              for details on how refunds work.
-            </p>
-          </div>
-        </div>
+            refund policy
+          </Link>{' '}
+          for details on how refunds work.
+        </InfoCallout>
 
         {/* ── Two-column grid ──────────────────────────────────── */}
         <div className="grid gap-8 items-start grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -826,8 +812,8 @@ const EventRow = ({
       <div className="pl-5 pr-5 py-4 flex flex-col gap-1 min-w-0 flex-1 sm:pl-5">
         <h3 className="font-display font-semibold text-[15.5px] tracking-tight m-0 text-foreground flex items-center gap-2 flex-wrap">
           {event.name}
-          {isLive ? <Chip variant="live" /> : <Chip variant="draft" />}
-          {isPro ? <Chip variant="pro" /> : <Chip variant="free" />}
+          {isLive ? <EventChip kind="live">Live</EventChip> : <EventChip kind="draft">Draft</EventChip>}
+          {isPro ? <EventChip kind="pro">Pro</EventChip> : <EventChip kind="free">Free plan</EventChip>}
         </h3>
         <div className="text-[12px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
           <span>
@@ -888,52 +874,6 @@ const EventRow = ({
         )}
       </div>
     </div>
-  );
-};
-
-const Chip = ({ variant }: { variant: 'live' | 'draft' | 'pro' | 'free' }) => {
-  if (variant === 'live') {
-    return (
-      <span
-        className="font-display font-semibold text-[9.5px] uppercase tracking-wider px-2 py-0.5 rounded-full inline-flex items-center gap-1"
-        style={{ background: 'hsl(152 60% 42%)', color: 'white' }}
-      >
-        <span className="w-1 h-1 rounded-full bg-white" />
-        Live
-      </span>
-    );
-  }
-  if (variant === 'draft') {
-    return (
-      <span
-        className="font-display font-semibold text-[9.5px] uppercase tracking-wider px-2 py-0.5 rounded-full"
-        style={{ background: 'hsl(210 15% 93%)', color: 'hsl(215 20% 45%)' }}
-      >
-        Draft
-      </span>
-    );
-  }
-  if (variant === 'pro') {
-    return (
-      <span
-        className="font-display font-semibold text-[9.5px] uppercase tracking-wider px-2 py-0.5 rounded-full"
-        style={{
-          background: 'hsl(217 91% 50% / 0.1)',
-          color: 'hsl(217 91% 40%)',
-          border: '1px solid hsl(217 91% 50% / 0.2)',
-        }}
-      >
-        Pro
-      </span>
-    );
-  }
-  return (
-    <span
-      className="font-display font-semibold text-[9.5px] uppercase tracking-wider px-2 py-0.5 rounded-full"
-      style={{ background: 'hsl(45 93% 94%)', color: 'hsl(32 65% 35%)' }}
-    >
-      Free plan
-    </span>
   );
 };
 
