@@ -44,17 +44,30 @@ const EventPublic = () => {
   const [retryTick, setRetryTick] = useState(0);
   // Map-first: land straight on the map. Remember the last role chosen so
   // returning visitors open the same view they used last time.
+  // Wrap localStorage reads in try/catch — Safari private mode / quota-
+  // exceeded scenarios throw on getItem and would crash the public page
+  // before it ever paints.
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === 'undefined') return 'runner';
-    const saved = window.localStorage.getItem(VIEW_MODE_KEY);
-    return saved === 'spectator' ? 'spectator' : 'runner';
+    try {
+      const saved = window.localStorage.getItem(VIEW_MODE_KEY);
+      return saved === 'spectator' ? 'spectator' : 'runner';
+    } catch {
+      return 'runner';
+    }
   });
   // First-visit role picker: show the floating sheet over the map until the
   // user explicitly chooses (or dismisses, which implicitly picks spectator).
   // Returning visitors — anyone with a stored role — skip the sheet entirely.
   const [hasChosenRole, setHasChosenRole] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
-    return window.localStorage.getItem(VIEW_MODE_KEY) !== null;
+    try {
+      return window.localStorage.getItem(VIEW_MODE_KEY) !== null;
+    } catch {
+      // If localStorage is unreadable, surface the picker so the visitor
+      // explicitly chooses — better than locking them into a default.
+      return false;
+    }
   });
 
   const switchView = (mode: ViewMode) => {
@@ -79,6 +92,12 @@ const EventPublic = () => {
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    // Snapshot whether the app already had `dark` set (e.g., user toggled
+    // it manually on a different page) so cleanup restores the prior
+    // state instead of unconditionally removing it. Without this snapshot
+    // a navigation away from a public page caused a visible light-mode
+    // flicker on dark-themed apps.
+    const hadDark = document.documentElement.classList.contains('dark');
     const apply = (dark: boolean) => {
       document.documentElement.classList.toggle('dark', dark);
     };
@@ -87,8 +106,7 @@ const EventPublic = () => {
     mq.addEventListener?.('change', onChange);
     return () => {
       mq.removeEventListener?.('change', onChange);
-      // Restore the app default when navigating away from a public page.
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.toggle('dark', hadDark);
     };
   }, []);
 

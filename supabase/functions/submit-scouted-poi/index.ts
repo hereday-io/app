@@ -195,21 +195,19 @@ Deno.serve(async (req) => {
     .eq("token", token)
     .gte("created_at", oneHourAgo);
 
+  // H-2 fix (2026-05-01): fail closed when the rate-limit table query
+  // errors. The previous fallback path counted entries in scouted_pois
+  // by tokenPrefix, but a fresh token has no entries to count — the
+  // first 50 submissions from a brand-new token bypassed the limit on
+  // any DB blip. Better to refuse the write than let a flood through.
   if (countErr) {
-    console.error("[submit-scouted-poi] rate limit count failed, falling back", countErr);
-    const legacy = current.filter(
-      (p) =>
-        p?.scouted_via_token === tokenPrefix &&
-        typeof p?.scouted_at === "string" &&
-        Date.parse(p.scouted_at) > Date.parse(oneHourAgo),
-    ).length;
-    if (legacy >= RATE_LIMIT_PER_HOUR) {
-      return json(
-        { error: `Rate limit exceeded: max ${RATE_LIMIT_PER_HOUR} POIs per hour per scout link` },
-        429,
-      );
-    }
-  } else if ((recentFromThisToken ?? 0) >= RATE_LIMIT_PER_HOUR) {
+    console.error("[submit-scouted-poi] rate limit query failed, refusing", countErr);
+    return json(
+      { error: "Service temporarily unavailable. Please retry in a moment." },
+      503,
+    );
+  }
+  if ((recentFromThisToken ?? 0) >= RATE_LIMIT_PER_HOUR) {
     return json(
       { error: `Rate limit exceeded: max ${RATE_LIMIT_PER_HOUR} POIs per hour per scout link` },
       429,

@@ -24,7 +24,7 @@ import { corsHeaders, getServiceClient, json } from "../_shared/billing.ts";
 import { verifyUnsubscribeToken } from "../_shared/unsubscribeToken.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
 
   // Extract token from path `/unsubscribe/<token>`, query `?token=`, or body
   const url = new URL(req.url);

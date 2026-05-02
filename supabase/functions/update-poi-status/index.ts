@@ -88,15 +88,24 @@ Deno.serve(async (req) => {
     ? body.volunteer_name.trim().slice(0, MAX_NAME_LEN)
     : "";
 
+  // H-5 fix (2026-05-01): a "moved" state with no valid coordinates
+  // corrupts the public map (a moved-to-where? indicator). Reject the
+  // submission instead of silently writing NULLs.
   let movedLng: number | null = null;
   let movedLat: number | null = null;
-  if (body.state === "moved" && body.moved_to) {
-    const { lng, lat } = body.moved_to;
-    if (typeof lng === "number" && typeof lat === "number"
-        && lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
-      movedLng = lng;
-      movedLat = lat;
+  if (body.state === "moved") {
+    const lng = body.moved_to?.lng;
+    const lat = body.moved_to?.lat;
+    if (typeof lng !== "number" || typeof lat !== "number"
+        || !Number.isFinite(lng) || !Number.isFinite(lat)
+        || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+      return json(
+        { error: "moved state requires valid moved_to coordinates" },
+        400,
+      );
     }
+    movedLng = lng;
+    movedLat = lat;
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);

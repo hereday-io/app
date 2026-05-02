@@ -63,6 +63,29 @@ Deno.serve(async (req) => {
     return new Response("Invalid signature", { status: 400, headers: corsHeaders });
   }
 
+  // H-1 (2026-05-01): replay guard. The success-path COALESCE keeps
+  // checkout.session.completed idempotent, but charge.refunded has no
+  // similar guard. A duplicate refund delivery could cause a second
+  // refund_at write. Short-circuit duplicates via a processed-events
+  // ledger before dispatching to the handler.
+  const replayService = getServiceClient();
+  const { error: replayErr } = await replayService
+    .from("stripe_webhook_events")
+    .insert({ event_id: event.id, event_type: event.type });
+  if (replayErr) {
+    // Postgres unique-violation → already processed. Acknowledge and
+    // skip. Any other error is surfaced as a 500 so Stripe retries.
+    if ((replayErr as { code?: string }).code === "23505") {
+      console.log(`[stripe-webhook] replay ${event.id} (${event.type}) skipped`);
+      return new Response(JSON.stringify({ received: true, replay: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    console.error("[stripe-webhook] replay-ledger insert failed", replayErr);
+    return new Response("Ledger error", { status: 500, headers: corsHeaders });
+  }
+
   try {
     switch (event.type) {
       case "checkout.session.completed":

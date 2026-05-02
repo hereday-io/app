@@ -202,7 +202,7 @@ const Signup = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                 />
                 {password.length > 0 ? (
                   <div className="space-y-1 pt-1">

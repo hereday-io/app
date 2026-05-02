@@ -85,6 +85,9 @@ const planFaqs: FaqItem[] = [
           <li><strong>Unlimited points of interest</strong></li>
           <li><strong>Custom branding</strong> — your logo and banner on the public page</li>
           <li><strong>Live GPS tracking</strong> — spectators follow runners in real time on the map</li>
+          <li><strong>Live volunteer status reporting</strong> — water station Open/Low/Closed updates show as colored dots on the public map</li>
+          <li><strong>Event Ops Center</strong> — live volunteer activity, scout review, and analytics dashboard for race day</li>
+          <li><strong>All branded sponsors visible publicly</strong> — Free events show one sponsor; Pro shows your full sponsor list with logos and CTAs</li>
           <li><strong>No Hereday footer</strong> on the public page</li>
           <li><strong>Clean checklist PDF</strong> without the Hereday footer</li>
           <li>Priority support</li>
@@ -110,6 +113,31 @@ const planFaqs: FaqItem[] = [
         You'll only hit the upgrade prompt if you exceed {PAYWALL_LIMITS.routes} routes or{' '}
         {PAYWALL_LIMITS.pois} markers, or when you try to add custom branding. Build first,
         decide later.
+      </p>
+    ),
+  },
+  {
+    q: 'What if my event is cancelled?',
+    a: (
+      <p>
+        Full refund within 7 days if you haven't published yet. If your event has to be cancelled
+        after publishing — weather, venue loss, force majeure — email{' '}
+        <a href="mailto:hello@hereday.io" className="text-primary hover:underline">
+          hello@hereday.io
+        </a>{' '}
+        and we'll review it case by case. Pro is per-event, so a cancellation never affects
+        your other events on the platform.
+      </p>
+    ),
+  },
+  {
+    q: 'I run multiple races a year. Do I pay $49 every time?',
+    a: (
+      <p>
+        Yes — Pro is one-time per event. Three races a year is three separate $49 upgrades when
+        you publish each one. We deliberately picked per-event pricing over a subscription so
+        you never pay during your off-season. Annual / team plans are on the roadmap once we
+        see organizations regularly running multiple events per season.
       </p>
     ),
   },

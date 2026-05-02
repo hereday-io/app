@@ -15,7 +15,7 @@ import { authenticate, corsHeaders, getServiceClient, getStripe, json } from "..
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
@@ -44,24 +44,18 @@ Deno.serve(async (req) => {
   let percentOff: number | null = null;
   let expiresAt: string | null = null;
 
+  // H-3 fix (2026-05-01): only accept promotion codes that resolve via
+  // promotionCodes.list. The previous coupon-ID fallback let a user
+  // submit any internal coupon ID (e.g., FRIENDS_FAMILY_100) and have
+  // it applied to their checkouts at the discounted rate. Customer-
+  // facing codes should ONLY come through the promotion-code surface;
+  // operator coupons are not supposed to be discoverable.
   const pcList = await stripe.promotionCodes.list({ code: codeInput, active: true, limit: 1 });
   const pc = pcList.data[0];
   if (pc && pc.coupon && pc.coupon.valid) {
     couponId = pc.coupon.id;
     percentOff = pc.coupon.percent_off ?? null;
     expiresAt = pc.expires_at ? new Date(pc.expires_at * 1000).toISOString() : null;
-  } else {
-    // 2) Fall back to coupon id (rare — operators only)
-    try {
-      const coupon = await stripe.coupons.retrieve(codeInput);
-      if (coupon.valid) {
-        couponId = coupon.id;
-        percentOff = coupon.percent_off ?? null;
-        expiresAt = coupon.redeem_by ? new Date(coupon.redeem_by * 1000).toISOString() : null;
-      }
-    } catch {
-      // not found — fall through to invalid
-    }
   }
 
   if (!couponId) {

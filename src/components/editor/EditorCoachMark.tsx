@@ -61,7 +61,7 @@ const EditorCoachMark = ({ userId, hasRouteWaypoints, hasFinishedRoute, isPublis
             <MousePointerClick className="h-3.5 w-3.5" />
           </div>
           <p className="text-sm text-foreground font-medium whitespace-nowrap">
-            Click anywhere on the map to start your route
+            Click on the map to place your first waypoint
           </p>
           <button
             onClick={() => {

@@ -26,6 +26,7 @@ export function useTracking(eventId: string) {
   });
 
   const sessionIdRef = useRef<string | null>(null);
+  const sessionSecretRef = useRef<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const dbIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -35,19 +36,25 @@ export function useTracking(eventId: string) {
 
   const storageKey = `hereday:tracking:${eventId}`;
 
-  // Persist last-known position to the DB (called every ~30s)
+  // Persist last-known position to the DB via the update-tracking-ping
+  // edge function. The function validates session_secret server-side
+  // before writing; anon clients no longer have direct UPDATE rights on
+  // tracking_sessions (see migration 20260501120000, fix C-3).
   const persistToDb = useCallback(async () => {
     const pos = latestPositionRef.current;
     const sid = sessionIdRef.current;
-    if (!pos || !sid) return;
+    const secret = sessionSecretRef.current;
+    if (!pos || !sid || !secret) return;
 
-    await supabase.from('tracking_sessions')
-      .update({
-        last_lng: pos.lng,
-        last_lat: pos.lat,
-        last_ping_at: new Date().toISOString(),
-      })
-      .eq('id', sid);
+    const { error } = await supabase.functions.invoke('update-tracking-ping', {
+      body: {
+        sessionId: sid,
+        sessionSecret: secret,
+        lng: pos.lng,
+        lat: pos.lat,
+      },
+    });
+    if (error) console.error('[useTracking] ping failed', error);
   }, []);
 
   // Send position via broadcast channel (called by watchPosition)
@@ -86,30 +93,42 @@ export function useTracking(eventId: string) {
 
     // Check for an existing session in localStorage (resume after tab close)
     let sessionId: string | null = null;
+    let sessionSecret: string | null = null;
     try {
       const stored = window.localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Verify the session still exists and is active
+        // Verify the session still exists and is active. The secret
+        // column is not selectable by anon (column-level GRANT) — we
+        // restore it from localStorage on resume, where the original
+        // create call wrote it.
         const { data } = await supabase.from('tracking_sessions')
           .select('id, is_active')
           .eq('id', parsed.sessionId)
           .single();
-        if (data?.is_active) {
+        if (data?.is_active && typeof parsed.sessionSecret === 'string') {
           sessionId = parsed.sessionId;
+          sessionSecret = parsed.sessionSecret;
           nameRef.current = parsed.name || runnerName;
           colorRef.current = parsed.color || color;
         }
       }
     } catch { /* no stored session, create a new one */ }
 
-    // Create a new session if we don't have one to resume
+    // Create a new session if we don't have one to resume.
+    // Generate the session_secret client-side so it never traverses an
+    // INSERT response (server doesn't echo it back). Persist to
+    // localStorage immediately so a refresh mid-session can resume.
     if (!sessionId) {
+      const generatedSecret = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+        ? crypto.randomUUID().replace(/-/g, '')
+        : Math.random().toString(36).slice(2) + Date.now().toString(36);
       const { data, error: insertError } = await supabase.from('tracking_sessions')
         .insert({
           event_id: eventId,
           runner_name: runnerName,
           color,
+          session_secret: generatedSecret,
         })
         .select('id')
         .single();
@@ -119,9 +138,11 @@ export function useTracking(eventId: string) {
         return;
       }
       sessionId = data.id as string;
+      sessionSecret = generatedSecret;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify({
           sessionId,
+          sessionSecret: generatedSecret,
           name: runnerName,
           color,
         }));
@@ -129,6 +150,7 @@ export function useTracking(eventId: string) {
     }
 
     sessionIdRef.current = sessionId;
+    sessionSecretRef.current = sessionSecret;
 
     // Set up the broadcast channel
     const channel = supabase.channel(`tracking:${eventId}`);
@@ -172,17 +194,20 @@ export function useTracking(eventId: string) {
       dbIntervalRef.current = null;
     }
 
-    // Final DB persist + mark inactive
+    // Final DB persist + mark inactive — also via the edge function so
+    // the secret check applies (see persistToDb above).
     const sid = sessionIdRef.current;
-    if (sid) {
+    const secret = sessionSecretRef.current;
+    if (sid && secret) {
       const pos = latestPositionRef.current;
-      await supabase.from('tracking_sessions')
-        .update({
-          is_active: false,
-          ...(pos ? { last_lng: pos.lng, last_lat: pos.lat } : {}),
-          last_ping_at: new Date().toISOString(),
-        })
-        .eq('id', sid);
+      await supabase.functions.invoke('update-tracking-ping', {
+        body: {
+          sessionId: sid,
+          sessionSecret: secret,
+          ...(pos ? { lng: pos.lng, lat: pos.lat } : {}),
+          isActive: false,
+        },
+      });
     }
 
     // Unsubscribe from channel
@@ -195,6 +220,7 @@ export function useTracking(eventId: string) {
     try { window.localStorage.removeItem(storageKey); } catch { /* ignore */ }
 
     sessionIdRef.current = null;
+    sessionSecretRef.current = null;
     latestPositionRef.current = null;
     setState({ isTracking: false, error: null, position: null });
   }, [storageKey]);

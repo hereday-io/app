@@ -46,7 +46,14 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
     if (!name.trim()) return;
     setSaving(true);
 
-    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.random().toString(36).slice(2, 7);
+    // crypto.randomUUID() gives 122 bits of entropy → effectively zero collision
+    // risk vs. the prior Math.random()-derived 5-char suffix (~26 bits) which
+    // could collide on near-simultaneous creates and surface a confusing
+    // unique-violation toast. Slice to 8 hex chars for a friendly URL.
+    const slugSuffix = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + slugSuffix;
 
     const { data, error } = await supabase.from('events').insert({
       user_id: userId,

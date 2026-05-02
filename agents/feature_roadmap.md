@@ -57,17 +57,17 @@ events per season; that's a real signal, not a guess.
 - [x] **Billing schema migration.** Shipped — `events.paid_at`,
   `events.stripe_session_id`, `events.stripe_payment_id` all live.
   `public_events` view reads `paid_at IS NOT NULL` as canonical.
-- [x] **Stripe integration — code complete.** All 9 edge functions
+- [x] **Stripe integration — LIVE (2026-05-01).** All 9 edge functions
   deployed (`create-checkout`, `list-charges`, `get-receipt`,
   `get-payment-method`, `open-billing-portal`,
   `detach-payment-method`, `apply-promo`, `remove-promo`,
   `stripe-webhook`). Billing page at `/billing` is built. Promo
-  code flow works. **Still blocked on the business bank account —
-  `PAYMENTS_LIVE = false` in UpgradeModal, and every paid CTA now
-  captures email to `pro_waitlist` instead of calling dead Stripe.**
-  The day the bank clears: set `STRIPE_SECRET_KEY` +
-  `STRIPE_PRICE_ID` + `STRIPE_WEBHOOK_SECRET` in Supabase, flip
-  `PAYMENTS_LIVE = true`, redeploy frontend. Email the waitlist.
+  code flow works. Bank cleared, secrets set in Supabase env
+  (`STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`),
+  `PAYMENTS_LIVE = true` in UpgradeModal. Real $49 charges work
+  end-to-end. The `pro_waitlist` capture path is now dormant
+  fallback only — keep it wired for emergencies but no new captures
+  expected. Marketing outreach unblocked.
 - [x] **Decide free-tier limits.** Set to 3 routes / 30 POIs. Sized so a
   typical small race (5K/10K/half trio, single aid-station set) fits
   entirely inside free. Marathon weekends and larger events hit Pro as

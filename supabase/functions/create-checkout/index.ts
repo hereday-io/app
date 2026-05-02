@@ -17,7 +17,7 @@ const PRICE_ID = Deno.env.get("STRIPE_PRICE_ID"); // $49 one-time price
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);

@@ -147,7 +147,12 @@ signal to revisit; until then, adding plans is a distraction.
 - Unlimited routes
 - Unlimited POIs
 - Logo + branded public page (corner / banner / both)
-- Hidden Hereday footer
+- Hidden Hereday footer (public page + checklist PDF)
+- Live GPS tracking for runners
+- Live volunteer status reporting (Open/Low/Closed dots on public map)
+- Event Ops Center access (live ops dashboard at `/dashboard/events/:id`)
+- All branded sponsors visible publicly (Free events show 1; Pro shows all)
+- Priority support
 - Priority for future premium features as they ship
 
 ### Future Revenue Opportunities
