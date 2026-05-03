@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Route,
@@ -12,6 +13,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
+import { useAuth } from '@/hooks/useAuth';
 
 // Hero map is a pre-baked PNG in /public so the landing page has zero
 // runtime dependency on the Mapbox Static Images API — no token
@@ -177,6 +179,19 @@ const faqs = [
 ];
 
 const Index = () => {
+  // The marketing landing is for anonymous visitors. If a logged-in
+  // user lands here — typically by hitting browser Back from another
+  // public page like /getting-started — silently route them to their
+  // dashboard so they don't see the unauthenticated nav and assume
+  // their session was lost.
+  const navigate = useNavigate();
+  const { session, loading } = useAuth();
+  useEffect(() => {
+    if (!loading && session) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [loading, session, navigate]);
+
   return (
     <div
       className="editorial-theme min-h-screen flex flex-col"
