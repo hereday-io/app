@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -168,4 +168,112 @@
   50% {
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.45), 0 0 0 8px rgba(245, 158, 11, 0);
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Editorial theme — landing page only
+   Scoped under .editorial-theme so the global app keeps Space Grotesk +
+   the existing HSL token system. The landing page opts in by wrapping
+   its root in <div className="editorial-theme">.
+   ──────────────────────────────────────────────────────────────────── */
+.editorial-theme {
+  --ed-primary: #2563EB;
+  --ed-primary-700: #1D4ED8;
+  --ed-primary-50: #EFF6FF;
+  --ed-brand: #F97316;
+  --ed-brand-700: #C2410C;
+  --ed-brand-50: #FFF7ED;
+  --ed-ink: #0B1220;
+  --ed-ink-2: #1F2937;
+  --ed-muted: #6B7280;
+  --ed-muted-2: #9CA3AF;
+  --ed-line: #E5E7EB;
+  --ed-line-2: #F1F3F6;
+  --ed-bg: #FAFAF7;
+  --ed-card: #FFFFFF;
+  --ed-success: #10B981;
+  --ed-shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.05);
+  --ed-shadow-md: 0 8px 24px rgba(17, 24, 39, 0.06), 0 2px 6px rgba(17, 24, 39, 0.04);
+  --ed-shadow-lg: 0 24px 64px rgba(17, 24, 39, 0.12), 0 8px 16px rgba(17, 24, 39, 0.05);
+  --ed-shadow-xl: 0 48px 120px rgba(37, 99, 235, 0.16), 0 16px 32px rgba(17, 24, 39, 0.08);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hero h1 uses Fraunces optical sizing for the large display */
+.editorial-theme .ed-hero-h1 {
+  font-variation-settings: 'opsz' 144;
+}
+
+/* Pulse animation on hero badge dot */
+@keyframes ed-pulse {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.editorial-theme .ed-pulse-ring {
+  animation: ed-pulse 1.6s infinite;
+}
+
+/* Hero glow halo behind the static map frame */
+.editorial-theme .ed-hero-glow::before {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--ed-primary) 14%, transparent), transparent 65%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+/* Hero topographic SVG path stroke */
+.editorial-theme .ed-topo path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ed-primary) 14%, transparent);
+  stroke-width: 1;
+}
+
+/* Final CTA decorative gradients */
+.editorial-theme .ed-final-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--ed-primary) 40%, transparent), transparent 50%),
+    radial-gradient(ellipse at 80% 100%, color-mix(in srgb, var(--ed-brand) 30%, transparent), transparent 55%);
+}
+
+/* FAQ — hide native marker, rotate plus icon when open */
+.editorial-theme .ed-faq-item summary { list-style: none; }
+.editorial-theme .ed-faq-item summary::-webkit-details-marker { display: none; }
+.editorial-theme .ed-faq-item .ed-faq-plus {
+  background: var(--ed-line-2);
+  color: var(--ed-muted);
+  transition: transform 0.2s, background 0.2s, color 0.2s;
+}
+.editorial-theme .ed-faq-item[open] .ed-faq-plus {
+  background: var(--ed-primary);
+  color: #fff;
+  transform: rotate(180deg);
+}
+.editorial-theme .ed-faq-item[open] {
+  border-color: color-mix(in srgb, var(--ed-primary) 30%, var(--ed-line));
+  background: var(--ed-card);
+}
+
+/* Feature card hover — primary tint border */
+.editorial-theme .ed-feature:hover {
+  border-color: color-mix(in srgb, var(--ed-primary) 35%, var(--ed-line));
+}
+
+/* Primary button shadow + hover lift */
+.editorial-theme .ed-btn-primary {
+  box-shadow:
+    0 8px 20px -6px color-mix(in srgb, var(--ed-primary) 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+}
+.editorial-theme .ed-btn-primary:hover {
+  background: var(--ed-primary-700);
+  transform: translateY(-1px);
 }
