@@ -33,12 +33,11 @@ const corsHeaders = {
 };
 
 // The public-facing origin used to build absolute URLs in the sitemap.
-// Overridable via env so a custom domain can be pointed at this function
-// without a code change. Defaults to the canonical hereday.io marketing
-// host; override with PUBLIC_SITE_ORIGIN in Supabase edge function secrets
-// if a staging or alternate host ever needs to serve the sitemap.
-const PUBLIC_SITE_ORIGIN =
-  Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://hereday.io";
+// Hardcoded rather than env-driven because a stale PUBLIC_SITE_ORIGIN
+// secret previously pointed this at the pre-rebrand domain and broke
+// Search Console indexing. If the canonical host ever changes, edit
+// this constant in code so the change is reviewed in a PR.
+const PUBLIC_SITE_ORIGIN = "https://hereday.io";
 
 interface PublicEventRow {
   slug: string;
