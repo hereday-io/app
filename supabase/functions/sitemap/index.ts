@@ -90,13 +90,19 @@ Deno.serve(async (req) => {
 
     const rows = (data ?? []) as PublicEventRow[];
 
-    // Static top-level pages. Landing is highest priority; auth pages
-    // are included mostly so crawlers don't flag them as orphaned, but
-    // with a low priority so they don't eat crawl budget.
+    // Static top-level pages. Landing is highest priority; the
+    // marketing/help pages get medium priority. /signup is the only
+    // auth page worth indexing — it's a conversion endpoint. /login
+    // and dashboard pages are intentionally omitted (and disallowed
+    // in robots.txt) to avoid wasting crawl budget on private routes.
     const staticUrls = [
       urlEntry(`${PUBLIC_SITE_ORIGIN}/`, undefined, "weekly", "1.0"),
-      urlEntry(`${PUBLIC_SITE_ORIGIN}/login`, undefined, "monthly", "0.3"),
-      urlEntry(`${PUBLIC_SITE_ORIGIN}/signup`, undefined, "monthly", "0.3"),
+      urlEntry(`${PUBLIC_SITE_ORIGIN}/getting-started`, undefined, "monthly", "0.8"),
+      urlEntry(`${PUBLIC_SITE_ORIGIN}/faq`, undefined, "monthly", "0.7"),
+      urlEntry(`${PUBLIC_SITE_ORIGIN}/signup`, undefined, "monthly", "0.5"),
+      urlEntry(`${PUBLIC_SITE_ORIGIN}/refund`, undefined, "yearly", "0.3"),
+      urlEntry(`${PUBLIC_SITE_ORIGIN}/terms`, undefined, "yearly", "0.3"),
+      urlEntry(`${PUBLIC_SITE_ORIGIN}/privacy`, undefined, "yearly", "0.3"),
     ];
 
     const eventUrls = rows.map((row) => {

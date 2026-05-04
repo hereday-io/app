@@ -1,12 +1,41 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { JsonLd } from '@/components/JsonLd';
 
 const LAST_UPDATED = 'April 17, 2026';
 
+const howToSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: 'How to Create an Event Map for Your Race',
+  description:
+    'Step-by-step guide to building a shareable event map with Hereday — from signup to a live race-day page in under five minutes.',
+  totalTime: 'PT5M',
+  step: [
+    { '@type': 'HowToStep', name: 'Create your account', text: 'Sign up with Google or your email. If you use email, check your inbox for a verification link.' },
+    { '@type': 'HowToStep', name: 'Create your first event', text: 'From your dashboard, click + New Event. Give it a name, set the date and city, and you\'re in the route editor.' },
+    { '@type': 'HowToStep', name: 'Draw your route', text: 'Click the map to place waypoints. Hereday snaps them to real roads automatically using turn-by-turn routing. Double-click or hit Finish route to close it out.' },
+    { '@type': 'HowToStep', name: 'Drop markers', text: 'Switch to the marker tool and pick a category — aid station, water, medical, restroom, parking, registration, start, or finish. Click the map to place each one.' },
+    { '@type': 'HowToStep', name: 'Preview your public page', text: 'Click Preview in the editor toolbar to see exactly what participants and spectators will see. The public page has runner and spectator modes.' },
+    { '@type': 'HowToStep', name: 'Publish', text: 'Hit Publish in the editor or from your dashboard. Your event gets a permanent shareable URL at hereday.io/event/your-event-name.' },
+    { '@type': 'HowToStep', name: 'Share with participants', text: 'Use the share menu on your event card to copy the share link, download a QR code for race-day signage, or get a printable race-day checklist PDF.' },
+  ],
+};
+
 const GettingStarted = () => {
+  useSeoMeta({
+    title: 'How to Create an Event Map in 5 Minutes | Hereday Getting Started',
+    description:
+      'Step-by-step guide to creating your first event map with Hereday. From signup to a live shareable race-day page in under five minutes. No credit card needed.',
+    canonicalPath: '/getting-started',
+  });
+
   return (
     <div className="min-h-screen bg-background">
+      <JsonLd data={howToSchema} />
+
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="container mx-auto flex items-center justify-between py-3 px-4">
@@ -25,7 +54,9 @@ const GettingStarted = () => {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-12 max-w-2xl">
-        <h1 className="text-3xl font-display font-bold text-foreground mb-2">Getting Started</h1>
+        <h1 className="text-3xl font-display font-bold text-foreground mb-2">
+          How to Create an Event Map in 5 Minutes
+        </h1>
         <p className="text-base text-muted-foreground mb-10">
           Go from signup to a live event page in under five minutes. No credit card needed.
         </p>

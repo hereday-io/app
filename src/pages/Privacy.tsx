@@ -1,9 +1,17 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 
 const LAST_UPDATED = 'April 6, 2026';
 
 const Privacy = () => {
+  useSeoMeta({
+    title: 'Privacy Policy — Hereday',
+    description:
+      'How Hereday collects, uses, and protects your data. We do not sell user data, run ads, or train AI on your content.',
+    canonicalPath: '/privacy',
+  });
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}

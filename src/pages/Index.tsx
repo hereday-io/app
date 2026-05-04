@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { JsonLd } from '@/components/JsonLd';
 
 // Hero map is a pre-baked PNG in /public so the landing page has zero
 // runtime dependency on the Mapbox Static Images API — no token
@@ -142,13 +144,6 @@ const steps = [
   },
 ];
 
-// PLACEHOLDER STATS — replace with real numbers when available.
-const stats = [
-  { value: '2,400+', label: 'Events created' },
-  { value: '180k+', label: 'Runners tracked' },
-  { value: '48', label: 'States served' },
-];
-
 // FAQ content distilled from src/pages/Faq.tsx so the landing page
 // stays in sync with the source-of-truth answers used on /faq.
 const faqs = [
@@ -192,6 +187,48 @@ const Index = () => {
     }
   }, [loading, session, navigate]);
 
+  useSeoMeta({
+    title: 'Hereday — Event Map Maker for Race Directors & Organizers',
+    description:
+      'Build a shareable event map for your race in minutes. Multi-route courses, water stations, GPS tracking, and a printable race-day checklist. Free to start.',
+    canonicalPath: '/',
+  });
+
+  const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Hereday',
+    url: 'https://hereday.io',
+    logo: 'https://hereday.io/hereday-logo.png',
+    description:
+      'Event map maker for race directors and event organizers. Build shareable course maps with routes, aid stations, and live GPS tracking.',
+    email: 'hello@hereday.io',
+  };
+
+  const softwareSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Hereday',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    description:
+      'Event mapping software for race organizers. Draw race routes, drop aid stations and points of interest, publish a shareable public event page with runner and spectator views.',
+    offers: [
+      { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
+      { '@type': 'Offer', name: 'Pro', price: '49', priceCurrency: 'USD', description: 'Per event, one-time' },
+    ],
+  };
+
+  const homepageFaqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  };
+
   return (
     <div
       className="editorial-theme min-h-screen flex flex-col"
@@ -201,6 +238,10 @@ const Index = () => {
         fontFamily: "'DM Sans', ui-sans-serif, system-ui, sans-serif",
       }}
     >
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={softwareSchema} />
+      <JsonLd data={homepageFaqSchema} />
+
       {/* ─── Nav (sticky) ─────────────────────────────────────── */}
       <header
         className="sticky top-0 z-50 backdrop-blur-xl"
@@ -329,13 +370,15 @@ const Index = () => {
               marginTop: 24,
             }}
           >
-            Type a name.
+            <span className="sr-only">Event Map Maker for Race Organizers — </span>
+            <span aria-hidden="true">Type a name.</span>
             <br />
-            Draw a route.
+            <span aria-hidden="true">Draw a route.</span>
             <br />
             <span
               className="font-editorial italic"
               style={{ color: 'var(--ed-primary)', fontWeight: 400 }}
+              aria-hidden="true"
             >
               Share a link.
             </span>
@@ -455,50 +498,6 @@ const Index = () => {
                 loading="eager"
               />
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Social Proof (stats only) ───────────────────────── */}
-      <section
-        style={{
-          padding: '80px 0',
-          background: 'var(--ed-card)',
-          borderTop: '1px solid var(--ed-line)',
-          borderBottom: '1px solid var(--ed-line)',
-        }}
-      >
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-center gap-7 md:gap-14">
-            {stats.map((stat, i) => (
-              <div key={stat.label} className="flex items-center gap-7 md:gap-14">
-                {i > 0 && (
-                  <span
-                    className="hidden md:block"
-                    style={{ width: 1, height: 48, background: 'var(--ed-line)' }}
-                    aria-hidden
-                  />
-                )}
-                <div className="text-center">
-                  <div
-                    className="font-editorial"
-                    style={{
-                      fontSize: 'clamp(36px, 5vw, 56px)',
-                      fontWeight: 500,
-                      letterSpacing: '-0.04em',
-                      color: 'var(--ed-ink)',
-                      fontFeatureSettings: "'tnum'",
-                      lineHeight: 1,
-                    }}
-                  >
-                    {stat.value}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--ed-muted)', marginTop: 8 }}>
-                    {stat.label}
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>

@@ -1,9 +1,17 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 
 const LAST_UPDATED = 'April 13, 2026';
 
 const Refund = () => {
+  useSeoMeta({
+    title: 'Refund Policy — Hereday',
+    description:
+      'Hereday refund policy. Full refund within 7 days for unpublished events; cancellations after publishing reviewed case by case.',
+    canonicalPath: '/refund',
+  });
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}

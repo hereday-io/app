@@ -1,9 +1,17 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 
 const LAST_UPDATED = 'April 13, 2026';
 
 const Terms = () => {
+  useSeoMeta({
+    title: 'Terms of Service — Hereday',
+    description:
+      'Terms governing use of Hereday — the event map maker for race directors and event organizers.',
+    canonicalPath: '/terms',
+  });
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
