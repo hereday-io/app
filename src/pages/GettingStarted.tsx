@@ -6,22 +6,33 @@ import { JsonLd } from '@/components/JsonLd';
 
 const LAST_UPDATED = 'April 17, 2026';
 
-const howToSchema = {
+// Article schema (rather than HowTo) because Google deprecated HowTo
+// rich results in September 2023 — HowTo schema still validates but
+// no longer renders as a step preview in SERP. Article is the modern
+// rich-result-eligible type for tutorial-style pages and gives this
+// guide a chance at the Article rich card.
+const articleSchema = {
   '@context': 'https://schema.org',
-  '@type': 'HowTo',
-  name: 'How to Create an Event Map for Your Race',
+  '@type': 'Article',
+  headline: 'How to Create an Event Map in 5 Minutes',
   description:
-    'Step-by-step guide to building a shareable event map with Hereday — from signup to a live race-day page in under five minutes.',
-  totalTime: 'PT5M',
-  step: [
-    { '@type': 'HowToStep', name: 'Create your account', text: 'Sign up with Google or your email. If you use email, check your inbox for a verification link.' },
-    { '@type': 'HowToStep', name: 'Create your first event', text: 'From your dashboard, click + New Event. Give it a name, set the date and city, and you\'re in the route editor.' },
-    { '@type': 'HowToStep', name: 'Draw your route', text: 'Click the map to place waypoints. Hereday snaps them to real roads automatically using turn-by-turn routing. Double-click or hit Finish route to close it out.' },
-    { '@type': 'HowToStep', name: 'Drop markers', text: 'Switch to the marker tool and pick a category — aid station, water, medical, restroom, parking, registration, start, or finish. Click the map to place each one.' },
-    { '@type': 'HowToStep', name: 'Preview your public page', text: 'Click Preview in the editor toolbar to see exactly what participants and spectators will see. The public page has runner and spectator modes.' },
-    { '@type': 'HowToStep', name: 'Publish', text: 'Hit Publish in the editor or from your dashboard. Your event gets a permanent shareable URL at hereday.io/event/your-event-name.' },
-    { '@type': 'HowToStep', name: 'Share with participants', text: 'Use the share menu on your event card to copy the share link, download a QR code for race-day signage, or get a printable race-day checklist PDF.' },
-  ],
+    'Step-by-step guide to creating your first event map with Hereday — from signup to a live shareable race-day page in under five minutes.',
+  image: 'https://hereday.io/og-default.png',
+  datePublished: '2026-04-17',
+  dateModified: '2026-04-17',
+  author: {
+    '@type': 'Organization',
+    name: 'Hereday',
+    url: 'https://hereday.io',
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'Hereday',
+    logo: {
+      '@type': 'ImageObject',
+      url: 'https://hereday.io/hereday-logo.png',
+    },
+  },
 };
 
 const GettingStarted = () => {
@@ -34,7 +45,7 @@ const GettingStarted = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <JsonLd data={howToSchema} />
+      <JsonLd data={articleSchema} />
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
