@@ -19,6 +19,7 @@ import Privacy from "./pages/Privacy.tsx";
 import Terms from "./pages/Terms.tsx";
 import Refund from "./pages/Refund.tsx";
 import Billing from "./pages/Billing.tsx";
+import AdminComps from "./pages/AdminComps.tsx";
 import GettingStarted from "./pages/GettingStarted.tsx";
 import Faq from "./pages/Faq.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/terms" element={<Terms />} />
             <Route path="/refund" element={<Refund />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/admin/comps" element={<AdminComps />} />
             <Route path="/getting-started" element={<GettingStarted />} />
             <Route path="/faq" element={<Faq />} />
             <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
