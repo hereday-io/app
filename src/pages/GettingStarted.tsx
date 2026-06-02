@@ -153,18 +153,13 @@ const GettingStarted = () => {
           <h2 className="text-xl font-display font-semibold text-foreground mb-4">What's next?</h2>
           <div className="space-y-4 text-foreground/90">
             <NextItem title="Upgrade to Pro" tag="$49 / event">
-              Unlock unlimited routes and markers, remove the "Made with Hereday" footer, add your
-              own logo and brand colors, and enable live GPS tracking for participants and
-              spectators on race day.
+              Unlock unlimited routes and markers, remove the "Made with Hereday" footer, and add your
+              own logo and brand colors.
             </NextItem>
             <NextItem title="Collect email subscribers">
               Visitors can subscribe to your event updates directly from your public page. You'll
               see subscriber counts on your dashboard — and with Pro, you'll be able to email
               them directly.
-            </NextItem>
-            <NextItem title="Enable live tracking" tag="Pro">
-              Turn on real-time GPS tracking so spectators can follow runners on the map during
-              the event. Runners opt in from their phone — no app install required.
             </NextItem>
           </div>
         </div>

@@ -89,7 +89,7 @@ const planFaqs: FaqItem[] = [
   {
     q: 'What does Pro unlock?',
     aText:
-      'Pro is a one-time $49 upgrade per event. It adds unlimited routes (perfect for marathon weekends with 5K/10K/half/full), unlimited points of interest, custom branding (your logo and banner on the public page), live GPS tracking (spectators follow runners in real time), live volunteer status reporting (water station Open/Low/Closed updates), the Event Ops Center for race-day, all branded sponsors visible publicly, no Hereday footer, a clean checklist PDF, and priority support.',
+      'Pro is a one-time $49 upgrade per event. It adds unlimited routes (perfect for marathon weekends with 5K/10K/half/full), unlimited points of interest, custom branding (your logo and banner on the public page), live volunteer status reporting (water station Open/Low/Closed updates), the Event Ops Center for race-day, all branded sponsors visible publicly, no Hereday footer, a clean checklist PDF, and priority support.',
     a: (
       <>
         <p>Pro is a <strong>one-time $49 upgrade per event</strong>. It adds:</p>
@@ -97,7 +97,6 @@ const planFaqs: FaqItem[] = [
           <li><strong>Unlimited routes</strong> — perfect for marathon weekends (5K/10K/half/full)</li>
           <li><strong>Unlimited points of interest</strong></li>
           <li><strong>Custom branding</strong> — your logo and banner on the public page</li>
-          <li><strong>Live GPS tracking</strong> — spectators follow runners in real time on the map</li>
           <li><strong>Live volunteer status reporting</strong> — water station Open/Low/Closed updates show as colored dots on the public map</li>
           <li><strong>Event Ops Center</strong> — live volunteer activity, scout review, and analytics dashboard for race day</li>
           <li><strong>All branded sponsors visible publicly</strong> — Free events show one sponsor; Pro shows your full sponsor list with logos and CTAs</li>
@@ -189,40 +188,6 @@ const courseAndMapFaqs: FaqItem[] = [
   },
 ];
 
-const trackingFaqs: FaqItem[] = [
-  {
-    q: 'How does live tracking work?',
-    aText:
-      'Live tracking is a Pro feature. When enabled, runners open your event page on their phone and tap "Share my location." Their GPS coordinates broadcast to a spectator map in real time — spectators see runner dots moving along the course with pace information. Runners can stop sharing at any time. Location is only broadcast during the tracking window you configure, and we don\'t store historical GPS tracks after the session ends.',
-    a: (
-      <>
-        <p>
-          Live tracking is a Pro feature. When enabled, runners open your event page on their
-          phone and tap "Share my location." Their GPS coordinates broadcast to a spectator
-          map in real time — spectators see runner dots moving along the course with pace
-          information.
-        </p>
-        <p className="mt-2">
-          Runners can stop sharing at any time. Location is only broadcast during the
-          tracking window you configure, and we don't store historical GPS tracks after the
-          session ends.
-        </p>
-      </>
-    ),
-  },
-  {
-    q: 'Does live tracking require an app install?',
-    aText:
-      "No. Runners share location through their browser — no app download needed. The browser asks for GPS permission, and that's it. Works on iPhone and Android.",
-    a: (
-      <p>
-        No. Runners share location through their browser — no app download needed. The
-        browser asks for GPS permission, and that's it. Works on iPhone and Android.
-      </p>
-    ),
-  },
-];
-
 const billingFaqs: FaqItem[] = [
   {
     q: 'How do refunds work?',
@@ -280,7 +245,6 @@ const sections = [
   { title: 'General', items: generalFaqs },
   { title: 'Free vs Pro', items: planFaqs },
   { title: 'Courses & Maps', items: courseAndMapFaqs },
-  { title: 'Live Tracking', items: trackingFaqs },
   { title: 'Billing', items: billingFaqs },
   { title: 'Privacy & Data', items: privacyFaqs },
 ];

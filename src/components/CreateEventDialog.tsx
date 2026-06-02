@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Radio, Crown, Check } from 'lucide-react';
+import { LIVE_TRACKING_ENABLED } from '@/lib/featureFlags';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -183,52 +184,63 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
               />
             </div>
           </div>
-          {/* Live Tracking Window */}
+          {/* Pro section — live-tracking config when the feature is on,
+              otherwise a plain Pro upsell. The create-time upgrade opt-in
+              lives here, so it stays put when tracking is paused. */}
           <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Radio className="h-3.5 w-3.5 text-primary" />
-              Live Tracking Window
+              {LIVE_TRACKING_ENABLED ? (
+                <><Radio className="h-3.5 w-3.5 text-primary" /> Live Tracking Window</>
+              ) : (
+                <><Crown className="h-3.5 w-3.5 text-primary" /> Go Pro</>
+              )}
             </div>
             {isPro ? (
-              <>
+              LIVE_TRACKING_ENABLED ? (
+                <>
+                  <p className="text-xs text-muted-foreground leading-snug">
+                    Runners can only share their GPS location within this window.
+                  </p>
+                  {suggestTrackingWindow && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTrackingStart(suggestTrackingWindow.start);
+                        setTrackingEnd(suggestTrackingWindow.end);
+                      }}
+                      className="text-xs text-primary font-medium hover:underline"
+                    >
+                      Auto-fill: event day 5 AM – 11 PM
+                    </button>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="create-tracking-start" className="text-xs">Opens</Label>
+                      <Input
+                        id="create-tracking-start"
+                        type="datetime-local"
+                        value={trackingStart}
+                        onChange={(e) => setTrackingStart(e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="create-tracking-end" className="text-xs">Closes</Label>
+                      <Input
+                        id="create-tracking-end"
+                        type="datetime-local"
+                        value={trackingEnd}
+                        onChange={(e) => setTrackingEnd(e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
                 <p className="text-xs text-muted-foreground leading-snug">
-                  Runners can only share their GPS location within this window.
+                  This event has Pro — unlimited routes & markers and custom branding are unlocked.
                 </p>
-                {suggestTrackingWindow && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTrackingStart(suggestTrackingWindow.start);
-                      setTrackingEnd(suggestTrackingWindow.end);
-                    }}
-                    className="text-xs text-primary font-medium hover:underline"
-                  >
-                    Auto-fill: event day 5 AM – 11 PM
-                  </button>
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="create-tracking-start" className="text-xs">Opens</Label>
-                    <Input
-                      id="create-tracking-start"
-                      type="datetime-local"
-                      value={trackingStart}
-                      onChange={(e) => setTrackingStart(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="create-tracking-end" className="text-xs">Closes</Label>
-                    <Input
-                      id="create-tracking-end"
-                      type="datetime-local"
-                      value={trackingEnd}
-                      onChange={(e) => setTrackingEnd(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                </div>
-              </>
+              )
             ) : wantsPro ? (
               <>
                 <div className="flex items-center justify-between">
@@ -245,13 +257,15 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground leading-snug">
-                  You'll be taken to checkout after creating this event. Live tracking, unlimited routes & markers, and custom branding included.
+                  You'll be taken to checkout after creating this event. Unlimited routes & markers and custom branding included.
                 </p>
               </>
             ) : (
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground leading-snug">
-                  Let spectators watch runners move along the course in real time.
+                  {LIVE_TRACKING_ENABLED
+                    ? 'Let spectators watch runners move along the course in real time.'
+                    : 'Unlock unlimited routes & markers and custom branding.'}
                 </p>
                 <Button
                   type="button"

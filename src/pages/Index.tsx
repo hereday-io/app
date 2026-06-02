@@ -8,7 +8,7 @@ import {
   Mountain,
   Users,
   Check,
-  Radio,
+  Palette,
   Lock,
   ChevronDown,
 } from 'lucide-react';
@@ -61,10 +61,10 @@ const features = [
       "One click publishes a polished, shareable map page. Drop in your logo — it looks like yours, not ours.",
   },
   {
-    icon: Radio,
-    title: 'Live GPS tracking',
+    icon: Palette,
+    title: 'Custom branding',
     description:
-      'Runners share location in real time. Spectators watch moving dots on the map — no app download.',
+      'Your logo, your colors, your event. Add a banner and logo so the public page looks like yours — not ours.',
     pro: true,
   },
 ];
@@ -104,7 +104,6 @@ const plans = [
       'Everything in Free',
       'Unlimited routes & points of interest',
       'Custom logo & banner branding',
-      'Live GPS tracking for runners',
       'Live volunteer status reporting',
       'Event Ops Center for race-day ops',
       'All branded sponsors on the map',
@@ -153,7 +152,7 @@ const faqs = [
   },
   {
     q: 'Do my participants need to download anything?',
-    a: "No. Hereday is entirely web-based — the editor, the public page, and live tracking all work in a browser. Participants and spectators don't need to install anything either.",
+    a: "No. Hereday is entirely web-based — the editor and the public page both work in a browser. Participants and spectators don't need to install anything either.",
   },
   {
     q: 'Can I edit an event after publishing?',
@@ -161,7 +160,7 @@ const faqs = [
   },
   {
     q: 'What does Pro unlock?',
-    a: "Pro is a one-time $49 upgrade per event. It adds unlimited routes & POIs, custom logo and banner branding, live GPS tracking for runners, live volunteer status reporting, the Event Ops Center for race-day, all branded sponsors on the public map, and removes the Hereday watermark.",
+    a: "Pro is a one-time $49 upgrade per event. It adds unlimited routes & POIs, custom logo and banner branding, live volunteer status reporting, the Event Ops Center for race-day, all branded sponsors on the public map, and removes the Hereday watermark.",
   },
   {
     q: 'Is Pro a subscription?',
@@ -190,7 +189,7 @@ const Index = () => {
   useSeoMeta({
     title: 'Hereday — Event Map Maker for Race Directors & Organizers',
     description:
-      'Build a shareable event map for your race in minutes. Multi-route courses, water stations, GPS tracking, and a printable race-day checklist. Free to start.',
+      'Build a shareable event map for your race in minutes. Multi-route courses, water stations, elevation profiles, and a printable race-day checklist. Free to start.',
     canonicalPath: '/',
   });
 
@@ -201,7 +200,7 @@ const Index = () => {
     url: 'https://hereday.io',
     logo: 'https://hereday.io/hereday-logo.png',
     description:
-      'Event map maker for race directors and event organizers. Build shareable course maps with routes, aid stations, and live GPS tracking.',
+      'Event map maker for race directors and event organizers. Build shareable course maps with routes, aid stations, and elevation profiles.',
     email: 'hello@hereday.io',
   };
 

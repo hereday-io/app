@@ -353,7 +353,7 @@ function RaceDayChecklistDocument(props: DocProps) {
             <Text style={styles.shareLabel}>Live event page</Text>
             <Text style={styles.shareUrl}>{publicUrl}</Text>
             <Text style={styles.shareHint}>
-              Participants and spectators can scan to view the course, aid stations, and live tracking.
+              Participants and spectators can scan to view the course and aid stations.
             </Text>
           </View>
           {qrDataUrl && <Image src={qrDataUrl} style={styles.qr} />}

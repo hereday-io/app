@@ -21,6 +21,7 @@ import PublicShareButton from '@/components/public/PublicShareButton';
 import LiveRunnerMarkers from '@/components/public/LiveRunnerMarkers';
 import RunnerListPanel from '@/components/public/RunnerListPanel';
 import { useTrackingSubscription } from '@/hooks/useTrackingSubscription';
+import { LIVE_TRACKING_ENABLED } from '@/lib/featureFlags';
 
 interface SpectatorViewProps {
   event: {
@@ -44,7 +45,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const isPro = event.plan === 'pro';
-  const trackingWindowOpen = isPro
+  const trackingWindowOpen = LIVE_TRACKING_ENABLED && isPro
     && !!event.tracking_start && !!event.tracking_end
     && new Date() <= new Date(event.tracking_end);
   const { runners } = useTrackingSubscription(event.id, trackingWindowOpen);
@@ -524,8 +525,8 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
         eventName={event.name}
       />
 
-      {/* Live runner dots + runner list — Pro only */}
-      {isPro && (
+      {/* Live runner dots + runner list — Pro only. Gated off while web-only (see featureFlags). */}
+      {LIVE_TRACKING_ENABLED && isPro && (
         <>
           <LiveRunnerMarkers
             runners={runners}

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon, Radio, Link as LinkIcon, Lock, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LIVE_TRACKING_ENABLED } from '@/lib/featureFlags';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
@@ -284,7 +285,8 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
             </p>
           </div>
 
-          {/* Live Tracking Window */}
+          {/* Live Tracking Window — hidden while live tracking is paused (see featureFlags). */}
+          {LIVE_TRACKING_ENABLED && (
           <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Radio className="h-3.5 w-3.5 text-primary" />
@@ -347,6 +349,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
               </div>
             )}
           </div>
+          )}
 
           {/* Race-Day Contacts — printed on the checklist PDF. Collapsible
               because most organizers won't fill this in until close to

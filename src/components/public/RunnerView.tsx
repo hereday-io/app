@@ -19,6 +19,7 @@ import MadeWithHeredayBadge from '@/components/public/MadeWithHeredayBadge';
 import SubscribeButton from '@/components/public/SubscribeButton';
 import PublicShareButton from '@/components/public/PublicShareButton';
 import TrackMeButton from '@/components/public/TrackMeButton';
+import { LIVE_TRACKING_ENABLED } from '@/lib/featureFlags';
 import { buildGpx, downloadGpx, gpxFilename } from '@/lib/gpx';
 import { logEvent } from '@/lib/analytics';
 
@@ -576,8 +577,8 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
         eventName={event.name}
       />
 
-      {/* Live tracking — Pro only */}
-      {event.plan === 'pro' && (
+      {/* Live tracking — Pro only. Gated off while web-only (see featureFlags). */}
+      {LIVE_TRACKING_ENABLED && event.plan === 'pro' && (
         <TrackMeButton
           eventId={event.id}
           trackingStart={event.tracking_start ?? null}

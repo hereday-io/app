@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Crown, Route, MapPin, ImageIcon, Check, Radio, LayoutDashboard, Sparkles } from 'lucide-react';
+import { Crown, Route, MapPin, ImageIcon, Check, LayoutDashboard, Sparkles } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 import { supabase } from '@/integrations/supabase/client';
 import { logEvent } from '@/lib/analytics';
@@ -28,7 +28,6 @@ const FEATURES = [
   { icon: Route, text: `Unlimited routes per event (free: ${PAYWALL_LIMITS.routes})` },
   { icon: MapPin, text: `Unlimited markers (free: ${PAYWALL_LIMITS.pois})` },
   { icon: ImageIcon, text: 'Custom event branding — logo & banner' },
-  { icon: Radio, text: 'Live GPS tracking for runners' },
   { icon: LayoutDashboard, text: 'Event Ops Center for race-day ops' },
   { icon: Sparkles, text: 'All branded sponsors visible publicly' },
   { icon: Crown, text: 'Priority support' },
@@ -49,7 +48,7 @@ const TRIGGER_COPY: Record<string, { headline: string; sub: string }> = {
   },
   publish: {
     headline: 'Your event is live — want to go Pro?',
-    sub: "It's published on the Free plan. Unlock this event to remove limits, add custom branding, and enable live runner tracking.",
+    sub: "It's published on the Free plan. Unlock this event to remove limits and add custom branding.",
   },
   sponsors: {
     headline: 'Show every sponsor on the map',
