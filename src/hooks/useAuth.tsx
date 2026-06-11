@@ -1,6 +1,8 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { claimFirstTouch } from '@/lib/attribution';
+import { identifyUser, resetIdentity } from '@/lib/posthog';
 
 interface AuthContextType {
   session: Session | null;
@@ -21,9 +23,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setLoading(false);
+      if (session?.user) {
+        identifyUser(session.user.id, session.user.email);
+        // Write first-touch attribution onto the profile once the user
+        // is authenticated (covers email + OAuth signups). Idempotent.
+        claimFirstTouch(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        resetIdentity();
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { captureEvent } from '@/lib/posthog';
 
 /**
  * Fire-and-forget product analytics. Logs a row to `product_events`.
@@ -25,6 +26,10 @@ export function logEvent(
   eventId: string | null = null,
   properties: Record<string, unknown> = {},
 ): void {
+  // Mirror into PostHog (no-op without VITE_POSTHOG_KEY). Supabase
+  // stays the source of truth; PostHog is for funnels/exploration.
+  captureEvent(eventType, eventId ? { ...properties, hereday_event_id: eventId } : properties);
+
   // Get current user id if available, but don't await — we fire the
   // insert immediately either way.
   supabase.auth.getUser().then(({ data }) => {

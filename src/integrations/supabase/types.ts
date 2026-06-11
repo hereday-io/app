@@ -369,10 +369,13 @@ export type Database = {
           active_promo_code: string | null
           active_promo_expires_at: string | null
           active_promo_percent_off: number | null
+          attribution_captured_at: string | null
           avatar_url: string | null
           created_at: string
           current_period_end: string | null
           display_name: string | null
+          first_landing_page: string | null
+          first_referrer: string | null
           id: string
           is_paid: boolean
           organization_name: string | null
@@ -381,15 +384,23 @@ export type Database = {
           stripe_subscription_id: string | null
           updated_at: string
           user_id: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
           active_promo_code?: string | null
           active_promo_expires_at?: string | null
           active_promo_percent_off?: number | null
+          attribution_captured_at?: string | null
           avatar_url?: string | null
           created_at?: string
           current_period_end?: string | null
           display_name?: string | null
+          first_landing_page?: string | null
+          first_referrer?: string | null
           id?: string
           is_paid?: boolean
           organization_name?: string | null
@@ -398,15 +409,23 @@ export type Database = {
           stripe_subscription_id?: string | null
           updated_at?: string
           user_id: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
           active_promo_code?: string | null
           active_promo_expires_at?: string | null
           active_promo_percent_off?: number | null
+          attribution_captured_at?: string | null
           avatar_url?: string | null
           created_at?: string
           current_period_end?: string | null
           display_name?: string | null
+          first_landing_page?: string | null
+          first_referrer?: string | null
           id?: string
           is_paid?: boolean
           organization_name?: string | null
@@ -415,6 +434,11 @@ export type Database = {
           stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: []
       }

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Sparkles, Zap, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { logEvent } from '@/lib/analytics';
+import { attributionProperties } from '@/lib/attribution';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { InfoCallout } from '@/components/ui/info-callout';
@@ -68,7 +69,7 @@ const Signup = () => {
       setError(signupError.message);
       toast({ title: 'Signup failed', description: signupError.message, variant: 'destructive' });
     } else {
-      logEvent('signup_form_submitted', null, { method: 'email' });
+      logEvent('signup_form_submitted', null, { method: 'email', ...attributionProperties() });
       toast({ title: 'Account created', description: 'Check your inbox to verify your email. You can start building right away.' });
       navigate('/dashboard');
     }

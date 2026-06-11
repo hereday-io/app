@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logEvent } from '@/lib/analytics';
+import { attributionProperties } from '@/lib/attribution';
 
 const GoogleSignInButton = () => {
   const [loading, setLoading] = useState(false);
@@ -9,7 +10,7 @@ const GoogleSignInButton = () => {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    logEvent('signup_google_clicked');
+    logEvent('signup_google_clicked', null, attributionProperties());
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
