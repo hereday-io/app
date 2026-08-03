@@ -15,11 +15,6 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import {
-  HOMEPAGE_DESCRIPTION,
-  HOMEPAGE_SCHEMAS,
-  HOMEPAGE_TITLE,
-} from '../../src/lib/homepageSchema';
 
 const SITE_URL = 'https://hereday.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
@@ -30,23 +25,9 @@ const __dirname = dirname(__filename);
 interface PageMeta {
   title: string;
   description: string;
-  /**
-   * JSON-LD blocks to serialize into <head>. Pages that set this must NOT
-   * also render <JsonLd> client-side or every block ends up duplicated.
-   */
-  schemas?: Record<string, unknown>[];
 }
 
 const PAGE_META: Record<string, PageMeta> = {
-  // The landing page. Routed here by an explicit `/` rewrite in
-  // vercel.json — without it, `/` falls through to the catch-all and is
-  // served as the bare shell, which is how it shipped with zero
-  // structured data in the served HTML until 2026-08-03.
-  home: {
-    title: HOMEPAGE_TITLE,
-    description: HOMEPAGE_DESCRIPTION,
-    schemas: HOMEPAGE_SCHEMAS,
-  },
   faq: {
     title: 'Hereday FAQ — Event Map Maker Help & Pricing Questions',
     description:
@@ -110,18 +91,8 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-// JSON-LD goes inside a <script> element, so the only character that can
-// break out is `<` (via a literal "</script>" in a string value).
-// Deliberately NOT escapeHtml — that escapes quotes and ampersands and
-// would emit invalid JSON that crawlers silently discard.
-function serializeJsonLd(data: Record<string, unknown>): string {
-  return JSON.stringify(data).replace(/</g, '\\u003c');
-}
-
 function injectMetaTags(html: string, meta: PageMeta, name: string): string {
-  // `home` is the landing page, not a /home route — it canonicals to the
-  // site root. Every other key maps to its own path.
-  const url = name === 'home' ? `${SITE_URL}/` : `${SITE_URL}/${name}`;
+  const url = `${SITE_URL}/${name}`;
   const ogImage = DEFAULT_OG_IMAGE;
 
   const metaBlock = [
@@ -138,10 +109,6 @@ function injectMetaTags(html: string, meta: PageMeta, name: string): string {
     `<meta name="twitter:description" content="${escapeHtml(meta.description)}" />`,
     `<meta name="twitter:image" content="${escapeHtml(ogImage)}" />`,
     `<link rel="canonical" href="${escapeHtml(url)}" />`,
-    ...(meta.schemas ?? []).map(
-      (s) =>
-        `<script type="application/ld+json">${serializeJsonLd(s)}</script>`,
-    ),
   ].join('\n    ');
 
   let out = html;
@@ -161,10 +128,6 @@ function injectMetaTags(html: string, meta: PageMeta, name: string): string {
     '',
   );
   out = out.replace(/\s*<link\s+rel="canonical"[^>]*\/?>/g, '');
-  out = out.replace(
-    /\s*<script\s+type="application\/ld\+json"[\s\S]*?<\/script>/g,
-    '',
-  );
 
   out = out.replace(
     /(<meta name="description"[^>]*\/?>)/,
