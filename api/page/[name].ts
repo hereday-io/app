@@ -182,11 +182,32 @@ export default async function handler(
     return;
   }
 
-  const modified = injectMetaTags(html, PAGE_META[name], name);
+  // Degrade rather than fail. All six marketing routes run through this
+  // one handler, so an exception here is not one broken page — it is the
+  // entire marketing site returning 500 at once, which is exactly what
+  // happened on 2026-08-03. Serving the un-injected shell costs this
+  // request its per-page title, canonical and OG tags (and leaves the
+  // homepage's structured data on it), all of which is vastly better than
+  // no page at all. Googlebot renders JS, so useSeoMeta still corrects
+  // the head client-side.
+  let body: string;
+  let degraded = false;
+  try {
+    body = injectMetaTags(html, PAGE_META[name], name);
+  } catch (err) {
+    console.error('[page] meta injection failed for', name, err);
+    body = html;
+    degraded = true;
+  }
+
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  // Don't cache a degraded response for an hour — a transient fault would
+  // pin the wrong tags at the edge long after the cause was gone.
   res.setHeader(
     'Cache-Control',
-    'public, s-maxage=3600, stale-while-revalidate=86400',
+    degraded
+      ? 'public, s-maxage=60, stale-while-revalidate=300'
+      : 'public, s-maxage=3600, stale-while-revalidate=86400',
   );
-  res.status(200).send(modified);
+  res.status(200).send(body);
 }
