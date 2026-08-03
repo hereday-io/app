@@ -2,38 +2,8 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
-import { JsonLd } from '@/components/JsonLd';
 
 const LAST_UPDATED = 'April 17, 2026';
-
-// Article schema (rather than HowTo) because Google deprecated HowTo
-// rich results in September 2023 — HowTo schema still validates but
-// no longer renders as a step preview in SERP. Article is the modern
-// rich-result-eligible type for tutorial-style pages and gives this
-// guide a chance at the Article rich card.
-const articleSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: 'How to Create an Event Map in 5 Minutes',
-  description:
-    'Step-by-step guide to creating your first event map with Hereday — from signup to a live shareable race-day page in under five minutes.',
-  image: 'https://hereday.io/og-default.png',
-  datePublished: '2026-04-17',
-  dateModified: '2026-04-17',
-  author: {
-    '@type': 'Organization',
-    name: 'Hereday',
-    url: 'https://hereday.io',
-  },
-  publisher: {
-    '@type': 'Organization',
-    name: 'Hereday',
-    logo: {
-      '@type': 'ImageObject',
-      url: 'https://hereday.io/hereday-logo.png',
-    },
-  },
-};
 
 const GettingStarted = () => {
   useSeoMeta({
@@ -45,7 +15,10 @@ const GettingStarted = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <JsonLd data={articleSchema} />
+      {/* Article schema is injected into <head> server-side by
+          api/page/[name].ts (source: api/_shared/pageSchemas.ts) so it
+          exists in the served HTML rather than only after hydration.
+          Rendering it here too would duplicate the block. */}
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
