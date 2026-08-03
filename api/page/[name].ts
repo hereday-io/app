@@ -15,20 +15,14 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-// The `.js` extension below is REQUIRED and is not a typo. Vercel
-// transpiles these functions to ESM without bundling them, so the
-// specifier is resolved by Node at runtime, and Node's ESM resolver
-// rejects extensionless relative paths. Writing `.js` while the file on
-// disk is `.ts` is the standard TypeScript ESM convention: tsc resolves
-// it to the .ts source at build time and the emitted file really is .js.
-// Without the extension this deploys cleanly and then crashes every
-// request with FUNCTION_INVOCATION_FAILED, taking all six marketing
-// routes down at once.
-import {
-  HOMEPAGE_DESCRIPTION,
-  HOMEPAGE_SCHEMAS,
-  HOMEPAGE_TITLE,
-} from '../_shared/homepageSchema.js';
+// NOTE: this function deliberately has no relative imports. Vercel
+// transpiles it to ESM without bundling, so any relative specifier is
+// resolved by Node at runtime and must carry a `.js` extension —
+// omitting it deploys cleanly and then crashes every request with
+// FUNCTION_INVOCATION_FAILED, which takes all six marketing routes down
+// at once because they all run through this one handler. Homepage
+// structured data is baked into index.html by a Vite plugin instead;
+// see the `homepageJsonLd` plugin in vite.config.ts.
 
 const SITE_URL = 'https://hereday.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
@@ -39,23 +33,12 @@ const __dirname = dirname(__filename);
 interface PageMeta {
   title: string;
   description: string;
-  /**
-   * JSON-LD blocks to serialize into <head>. Pages that set this must NOT
-   * also render <JsonLd> client-side or every block ends up duplicated.
-   */
-  schemas?: Record<string, unknown>[];
 }
 
+// No `home` entry: `/` is served straight off the filesystem as
+// dist/index.html, because Vercel resolves static files before it applies
+// `rewrites`. A `/` rewrite pointing here is silently ignored.
 const PAGE_META: Record<string, PageMeta> = {
-  // The landing page. Routed here by an explicit `/` rewrite in
-  // vercel.json — without it, `/` falls through to the catch-all and is
-  // served as the bare shell, which is how it shipped with zero
-  // structured data in the served HTML until 2026-08-03.
-  home: {
-    title: HOMEPAGE_TITLE,
-    description: HOMEPAGE_DESCRIPTION,
-    schemas: HOMEPAGE_SCHEMAS,
-  },
   faq: {
     title: 'Hereday FAQ — Event Map Maker Help & Pricing Questions',
     description:
@@ -119,18 +102,8 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-// JSON-LD goes inside a <script> element, so the only character that can
-// break out is `<` (via a literal "</script>" in a string value).
-// Deliberately NOT escapeHtml — that escapes quotes and ampersands and
-// would emit invalid JSON that crawlers silently discard.
-function serializeJsonLd(data: Record<string, unknown>): string {
-  return JSON.stringify(data).replace(/</g, '\\u003c');
-}
-
 function injectMetaTags(html: string, meta: PageMeta, name: string): string {
-  // `home` is the landing page, not a /home route — it canonicals to the
-  // site root. Every other key maps to its own path.
-  const url = name === 'home' ? `${SITE_URL}/` : `${SITE_URL}/${name}`;
+  const url = `${SITE_URL}/${name}`;
   const ogImage = DEFAULT_OG_IMAGE;
 
   const metaBlock = [
@@ -147,10 +120,6 @@ function injectMetaTags(html: string, meta: PageMeta, name: string): string {
     `<meta name="twitter:description" content="${escapeHtml(meta.description)}" />`,
     `<meta name="twitter:image" content="${escapeHtml(ogImage)}" />`,
     `<link rel="canonical" href="${escapeHtml(url)}" />`,
-    ...(meta.schemas ?? []).map(
-      (s) =>
-        `<script type="application/ld+json">${serializeJsonLd(s)}</script>`,
-    ),
   ].join('\n    ');
 
   let out = html;
