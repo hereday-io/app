@@ -234,6 +234,14 @@ function injectMetaTags(html: string, row: PublicEventRow, slug: string): string
   out = out.replace(/\s*<meta\s+(property="og:[^"]*"|name="twitter:[^"]*")[^>]*\/?>/g, '');
   out = out.replace(/\s*<meta\s+name="robots"[^>]*\/?>/g, '');
   out = out.replace(/\s*<link\s+rel="canonical"[^>]*\/?>/g, '');
+  // The shell carries the homepage's Organization / SoftwareApplication /
+  // FAQPage blocks, baked in at build time by the homepageJsonLd plugin in
+  // vite.config.ts. Left in place, every event page would claim to be the
+  // Hereday homepage with its pricing FAQ attached.
+  out = out.replace(
+    /\s*<script\s+type="application\/ld\+json"[\s\S]*?<\/script>/g,
+    '',
+  );
 
   // Inject event-specific block right after the description tag
   out = out.replace(
@@ -251,6 +259,12 @@ function injectMetaTags(html: string, row: PublicEventRow, slug: string): string
 function noindexShell(html: string): string {
   let out = html.replace(/\s*<link\s+rel="canonical"[^>]*\/?>/g, '');
   out = out.replace(/\s*<meta\s+name="robots"[^>]*\/?>/g, '');
+  // Same reason as injectMetaTags: don't let a bogus /event/... URL carry
+  // the homepage schema baked into the shell.
+  out = out.replace(
+    /\s*<script\s+type="application\/ld\+json"[\s\S]*?<\/script>/g,
+    '',
+  );
   return out.replace(
     /(<meta name="description"[^>]*\/?>)/,
     `$1\n    <meta name="robots" content="noindex, follow" />`

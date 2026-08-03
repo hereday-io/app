@@ -15,6 +15,14 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+// NOTE: this function deliberately has no relative imports. Vercel
+// transpiles it to ESM without bundling, so any relative specifier is
+// resolved by Node at runtime and must carry a `.js` extension —
+// omitting it deploys cleanly and then crashes every request with
+// FUNCTION_INVOCATION_FAILED, which takes all six marketing routes down
+// at once because they all run through this one handler. Homepage
+// structured data is baked into index.html by a Vite plugin instead;
+// see the `homepageJsonLd` plugin in vite.config.ts.
 
 const SITE_URL = 'https://hereday.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
@@ -27,6 +35,9 @@ interface PageMeta {
   description: string;
 }
 
+// No `home` entry: `/` is served straight off the filesystem as
+// dist/index.html, because Vercel resolves static files before it applies
+// `rewrites`. A `/` rewrite pointing here is silently ignored.
 const PAGE_META: Record<string, PageMeta> = {
   faq: {
     title: 'Hereday FAQ — Event Map Maker Help & Pricing Questions',
@@ -128,6 +139,10 @@ function injectMetaTags(html: string, meta: PageMeta, name: string): string {
     '',
   );
   out = out.replace(/\s*<link\s+rel="canonical"[^>]*\/?>/g, '');
+  out = out.replace(
+    /\s*<script\s+type="application\/ld\+json"[\s\S]*?<\/script>/g,
+    '',
+  );
 
   out = out.replace(
     /(<meta name="description"[^>]*\/?>)/,
