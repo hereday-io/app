@@ -205,6 +205,18 @@ function injectMetaTags(html: string, row: PublicEventRow, slug: string): string
     `<meta name="twitter:title" content="${escapeHtml(title)}" />`,
     `<meta name="twitter:description" content="${escapeHtml(description)}" />`,
     `<meta name="twitter:image" content="${escapeHtml(ogImage)}" />`,
+    // Event pages are deliberately kept out of search results — only the
+    // pre-login marketing pages are meant to rank. `noindex` (not a
+    // robots.txt Disallow) is the right lever here: the page must stay
+    // crawlable so Googlebot can actually read this tag, and so link
+    // scrapers keep working. `follow` is the harmless default.
+    `<meta name="robots" content="noindex, follow" />`,
+    // Self-canonical, and it must NOT point at the homepage. Google can
+    // propagate a `noindex` across a cross-domain/cross-page canonical to
+    // the target — with the shell's `canonical -> https://hereday.io/`
+    // still in place, the noindex above would risk deindexing the
+    // homepage itself.
+    `<link rel="canonical" href="${escapeHtml(url)}" />`,
   ].join('\n    ');
 
   let out = html;
@@ -218,8 +230,10 @@ function injectMetaTags(html: string, row: PublicEventRow, slug: string): string
     `<meta name="description" content="${escapeHtml(description)}" />`
   );
 
-  // Strip existing og:* and twitter:* tags from the shell
+  // Strip existing og:*, twitter:*, robots, and canonical tags from the shell
   out = out.replace(/\s*<meta\s+(property="og:[^"]*"|name="twitter:[^"]*")[^>]*\/?>/g, '');
+  out = out.replace(/\s*<meta\s+name="robots"[^>]*\/?>/g, '');
+  out = out.replace(/\s*<link\s+rel="canonical"[^>]*\/?>/g, '');
 
   // Inject event-specific block right after the description tag
   out = out.replace(
@@ -228,6 +242,19 @@ function injectMetaTags(html: string, row: PublicEventRow, slug: string): string
   );
 
   return out;
+}
+
+// Fallback responses (missing slug, unknown event, upstream error) serve the
+// raw shell, which carries `canonical -> https://hereday.io/`. Left alone,
+// a bogus /event/... URL reads to Google as a duplicate of the homepage.
+// Strip the canonical and mark it noindex so these never enter the index.
+function noindexShell(html: string): string {
+  let out = html.replace(/\s*<link\s+rel="canonical"[^>]*\/?>/g, '');
+  out = out.replace(/\s*<meta\s+name="robots"[^>]*\/?>/g, '');
+  return out.replace(
+    /(<meta name="description"[^>]*\/?>)/,
+    `$1\n    <meta name="robots" content="noindex, follow" />`
+  );
 }
 
 export default async function handler(req: { query: Record<string, string | string[] | undefined> }, res: {
@@ -251,7 +278,7 @@ export default async function handler(req: { query: Record<string, string | stri
 
   if (!slug || typeof slug !== 'string') {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.status(200).send(html);
+    res.status(200).send(noindexShell(html));
     return;
   }
 
@@ -267,7 +294,7 @@ export default async function handler(req: { query: Record<string, string | stri
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       // Cache 404s briefly so unpublished-event scrapes don't hammer the DB
       res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
-      res.status(200).send(html);
+      res.status(200).send(noindexShell(html));
       return;
     }
 
@@ -279,6 +306,6 @@ export default async function handler(req: { query: Record<string, string | stri
   } catch (err) {
     console.error('[og] handler error', err);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.status(200).send(html);
+    res.status(200).send(noindexShell(html));
   }
 }

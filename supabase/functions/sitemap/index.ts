@@ -1,8 +1,8 @@
-// Sitemap for published events.
+// Sitemap for the public marketing pages.
 //
-// Emits an XML sitemap listing every row in `public_events` plus a few
-// top-level static URLs (landing page, login, signup). Crawlers pick up
-// new events automatically as soon as they're published.
+// Emits an XML sitemap listing only the pre-login marketing surface —
+// the landing page, help pages, signup, and the legal pages. These are
+// the only URLs we want ranking in search.
 //
 // Deployed at:
 //   https://<project-ref>.supabase.co/functions/v1/sitemap
@@ -13,19 +13,17 @@
 // source of truth; the rewrite is just URL aesthetics.
 //
 // Design notes:
-// - Uses the service-role key because even though `public_events` is
-//   readable by `anon`, going through the service role avoids an
-//   extra RLS evaluation per row on large tables. This function
-//   returns only columns that the view already exposes publicly, so
-//   the elevated privilege never leaks anything.
-// - Edge-cached via `Cache-Control: public, max-age=3600` (1h). Event
-//   publishes can take up to an hour to show up in the sitemap; that's
-//   fine — Google re-crawls on its own schedule and an hour is well
-//   under the crawl cadence.
+// - `/event/:slug` pages are deliberately excluded. They're shareable
+//   product output, not marketing pages, and are served `noindex` by
+//   api/event/[slug].ts. Listing them here would contradict that tag
+//   and invite Search Console "indexed though blocked"-class warnings.
+//   Because of that exclusion this function no longer reads the DB at
+//   all — it used to query `public_events` with the service-role key.
+// - Edge-cached via `Cache-Control: public, max-age=3600` (1h). The URL
+//   list is static now, so this could become a plain file in public/;
+//   kept as a function so the existing vercel.json rewrite still works.
 // - No pagination. Sitemaps support up to 50k URLs per file; we're
 //   nowhere near that. When we are, split into a sitemap index.
-
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,11 +36,6 @@ const corsHeaders = {
 // Search Console indexing. If the canonical host ever changes, edit
 // this constant in code so the change is reviewed in a PR.
 const PUBLIC_SITE_ORIGIN = "https://hereday.io";
-
-interface PublicEventRow {
-  slug: string;
-  updated_at: string;
-}
 
 function escapeXml(value: string): string {
   return value
@@ -68,27 +61,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!supabaseUrl || !serviceKey) {
-      return new Response("Server misconfigured", { status: 500 });
-    }
-
-    const supabase = createClient(supabaseUrl, serviceKey);
-
-    const { data, error } = await supabase
-      .from("public_events")
-      .select("slug, updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(50000);
-
-    if (error) {
-      console.error("[sitemap] query failed", error);
-      return new Response("Failed to generate sitemap", { status: 500 });
-    }
-
-    const rows = (data ?? []) as PublicEventRow[];
-
     // Static top-level pages. Landing is highest priority; the
     // marketing/help pages get medium priority. /signup is the only
     // auth page worth indexing — it's a conversion endpoint. /login
@@ -104,31 +76,17 @@ Deno.serve(async (req) => {
       urlEntry(`${PUBLIC_SITE_ORIGIN}/privacy`, undefined, "yearly", "0.3"),
     ];
 
-    const eventUrls = rows.map((row) => {
-      // `updated_at` is ISO-8601 from Postgres timestamptz; sitemaps
-      // prefer YYYY-MM-DD but accept full W3C datetime. Use the date
-      // portion for compatibility with older crawlers.
-      const lastmod = row.updated_at?.slice(0, 10);
-      return urlEntry(
-        `${PUBLIC_SITE_ORIGIN}/event/${row.slug}`,
-        lastmod,
-        "weekly",
-        "0.8",
-      );
-    });
-
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${[...staticUrls, ...eventUrls].join("\n")}
+${staticUrls.join("\n")}
 </urlset>`;
 
     return new Response(xml, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/xml; charset=utf-8",
-        // Edge + browser cache. 1h is a sensible floor for a sitemap —
-        // longer and newly-published events take too long to show up,
-        // shorter and we're hitting the DB more than necessary.
+        // Edge + browser cache. The list is static, so this could be far
+        // longer; 1h keeps it cheap to correct a mistake in the URL set.
         "Cache-Control": "public, max-age=3600, s-maxage=3600",
       },
     });

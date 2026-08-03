@@ -3,11 +3,19 @@ Allow: /
 Disallow: /dashboard
 Disallow: /editor
 Disallow: /billing
+Disallow: /admin/
+Disallow: /login
 Disallow: /scout/
 Disallow: /v/
 Disallow: /unsubscribe/
 Disallow: /forgot-password
 Disallow: /reset-password
 Disallow: /api/
+
+# /event/ is intentionally NOT disallowed. Those pages are kept out of
+# search via a `noindex` meta tag injected by api/event/[slug].ts, and
+# Googlebot has to be able to fetch the page to read that tag. Blocking
+# them here would hide the noindex and let shared event links still get
+# indexed URL-only, which is the opposite of what we want.
 
 Sitemap: https://hereday.io/sitemap.xml
