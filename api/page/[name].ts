@@ -15,11 +15,20 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+// The `.js` extension below is REQUIRED and is not a typo. Vercel
+// transpiles these functions to ESM without bundling them, so the
+// specifier is resolved by Node at runtime, and Node's ESM resolver
+// rejects extensionless relative paths. Writing `.js` while the file on
+// disk is `.ts` is the standard TypeScript ESM convention: tsc resolves
+// it to the .ts source at build time and the emitted file really is .js.
+// Without the extension this deploys cleanly and then crashes every
+// request with FUNCTION_INVOCATION_FAILED, taking all six marketing
+// routes down at once.
 import {
   HOMEPAGE_DESCRIPTION,
   HOMEPAGE_SCHEMAS,
   HOMEPAGE_TITLE,
-} from '../_shared/homepageSchema';
+} from '../_shared/homepageSchema.js';
 
 const SITE_URL = 'https://hereday.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
