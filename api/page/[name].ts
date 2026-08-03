@@ -76,26 +76,47 @@ const PAGE_META: Record<string, PageMeta> = {
   },
 };
 
-let cachedHtml: string | null = null;
-function getHtmlTemplate(): string {
-  if (cachedHtml) return cachedHtml;
-  // Vercel runtime cwd varies; try a few likely paths before giving up.
+// Read `prerendered/<file>`, trying the paths Vercel's runtime cwd might
+// resolve to. Returns null rather than throwing so callers can fall back.
+function readPrerendered(file: string): string | null {
   const candidates = [
-    join(process.cwd(), 'dist', 'index.html'),
-    join(__dirname, '..', '..', 'dist', 'index.html'),
-    join(__dirname, '..', '..', '..', 'dist', 'index.html'),
+    join(process.cwd(), 'prerendered', file),
+    join(__dirname, '..', '..', 'prerendered', file),
+    join(__dirname, '..', '..', '..', 'prerendered', file),
   ];
   for (const p of candidates) {
     try {
-      cachedHtml = readFileSync(p, 'utf8');
-      return cachedHtml;
+      return readFileSync(p, 'utf8');
     } catch {
       // try next
     }
   }
-  throw new Error(
-    `Could not locate dist/index.html. Tried: ${candidates.join(', ')}`,
-  );
+  return null;
+}
+
+// One cache entry per route, plus the bare shell. Warm invocations reuse
+// them; a miss just re-reads from disk.
+const htmlCache = new Map<string, string>();
+
+// The per-route file holds that page's real markup, prerendered at build
+// time by scripts/prerender.mjs. shell.html is the un-prerendered
+// fallback: correct, just without body content for JS-less clients.
+//
+// NOT dist/index.html — that now holds the prerendered *homepage*, so
+// falling back to it would serve homepage copy on /faq and friends.
+function getHtmlTemplate(name: string): string {
+  const cached = htmlCache.get(name);
+  if (cached) return cached;
+
+  const html = readPrerendered(`${name}.html`) ?? readPrerendered('shell.html');
+  if (!html) {
+    throw new Error(
+      `Could not locate prerendered/${name}.html or prerendered/shell.html. ` +
+        'Check the vercel.json includeFiles glob for this function.',
+    );
+  }
+  htmlCache.set(name, html);
+  return html;
 }
 
 function escapeHtml(s: string): string {
@@ -179,18 +200,20 @@ export default async function handler(
 ) {
   const nameRaw = req.query?.name;
   const name = Array.isArray(nameRaw) ? nameRaw[0] : nameRaw;
+  const known = typeof name === 'string' && !!PAGE_META[name];
 
   let html: string;
   try {
-    html = getHtmlTemplate();
+    // Unknown names get the bare shell; there is no prerender for them.
+    html = getHtmlTemplate(known ? (name as string) : 'shell');
   } catch (err) {
-    console.error('[page] failed to read dist/index.html', err);
+    console.error('[page] failed to read prerendered template', err);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.status(500).send('Server error');
     return;
   }
 
-  if (!name || typeof name !== 'string' || !PAGE_META[name]) {
+  if (!known) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader(
       'Cache-Control',
