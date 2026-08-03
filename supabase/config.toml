@@ -10,3 +10,11 @@ verify_jwt = false
 # Supabase session. The HMAC-signed token IS the auth; no JWT required.
 [functions.unsubscribe]
 verify_jwt = false
+
+# Sitemap — fetched by search engine crawlers via the /sitemap.xml rewrite
+# in vercel.json, which forwards no auth headers. Was previously deployed
+# with a bare `--no-verify-jwt` and never recorded here, so a default
+# `functions deploy sitemap` would have re-enabled the JWT gate and 401'd
+# Googlebot. Pinning it in config so that can't happen again.
+[functions.sitemap]
+verify_jwt = false
