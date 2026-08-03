@@ -26,13 +26,18 @@ const __dirname = dirname(__filename);
 let cachedHtml: string | null = null;
 function getHtmlTemplate(): string {
   if (cachedHtml) return cachedHtml;
-  // dist/index.html is the Vite build output. We include it in the function
-  // bundle via vercel.json `includeFiles`. Vercel's runtime cwd varies, so
-  // we try a few likely paths before giving up.
+  // prerendered/shell.html is the un-prerendered SPA shell, written by
+  // scripts/prerender.mjs and pulled into the function bundle via
+  // vercel.json `includeFiles`.
+  //
+  // Deliberately NOT dist/index.html: that file now holds the *prerendered
+  // homepage*, so reading it here would serve Hereday's marketing copy as
+  // the body of every shared event link. Vercel's runtime cwd varies, so
+  // try a few likely paths before giving up.
   const candidates = [
-    join(process.cwd(), 'dist', 'index.html'),
-    join(__dirname, '..', '..', 'dist', 'index.html'),
-    join(__dirname, '..', '..', '..', 'dist', 'index.html'),
+    join(process.cwd(), 'prerendered', 'shell.html'),
+    join(__dirname, '..', '..', 'prerendered', 'shell.html'),
+    join(__dirname, '..', '..', '..', 'prerendered', 'shell.html'),
   ];
   for (const p of candidates) {
     try {
@@ -43,7 +48,7 @@ function getHtmlTemplate(): string {
     }
   }
   throw new Error(
-    `Could not locate dist/index.html. Tried: ${candidates.join(', ')}`
+    `Could not locate prerendered/shell.html. Tried: ${candidates.join(', ')}`
   );
 }
 
@@ -284,7 +289,7 @@ export default async function handler(req: { query: Record<string, string | stri
   try {
     html = getHtmlTemplate();
   } catch (err) {
-    console.error('[og] failed to read dist/index.html', err);
+    console.error('[og] failed to read prerendered/shell.html', err);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.status(500).send('Server error');
     return;
