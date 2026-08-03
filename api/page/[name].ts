@@ -19,7 +19,7 @@ import {
   HOMEPAGE_DESCRIPTION,
   HOMEPAGE_SCHEMAS,
   HOMEPAGE_TITLE,
-} from '../../src/lib/homepageSchema';
+} from '../_shared/homepageSchema';
 
 const SITE_URL = 'https://hereday.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;

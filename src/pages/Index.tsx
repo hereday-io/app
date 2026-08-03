@@ -19,7 +19,7 @@ import {
   HOMEPAGE_DESCRIPTION,
   HOMEPAGE_FAQS,
   HOMEPAGE_TITLE,
-} from '@/lib/homepageSchema';
+} from '../../api/_shared/homepageSchema';
 
 // Hero map is a pre-baked PNG in /public so the landing page has zero
 // runtime dependency on the Mapbox Static Images API — no token

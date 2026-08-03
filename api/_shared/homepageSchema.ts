@@ -10,6 +10,15 @@
 // Keep this file dependency-free. It is pulled into a serverless
 // function bundle, so no React, no `@/` path aliases, no browser
 // globals — plain data and plain functions only.
+//
+// It lives under `api/` rather than `src/` for a concrete reason:
+// Vercel only packages files inside `api/` (plus anything named in
+// vercel.json `includeFiles`) into a function's deployment. An earlier
+// version of this file sat at src/lib/homepageSchema.ts, built fine
+// locally, and then 500'd in production because the module was simply
+// never uploaded — taking all six api/page marketing routes down with
+// it. The `_` prefix keeps this directory from being treated as a
+// route. Index.tsx imports it from here; do not move it back.
 
 export const HOMEPAGE_TITLE =
   'Hereday — Event Map Maker for Race Directors & Organizers';
