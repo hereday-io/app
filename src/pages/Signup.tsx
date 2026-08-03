@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { InfoCallout } from '@/components/ui/info-callout';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 
 // Lightweight password strength heuristic. We deliberately skip zxcvbn
 // (~400KB gzip) — the goal is a live signal that nudges users toward
@@ -35,6 +36,16 @@ const SMALL_CAPS_LABEL =
   'font-display font-semibold text-[11px] uppercase tracking-[0.07em] text-muted-foreground block';
 
 const Signup = () => {
+  // /signup is in the sitemap as a conversion endpoint, so it needs a
+  // self-canonical. Without this it inherits the shell's canonical to the
+  // homepage and Google treats it as a duplicate rather than indexing it.
+  useSeoMeta({
+    title: 'Sign Up Free — Hereday Event Map Maker for Race Directors',
+    description:
+      'Create a free Hereday account and publish a shareable race map in about five minutes. Unlimited free events, pay per event, never a subscription.',
+    canonicalPath: '/signup',
+  });
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');

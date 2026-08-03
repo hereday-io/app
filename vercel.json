@@ -3,6 +3,7 @@
     { "source": "/sitemap.xml", "destination": "https://vbhpvboccvufdkujgnmd.supabase.co/functions/v1/sitemap" },
     { "source": "/event/:slug", "destination": "/api/event/:slug" },
     { "source": "/faq", "destination": "/api/page/faq" },
+    { "source": "/signup", "destination": "/api/page/signup" },
     { "source": "/getting-started", "destination": "/api/page/getting-started" },
     { "source": "/privacy", "destination": "/api/page/privacy" },
     { "source": "/terms", "destination": "/api/page/terms" },

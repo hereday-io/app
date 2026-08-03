@@ -48,6 +48,11 @@ const PAGE_META: Record<string, PageMeta> = {
     description:
       'Terms governing use of Hereday — the event map maker for race directors and event organizers.',
   },
+  signup: {
+    title: 'Sign Up Free — Hereday Event Map Maker for Race Directors',
+    description:
+      'Create a free Hereday account and publish a shareable race map in about five minutes. Unlimited free events, pay per event, never a subscription.',
+  },
   refund: {
     title: 'Refund Policy — Hereday',
     description:
