@@ -15,14 +15,19 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-// NOTE: this function deliberately has no relative imports. Vercel
-// transpiles it to ESM without bundling, so any relative specifier is
-// resolved by Node at runtime and must carry a `.js` extension —
-// omitting it deploys cleanly and then crashes every request with
-// FUNCTION_INVOCATION_FAILED, which takes all six marketing routes down
-// at once because they all run through this one handler. Homepage
-// structured data is baked into index.html by a Vite plugin instead;
-// see the `homepageJsonLd` plugin in vite.config.ts.
+// The `.js` extension below is REQUIRED and is not a typo. Vercel
+// transpiles this function to ESM without bundling it, so the specifier
+// is resolved by Node at runtime, and Node's ESM resolver rejects
+// extensionless relative paths. Writing `.js` while the file on disk is
+// `.ts` is the standard TypeScript ESM convention: tsc resolves it to the
+// .ts source and the emitted file really is .js. Omitting the extension
+// deploys cleanly and then crashes every request with
+// FUNCTION_INVOCATION_FAILED, taking all six marketing routes down at
+// once because they all run through this one handler.
+//
+// The homepage is not served from here — `/` is static, so its schema is
+// baked into index.html by the homepageJsonLd plugin in vite.config.ts.
+import { PAGE_SCHEMAS } from '../_shared/pageSchemas.js';
 
 const SITE_URL = 'https://hereday.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
@@ -102,6 +107,14 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
+// JSON-LD lives inside a <script> element, so the only character that can
+// break out is `<` (via a literal "</script>" in a string value).
+// Deliberately NOT escapeHtml — that escapes quotes and ampersands and
+// would emit invalid JSON, which crawlers discard silently.
+function serializeJsonLd(data: Record<string, unknown>): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
 function injectMetaTags(html: string, meta: PageMeta, name: string): string {
   const url = `${SITE_URL}/${name}`;
   const ogImage = DEFAULT_OG_IMAGE;
@@ -120,6 +133,11 @@ function injectMetaTags(html: string, meta: PageMeta, name: string): string {
     `<meta name="twitter:description" content="${escapeHtml(meta.description)}" />`,
     `<meta name="twitter:image" content="${escapeHtml(ogImage)}" />`,
     `<link rel="canonical" href="${escapeHtml(url)}" />`,
+    // Routes listed in PAGE_SCHEMAS must not also render <JsonLd>
+    // client-side, or every block ends up duplicated after hydration.
+    ...(PAGE_SCHEMAS[name] ?? []).map(
+      (s) => `<script type="application/ld+json">${serializeJsonLd(s)}</script>`,
+    ),
   ].join('\n    ');
 
   let out = html;
