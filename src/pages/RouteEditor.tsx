@@ -13,6 +13,11 @@ import { poiTone, POI_TYPES } from '@/lib/pois';
 import { uploadPoiImage, isDataUrl } from '@/lib/poiImageUpload';
 import { hasSponsorContent, FREE_BRANDED_SPONSOR_CAP } from '@/lib/sponsors';
 import { parseRouteFile, trackToRoute } from '@/lib/routeImport';
+import {
+  applyVertexMove, applyVertexInsert, applyVertexDelete,
+  moveAnchors, insertAnchors, deleteAnchors, segmentAt,
+  countsFor, waypointOffsets,
+} from '@/lib/routeEdit';
 import { logEvent } from '@/lib/analytics';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
@@ -31,6 +36,9 @@ import { usePaywall } from '@/hooks/usePaywall';
 
 // Mapbox token fetched from backend at runtime
 const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
+
+/** Single layer id — only the active route ever shows vertex handles. */
+const VERTEX_LAYER = 'route-vertices';
 
 function makeRoute(name: string, color: string): EventRoute {
   return {
@@ -120,6 +128,129 @@ const RouteEditor = () => {
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
   const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | 'sponsors' | null>(null);
+
+  // ── Vertex editing ──────────────────────────────────────────────────────
+  // Drag a handle to move a point, click the line to insert one, Alt-click a
+  // handle to delete it. Each operation re-resolves only the one or two
+  // segments it touches, so the rest of the course — and in particular an
+  // imported GPX trace — is left exactly as it was.
+  //
+  // Declared here rather than beside the other route helpers because the
+  // gesture effect below lists these callbacks as dependencies; a `const`
+  // read before its declaration is a temporal-dead-zone ReferenceError at
+  // render time, which takes the whole editor down.
+
+  /** Live routes, so the gesture effect need not depend on `routes` and
+   *  tear itself down mid-drag every time an edit lands. */
+  const routesRef = useRef(routes);
+  routesRef.current = routes;
+  /** Set while a vertex commit is in flight — commits must not interleave. */
+  const vertexBusyRef = useRef(false);
+  /** Mapbox emits a synthetic click after any sub-3px press/release, which
+   *  would run the insert path on top of a drag or an Alt-click delete. */
+  const suppressClickRef = useRef(false);
+  /** Base cursor stashed while hovering a handle; a ref so it survives an
+   *  effect re-run rather than stranding the map on 'grab'. */
+  const vertexCursorRef = useRef<string | null>(null);
+  /**
+   * Pre-edit route snapshots, newest last. Ctrl+Z pops this before falling
+   * through to undoLastWaypoint — which only knows how to remove the *last*
+   * waypoint, so without this, undoing an insert made mid-course would lop
+   * the end off the route and re-open it for drawing.
+   *
+   * Cleared whenever a point is appended by drawing, so the two undo notions
+   * can't interleave out of order.
+   */
+  const vertexUndoRef = useRef<{ routeId: string; route: EventRoute }[]>([]);
+
+  /** Resolve a segment between two points, honouring the snap-to-roads toggle. */
+  const resolveSegment = useCallback(async (a: Coord, b: Coord): Promise<Coord[]> => {
+    if (!snapToRoads) return [a, b];
+    try {
+      const snapped = await getSnappedRoute([a, b], mapboxToken);
+      return snapped.length >= 2 ? snapped : [a, b];
+    } catch {
+      // Straight line rather than a failed edit. Matches how the draw path
+      // degrades when Directions is unavailable.
+      return [a, b];
+    }
+  }, [snapToRoads, mapboxToken]);
+
+  /**
+   * Run a vertex edit against the *current* route, not a snapshot.
+   *
+   * Anchors are read at call time and the splice is applied inside the state
+   * updater, but a Directions round-trip sits in between — so the updater also
+   * re-checks that the waypoint count hasn't changed underneath (a POI
+   * start/finish drag rewrites waypoints too). If it has, the edit is dropped
+   * rather than applied against geometry it was never computed for.
+   */
+  const runVertexEdit = useCallback(async (
+    routeId: string,
+    plan: (route: EventRoute) => Promise<((r: EventRoute) => EventRoute) | null>,
+    status: string,
+  ) => {
+    if (vertexBusyRef.current) return;
+    const route = routesRef.current.find((r) => r.id === routeId);
+    if (!route) return;
+    const expected = route.waypoints.length;
+
+    vertexBusyRef.current = true;
+    setIsSnapping(true);
+    try {
+      const apply = await plan(route);
+      if (!apply) return;
+
+      // Snapshot the route as it stands right now (not as captured before the
+      // Directions round-trip), under the same guard the updater applies.
+      const pre = routesRef.current.find((r) => r.id === routeId);
+      if (pre && pre.waypoints.length === expected) {
+        vertexUndoRef.current = [...vertexUndoRef.current.slice(-19), { routeId, route: pre }];
+      }
+
+      setRoutes((all) => all.map((r) => {
+        if (r.id !== routeId) return r;
+        if (r.waypoints.length !== expected) return r;
+        return apply(r);
+      }));
+      setStatusText(status);
+    } finally {
+      vertexBusyRef.current = false;
+      setIsSnapping(false);
+    }
+  }, []);
+
+  const commitVertexMove = useCallback((routeId: string, index: number, pos: Coord) =>
+    runVertexEdit(routeId, async (route) => {
+      if (index < 0 || index >= route.waypoints.length) return null;
+      const { prev, next } = moveAnchors(route, index);
+      const [before, after] = await Promise.all([
+        prev ? resolveSegment(prev, pos) : Promise.resolve(null),
+        next ? resolveSegment(pos, next) : Promise.resolve(null),
+      ]);
+      return (r) => applyVertexMove(r, index, pos, before, after);
+    }, 'Point moved.'), [runVertexEdit, resolveSegment]);
+
+  const commitVertexInsert = useCallback((routeId: string, pos: Coord) =>
+    runVertexEdit(routeId, async (route) => {
+      const at = segmentAt(route, pos);
+      const { prev, next } = insertAnchors(route, at);
+      if (!prev || !next) return null;
+      const [before, after] = await Promise.all([resolveSegment(prev, pos), resolveSegment(pos, next)]);
+      return (r) => applyVertexInsert(r, at, pos, before, after);
+    }, 'Point added.'), [runVertexEdit, resolveSegment]);
+
+  const commitVertexDelete = useCallback((routeId: string, index: number) =>
+    runVertexEdit(routeId, async (route) => {
+      if (route.waypoints.length <= 2) {
+        toast({ title: 'Keep at least two points', description: 'Delete the route instead if you want to start over.' });
+        return null;
+      }
+      const { prev, next } = deleteAnchors(route, index);
+      const joined = prev && next ? await resolveSegment(prev, next) : null;
+      return (r) => applyVertexDelete(r, index, joined);
+    }, 'Point removed.'), [runVertexEdit, resolveSegment, toast]);
+
   // Fetch Mapbox token from backend
   useEffect(() => {
     if (mapboxToken) return; // already have it from env
@@ -438,6 +569,23 @@ const RouteEditor = () => {
           tooltip.textContent = 'Click to add point · Double-click to finish';
         }
         tooltip.style.opacity = '1';
+      } else if (activeRouteId && finishedRouteIds.has(activeRouteId)) {
+        // Editing affordances for a completed route.
+        const lineId = `route-${activeRouteId}`;
+        const overVertex = map.getLayer(VERTEX_LAYER)
+          && map.queryRenderedFeatures(point, { layers: [VERTEX_LAYER] }).length > 0;
+        const overLine = !overVertex && map.getLayer(lineId)
+          && map.queryRenderedFeatures(point, { layers: [lineId] }).length > 0;
+
+        if (overVertex) {
+          tooltip.textContent = 'Drag to move · Alt-click to remove';
+          tooltip.style.opacity = '1';
+        } else if (overLine) {
+          tooltip.textContent = 'Click to add a point here';
+          tooltip.style.opacity = '1';
+        } else {
+          tooltip.style.opacity = '0';
+        }
       } else {
         tooltip.style.opacity = '0';
       }
@@ -489,6 +637,155 @@ const RouteEditor = () => {
     });
   }, []);
 
+  /**
+   * Vertex gestures: drag a handle to move it, Alt-click to remove it.
+   *
+   * Deliberately does not depend on `routes` — that changes on every edit,
+   * which would tear the effect down and re-register it mid-gesture. The live
+   * route is read from a ref instead.
+   *
+   * Handles are live only on a finished route with no POI type armed. While
+   * drawing, a click near an existing handle must extend the line (including
+   * closing a loop back onto the start); while placing a POI, the click
+   * belongs to the POI.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!activeRouteId || !finishedRouteIds.has(activeRouteId) || pendingPoiType) return;
+
+    const canvas = map.getCanvas();
+    let dragIdx: number | null = null;
+
+    const currentRoute = () => routesRef.current.find((r) => r.id === activeRouteId) ?? null;
+
+    const hit = (e: mapboxgl.MapMouseEvent) =>
+      map.getLayer(VERTEX_LAYER)
+        ? map.queryRenderedFeatures(e.point, { layers: [VERTEX_LAYER] })
+        : [];
+
+    // The cursor effect owns the base cursor; stash and restore rather than
+    // clearing, or hovering a handle would wipe the draw crosshair.
+    const grabCursor = (next: string) => {
+      if (vertexCursorRef.current === null) vertexCursorRef.current = canvas.style.cursor;
+      canvas.style.cursor = next;
+    };
+    const releaseCursor = () => {
+      if (vertexCursorRef.current === null) return;
+      canvas.style.cursor = vertexCursorRef.current;
+      vertexCursorRef.current = null;
+    };
+
+    /** Straight-line preview while dragging — the real snap happens on drop. */
+    const preview = (pos: Coord) => {
+      const route = currentRoute();
+      if (!route || dragIdx === null) return;
+
+      (map.getSource(VERTEX_LAYER) as mapboxgl.GeoJSONSource | undefined)?.setData({
+        type: 'FeatureCollection',
+        features: route.waypoints.map((coord, idx) => ({
+          type: 'Feature' as const,
+          properties: { idx },
+          geometry: { type: 'Point' as const, coordinates: idx === dragIdx ? pos : coord },
+        })),
+      });
+
+      const lineSrc = map.getSource(`route-${route.id}`) as mapboxgl.GeoJSONSource | undefined;
+      if (!lineSrc) return;
+      const offs = waypointOffsets(countsFor(route));
+      const before = dragIdx === 0 ? [] : route.routeCoords.slice(0, offs[dragIdx - 1] + 1);
+      const after = dragIdx === route.waypoints.length - 1
+        ? []
+        : route.routeCoords.slice(offs[dragIdx + 1]);
+      lineSrc.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: [...before, pos, ...after] },
+      });
+    };
+
+    const onMove = (e: mapboxgl.MapMouseEvent) => preview([e.lngLat.lng, e.lngLat.lat]);
+
+    /**
+     * Ends on a window listener, not map.once('mouseup'). Mapbox only emits
+     * its own mouseup for releases over the canvas container, so letting go
+     * over the sidebar or outside the window would strand the gesture: panning
+     * left disabled, and an armed handler that teleports the waypoint to
+     * wherever the user next clicked.
+     */
+    const onWindowUp = (ev: MouseEvent) => {
+      window.removeEventListener('mouseup', onWindowUp);
+      map.off('mousemove', onMove);
+      map.dragPan.enable();
+      releaseCursor();
+
+      const idx = dragIdx;
+      dragIdx = null;
+      const route = currentRoute();
+      if (idx === null || !route) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const inside = ev.clientX >= rect.left && ev.clientX <= rect.right
+        && ev.clientY >= rect.top && ev.clientY <= rect.bottom;
+
+      if (!inside) {
+        // Snap the preview back rather than committing to a point the user
+        // can't see. Re-rendering from state does that for free.
+        setRoutes((all) => [...all]);
+        setStatusText('Move cancelled — released off the map.');
+        return;
+      }
+
+      const ll = map.unproject([ev.clientX - rect.left, ev.clientY - rect.top]);
+      void commitVertexMove(route.id, idx, [ll.lng, ll.lat]);
+    };
+
+    const onDown = (e: mapboxgl.MapMouseEvent) => {
+      const hits = hit(e);
+      if (hits.length === 0) return;
+      const idx = Number(hits[0].properties?.idx);
+      if (!Number.isInteger(idx)) return;
+      const route = currentRoute();
+      if (!route) return;
+
+      e.preventDefault();
+      // Mapbox fires a synthetic click after any sub-3px press/release, which
+      // would run the insert path on top of this gesture.
+      suppressClickRef.current = true;
+
+      if ((e.originalEvent as MouseEvent).altKey) {
+        void commitVertexDelete(route.id, idx);
+        return;
+      }
+
+      dragIdx = idx;
+      map.dragPan.disable();
+      grabCursor('grabbing');
+      map.on('mousemove', onMove);
+      window.addEventListener('mouseup', onWindowUp);
+    };
+
+    // Hover affordance, so the handles read as grabbable.
+    const onHover = (e: mapboxgl.MapMouseEvent) => {
+      if (dragIdx !== null) return;
+      if (hit(e).length > 0) grabCursor('grab');
+      else releaseCursor();
+    };
+
+    map.on('mousedown', onDown);
+    map.on('mousemove', onHover);
+
+    return () => {
+      map.off('mousedown', onDown);
+      map.off('mousemove', onHover);
+      map.off('mousemove', onMove);
+      window.removeEventListener('mouseup', onWindowUp);
+      map.dragPan.enable();
+      releaseCursor();
+      dragIdx = null;
+    };
+  }, [activeRouteId, finishedRouteIds, pendingPoiType, commitVertexMove, commitVertexDelete]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -504,6 +801,15 @@ const RouteEditor = () => {
       // Start/Finish. `detail === 2` is set on the real OS event for
       // that second click — ignore it.
       if (e.originalEvent && (e.originalEvent as MouseEvent).detail > 1) return;
+
+      // A vertex gesture just consumed this press. Mapbox still emits click
+      // after a sub-3px press/release, and preventDefault() on the mousedown
+      // does not suppress it, so without this an Alt-click delete would be
+      // followed immediately by an insert at the same point.
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
 
       const rawCoord: Coord = [e.lngLat.lng, e.lngLat.lat];
 
@@ -529,13 +835,44 @@ const RouteEditor = () => {
 
       // Click on empty map (no pending type, not drawing) — clear
       // any POI selection so Delete doesn't accidentally remove it.
-      if (!activeRouteId || finishedRouteIds.has(activeRouteId)) {
+      if (!activeRouteId) {
         setSelectedPoiId(null);
+        return;
+      }
+
+      // "Finished" gates appending, not adjusting. Clicking a finished
+      // route's line inserts a point there. Without this, every route
+      // reloaded from the database would be permanently uneditable — the
+      // loader marks all of them finished.
+      if (finishedRouteIds.has(activeRouteId)) {
+        // A click that landed on a POI marker belongs to that marker — markers
+        // live in the canvas container, so this handler runs for them too.
+        // Clearing the selection here would close the popover the user just
+        // opened, and inserting a waypoint under it is worse.
+        const target = e.originalEvent?.target as HTMLElement | null;
+        if (target?.closest('.mapboxgl-marker')) return;
+
+        // Handles sit on the line, so a press on one also hits it.
+        const onVertex = !!map.getLayer(VERTEX_LAYER)
+          && map.queryRenderedFeatures(e.point, { layers: [VERTEX_LAYER] }).length > 0;
+        if (onVertex) return;
+
+        setSelectedPoiId(null);
+        const lineId = `route-${activeRouteId}`;
+        const onLine = map.getLayer(lineId)
+          ? map.queryRenderedFeatures(e.point, { layers: [lineId] })
+          : [];
+        if (onLine.length > 0) await commitVertexInsert(activeRouteId, rawCoord);
         return;
       }
 
       const route = routes.find((r) => r.id === activeRouteId);
       if (!route) return;
+
+      // Drawing a new point supersedes any pending vertex-edit undos —
+      // keeping both stacks would make Ctrl+Z undo them out of order.
+      vertexUndoRef.current = [];
+
       const nextWaypoints = [...route.waypoints, rawCoord];
 
       // ── Freeform: append coord directly ────────────────────────────────
@@ -641,7 +978,7 @@ const RouteEditor = () => {
       map.off('dblclick', onDblClick);
       map.doubleClickZoom.enable();
     };
-  }, [activeRouteId, pendingPoiType, keepPoiTypeArmed, poiSnapToRoute, snapToRoads, routes, autoPlaceStartFinish, finishedRouteIds]);
+  }, [activeRouteId, pendingPoiType, keepPoiTypeArmed, poiSnapToRoute, snapToRoads, routes, autoPlaceStartFinish, finishedRouteIds, commitVertexInsert]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -657,6 +994,8 @@ const RouteEditor = () => {
         if (map.getLayer(srcId)) map.removeLayer(srcId);
         if (map.getSource(srcId)) map.removeSource(srcId);
       });
+      if (map.getLayer(VERTEX_LAYER)) map.removeLayer(VERTEX_LAYER);
+      if (map.getSource(VERTEX_LAYER)) map.removeSource(VERTEX_LAYER);
       renderedRouteIdsRef.current = currentIds;
 
       routes
@@ -685,6 +1024,38 @@ const RouteEditor = () => {
             },
           });
         });
+
+      // Vertex handles for the active route only — showing them for every
+      // route would clutter the map and make it ambiguous which course a
+      // drag belongs to. Only once the route is finished, and never while a
+      // POI type is armed: nothing should be grabbable when the next click is
+      // meant to place a marker or extend the line.
+      const editing = routes.find((r) => r.id === activeRouteId);
+      if (editing?.visible && editing.waypoints.length > 1
+        && finishedRouteIds.has(editing.id) && !pendingPoiType) {
+        map.addSource(VERTEX_LAYER, {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: editing.waypoints.map((coord, idx) => ({
+              type: 'Feature' as const,
+              properties: { idx },
+              geometry: { type: 'Point' as const, coordinates: coord },
+            })),
+          },
+        });
+        map.addLayer({
+          id: VERTEX_LAYER,
+          type: 'circle',
+          source: VERTEX_LAYER,
+          paint: {
+            'circle-radius': 5,
+            'circle-color': '#ffffff',
+            'circle-stroke-color': editing.color,
+            'circle-stroke-width': 2,
+          },
+        });
+      }
 
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
@@ -843,7 +1214,10 @@ const RouteEditor = () => {
             const route = routes.find((r) => r.id === routeId);
             if (route && route.waypoints.length >= 2) {
               const wps = [...route.waypoints];
-              const counts = route.segmentCoordCounts ? [...route.segmentCoordCounts] : null;
+              // countsFor repairs a legacy or drifted array, so these two
+              // paths can't be the thing that breaks the counts contract for
+              // everything downstream.
+              const counts = [...countsFor(route)];
 
               if (startMatch) {
                 wps[0] = snapped;
@@ -853,10 +1227,12 @@ const RouteEditor = () => {
                   setIsSnapping(true);
                   const seg = await getSnappedRoute([snapped, wps[1]], mapboxToken);
                   // Replace the first segment's coords, keep the rest
-                  const firstSegLen = counts?.[1] ?? 1;
+                  const firstSegLen = counts[1] ?? 1;
                   const rest = route.routeCoords.slice(firstSegLen);
                   const newCoords = [...seg, ...rest.slice(1)];
-                  const newCounts = counts ? [seg.length, ...counts.slice(2)] : undefined;
+                  // counts[0] stays the placeholder 1; the new first segment
+                  // contributes seg.length - 1 (its start coord is waypoint 0).
+                  const newCounts = [1, seg.length - 1, ...counts.slice(2)];
                   setRoutes((prev) => prev.map((r) =>
                     r.id === routeId ? { ...r, waypoints: wps, routeCoords: newCoords, segmentCoordCounts: newCounts } : r
                   ));
@@ -878,10 +1254,12 @@ const RouteEditor = () => {
                   setIsSnapping(true);
                   const seg = await getSnappedRoute([wps[wps.length - 2], snapped], mapboxToken);
                   // Replace the last segment's coords, keep the rest
-                  const lastSegLen = counts?.[counts.length - 1] ?? 1;
+                  const lastSegLen = counts[counts.length - 1] ?? 1;
                   const rest = route.routeCoords.slice(0, route.routeCoords.length - lastSegLen);
                   const newCoords = [...rest, ...seg.slice(rest.length > 0 ? 1 : 0)];
-                  const newCounts = counts ? [...counts.slice(0, -1), seg.length] : undefined;
+                  // seg includes its shared start coord, which `rest` already
+                  // holds — so the segment contributes seg.length - 1.
+                  const newCounts = [...counts.slice(0, -1), seg.length - 1];
                   setRoutes((prev) => prev.map((r) =>
                     r.id === routeId ? { ...r, waypoints: wps, routeCoords: newCoords, segmentCoordCounts: newCounts } : r
                   ));
@@ -944,7 +1322,7 @@ const RouteEditor = () => {
     return () => {
       map.off('style.load', render);
     };
-  }, [routes, pois, scoutedPois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType]);
+  }, [routes, pois, scoutedPois, activeRouteId, selectedBasemap, mapReady, highlightedPoiType, finishedRouteIds, pendingPoiType]);
 
   // Materializes any POI images that are still base64 data URLs into the
   // poi-images storage bucket. Returns a POI array safe to persist (no
@@ -1373,7 +1751,7 @@ const RouteEditor = () => {
     } else if (added.length > 0) {
       toast({
         title: `Imported ${added.length} route${added.length === 1 ? '' : 's'}`,
-        description: 'Drag the start or finish pin to adjust the ends.',
+        description: 'Drag any point to adjust it, or click the line to add one.',
       });
     }
   };
@@ -1394,6 +1772,20 @@ const RouteEditor = () => {
   };
 
   const undoLastWaypoint = useCallback(async () => {
+    // Vertex edits undo first, newest first. Snapshots for routes that have
+    // since been deleted are discarded rather than resurrecting them.
+    while (vertexUndoRef.current.length > 0) {
+      const snap = vertexUndoRef.current[vertexUndoRef.current.length - 1];
+      vertexUndoRef.current = vertexUndoRef.current.slice(0, -1);
+      if (!routesRef.current.some((r) => r.id === snap.routeId)) continue;
+      // Note: deliberately does NOT touch finishedRouteIds. Restoring a
+      // point edit shouldn't drop the route back into drawing mode.
+      setRoutes((prev) => prev.map((r) => (r.id === snap.routeId ? snap.route : r)));
+      setActiveRouteId(snap.routeId);
+      setStatusText('Point edit undone.');
+      return;
+    }
+
     if (!activeRoute || activeRoute.waypoints.length === 0) return;
     const nextWaypoints = activeRoute.waypoints.slice(0, -1);
 
@@ -1454,6 +1846,10 @@ const RouteEditor = () => {
 
   const clearActiveRoute = () => {
     if (!activeRoute) return;
+
+    // Clearing the route makes any pending vertex-edit snapshots meaningless;
+    // this path has its own undo via the toast action.
+    vertexUndoRef.current = [];
 
     // Snapshot for undo
     const snapshot = { ...activeRoute };
