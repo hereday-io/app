@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import {
   Plus, Trash2, Eye, EyeOff, GripVertical, Crown,
-  PenLine, CheckCircle2, ChevronDown, ChevronRight,
+  PenLine, CheckCircle2, ChevronDown, ChevronRight, Upload,
 } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 import type { EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
@@ -34,6 +34,7 @@ interface RouteBuilderToolbarProps {
   setActiveRouteId: (id: string) => void;
   setRoutes: React.Dispatch<React.SetStateAction<EventRoute[]>>;
   onAddRoute: () => void;
+  onImportRoutes: (files: FileList) => void;
   onDeleteRoute: (id: string) => void;
   pendingPoiType: PoiType | null;
   setPendingPoiType: (t: PoiType | null) => void;
@@ -87,7 +88,7 @@ const Section = ({
 // ── Main component ────────────────────────────────────────────────────────────
 const RouteBuilderToolbar = ({
   routes, activeRouteId, setActiveRouteId, setRoutes,
-  onAddRoute, onDeleteRoute,
+  onAddRoute, onImportRoutes, onDeleteRoute,
   pendingPoiType, setPendingPoiType,
   keepPoiTypeArmed, setKeepPoiTypeArmed,
   pois, setPois,
@@ -100,6 +101,7 @@ const RouteBuilderToolbar = ({
 }: RouteBuilderToolbarProps) => {
   const dragIdx   = useRef<number | null>(null);
   const dragGroup = useRef<'routes' | 'pois' | null>(null);
+  const importRef = useRef<HTMLInputElement | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const handleDragStart = (group: 'routes' | 'pois', idx: number) => {
@@ -229,8 +231,8 @@ const RouteBuilderToolbar = ({
             })}
           </div>
 
-          {/* Add route */}
-          <div className="px-3 pb-3">
+          {/* Add / import route */}
+          <div className="px-3 pb-3 flex items-center gap-4">
             <button
               onClick={onAddRoute}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -242,6 +244,29 @@ const RouteBuilderToolbar = ({
               }
               Add route
             </button>
+
+            <button
+              onClick={() => importRef.current?.click()}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              title="Import a course from a GPX or GeoJSON file"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Import
+            </button>
+
+            {/* Reset value on every pick so choosing the same file twice
+                still fires onChange. */}
+            <input
+              ref={importRef}
+              type="file"
+              accept=".gpx,.geojson,.json,application/gpx+xml,application/geo+json"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) onImportRoutes(e.target.files);
+                e.target.value = '';
+              }}
+            />
           </div>
         </Section>
 

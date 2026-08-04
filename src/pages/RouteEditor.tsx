@@ -12,6 +12,7 @@ import { totalDistanceMiles, getSnappedRoute, getMileMarkers, snapToNearestRoute
 import { poiTone, POI_TYPES } from '@/lib/pois';
 import { uploadPoiImage, isDataUrl } from '@/lib/poiImageUpload';
 import { hasSponsorContent, FREE_BRANDED_SPONSOR_CAP } from '@/lib/sponsors';
+import { parseRouteFile, trackToRoute } from '@/lib/routeImport';
 import { logEvent } from '@/lib/analytics';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
@@ -1302,6 +1303,81 @@ const RouteEditor = () => {
     setActiveRouteId(r.id);
   };
 
+  /**
+   * Import one or more courses from GPX / GeoJSON files.
+   *
+   * Imported geometry is used as-is — see the note in lib/routeImport.ts on
+   * why it isn't re-snapped. Each imported route is marked finished so the
+   * next map click doesn't get interpreted as "keep drawing this one".
+   */
+  const importRoutes = async (files: FileList) => {
+    const added: EventRoute[] = [];
+    const errors: string[] = [];
+    let count = routes.length;
+    let hitPaywall = false;
+
+    for (const file of Array.from(files)) {
+      try {
+        const tracks = parseRouteFile(await file.text(), file.name);
+        const base = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+
+        tracks.forEach((track, i) => {
+          if (hitPaywall) return;
+          if (!canAddRoute(count)) { hitPaywall = true; return; }
+          const fallback = tracks.length > 1 ? `${base} ${i + 1}` : base;
+          added.push(trackToRoute(
+            track,
+            track.name || fallback || `Route ${count + 1}`,
+            ROUTE_COLORS[count % ROUTE_COLORS.length],
+          ));
+          count++;
+        });
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : `${file.name} could not be read.`);
+      }
+    }
+
+    if (added.length > 0) {
+      setRoutes((prev) => [...prev, ...added]);
+      setFinishedRouteIds((prev) => {
+        const next = new Set(prev);
+        added.forEach((r) => next.add(r.id));
+        return next;
+      });
+      const last = added[added.length - 1];
+      setActiveRouteId(last.id);
+      added.forEach((r) => autoPlaceStartFinish(r.id, r.waypoints));
+      logEvent('gpx_imported', eventId, { routes: added.length });
+
+      // Frame the imported course so it's obvious the import landed.
+      const all = added.flatMap((r) => r.routeCoords);
+      if (mapRef.current && all.length > 1) {
+        const lngs = all.map((c) => c[0]);
+        const lats = all.map((c) => c[1]);
+        mapRef.current.fitBounds(
+          [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+          { padding: 80, duration: 800 },
+        );
+      }
+    }
+
+    if (hitPaywall) {
+      logEvent('paywall_hit', eventId, { trigger: 'routes', current_count: count });
+      setUpgradeModalTrigger('routes');
+    } else if (errors.length > 0) {
+      toast({
+        title: added.length > 0 ? 'Some files could not be imported' : "Couldn't import that file",
+        description: errors.join(' '),
+        variant: 'destructive',
+      });
+    } else if (added.length > 0) {
+      toast({
+        title: `Imported ${added.length} route${added.length === 1 ? '' : 's'}`,
+        description: 'Drag the start or finish pin to adjust the ends.',
+      });
+    }
+  };
+
   const deleteRoute = (id: string) => {
     const remaining = routes.filter((r) => r.id !== id);
     const next = remaining.length > 0 ? remaining : [makeRoute('5K Route', ROUTE_COLORS[0])];
@@ -1604,6 +1680,7 @@ const RouteEditor = () => {
               setActiveRouteId={setActiveRouteId}
               setRoutes={setRoutes}
               onAddRoute={addRoute}
+              onImportRoutes={importRoutes}
               onDeleteRoute={deleteRoute}
               pendingPoiType={pendingPoiType}
               setPendingPoiType={(type) => {
