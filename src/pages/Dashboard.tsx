@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import {
@@ -30,6 +31,7 @@ import {
   ListChecks,
   CreditCard,
   MailPlus,
+  ShieldCheck,
   Link as LinkIcon,
 } from 'lucide-react';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
@@ -310,6 +312,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -582,6 +585,15 @@ const Dashboard = () => {
             >
               Billing
             </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate('/admin')}
+                className="hidden sm:inline hover:text-foreground"
+              >
+                Admin
+              </button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -596,6 +608,14 @@ const Dashboard = () => {
                 <DropdownMenuItem onClick={() => navigate('/billing')}>
                   <CreditCard className="h-4 w-4 mr-2" /> Billing
                 </DropdownMenuItem>
+                {/* Also in the menu, not just the inline nav — the inline
+                    links are sm:inline only, so on a phone this is the
+                    only way an admin reaches /admin. */}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                    <ShieldCheck className="h-4 w-4 mr-2" /> Admin
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={signOut}>
                   <LogOut className="h-4 w-4 mr-2" /> Sign out
                 </DropdownMenuItem>

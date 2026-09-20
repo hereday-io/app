@@ -37,6 +37,7 @@ const ScoutPage = lazy(() => import("./pages/ScoutPage.tsx"));
 const VolunteerStatusPage = lazy(() => import("./pages/VolunteerStatusPage.tsx"));
 const EventPublic = lazy(() => import("./pages/EventPublic.tsx"));
 const Billing = lazy(() => import("./pages/Billing.tsx"));
+const AdminOverview = lazy(() => import("./pages/AdminOverview.tsx"));
 const AdminComps = lazy(() => import("./pages/AdminComps.tsx"));
 
 const queryClient = new QueryClient();
@@ -74,6 +75,7 @@ const App = () => (
             <Route path="/terms" element={<Terms />} />
             <Route path="/refund" element={<Refund />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/admin" element={<AdminOverview />} />
             <Route path="/admin/comps" element={<AdminComps />} />
             <Route path="/getting-started" element={<GettingStarted />} />
             <Route path="/faq" element={<Faq />} />

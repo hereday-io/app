@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
@@ -135,6 +136,7 @@ const BrandMark = ({ brand }: { brand: string | null }) => {
 // ────────────────────────────────────────────────────────────────────
 const Billing = () => {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -384,6 +386,11 @@ const Billing = () => {
               Events
             </Link>
             <span className="font-medium text-foreground">Billing</span>
+            {isAdmin && (
+              <Link to="/admin" className="hover:text-foreground transition-colors">
+                Admin
+              </Link>
+            )}
             <div className="h-[30px] w-[30px] rounded-full bg-primary text-primary-foreground font-display font-semibold text-[12px] flex items-center justify-center tracking-wide">
               {userInitials}
             </div>

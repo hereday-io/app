@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, LogOut, Search, ShieldCheck, X } from 'lucide-react';
+import { ChevronRight, Search, ShieldCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import AdminHeader from '@/components/admin/AdminHeader';
 import AdminRouteGuard from '@/components/admin/AdminRouteGuard';
 import CompGrantDialog from '@/components/admin/CompGrantDialog';
 import CompRevokeDialog from '@/components/admin/CompRevokeDialog';
@@ -42,7 +42,6 @@ const formatDateTime = (value: string | null): string => {
 };
 
 const AdminCompsInner = () => {
-  const { user, signOut } = useAuth();
   const { toast } = useToast();
 
   const [emailQuery, setEmailQuery] = useState('');
@@ -57,10 +56,6 @@ const AdminCompsInner = () => {
   const [grantDialogOpen, setGrantDialogOpen] = useState(false);
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<{ grantId: string; email: string | null } | null>(null);
-
-  const userInitials = useMemo(() => {
-    return user?.email ? user.email.slice(0, 2).toUpperCase() : '?';
-  }, [user]);
 
   const fetchGrants = useCallback(async () => {
     setGrantsLoading(true);
@@ -134,35 +129,14 @@ const AdminCompsInner = () => {
 
   return (
     <div className="min-h-screen" style={{ background: 'hsl(210 20% 98%)' }}>
-      {/* ── Header ───────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
-        <div className="max-w-[1180px] mx-auto flex items-center justify-between py-2 px-6">
-          <Link to="/" className="flex items-center gap-3">
-            <img src="/hereday-logo.png" alt="Hereday" className="h-14 w-auto -my-3" />
-          </Link>
-          <nav className="flex items-center gap-5 text-[13.5px] text-muted-foreground">
-            <Link to="/dashboard" className="hover:text-foreground transition-colors">
-              Events
-            </Link>
-            <Link to="/billing" className="hover:text-foreground transition-colors">
-              Billing
-            </Link>
-            <span className="font-medium text-foreground">Admin</span>
-            <div className="h-[30px] w-[30px] rounded-full bg-primary text-primary-foreground font-display font-semibold text-[12px] flex items-center justify-center tracking-wide">
-              {userInitials}
-            </div>
-            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1 h-8">
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs">Sign out</span>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <AdminHeader />
 
       {/* ── Main ─────────────────────────────────────────────────── */}
       <main className="max-w-[1180px] mx-auto px-6 pt-9 pb-16">
         <div className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground mb-3">
-          <span>Admin</span>
+          <Link to="/admin" className="hover:text-foreground transition-colors">
+            Admin
+          </Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-foreground font-medium">Comps</span>
         </div>
