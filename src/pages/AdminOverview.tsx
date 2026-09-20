@@ -459,12 +459,18 @@ const AdminOverviewInner = () => {
                       {data.public.top_events.map((e) => (
                         <li key={e.id} className="flex items-center justify-between gap-3 text-[13px]">
                           {e.slug ? (
-                            <Link
-                              to={`/event/${e.slug}`}
+                            // New tab, not an in-app Link: reviewing these
+                            // means opening several in a row, and a
+                            // same-tab nav throws away the dashboard's
+                            // loaded state and window each time.
+                            <a
+                              href={`/event/${e.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
                               className="truncate text-foreground hover:text-primary hover:underline"
                             >
                               {e.name}
-                            </Link>
+                            </a>
                           ) : (
                             <span className="truncate text-foreground">{e.name}</span>
                           )}
