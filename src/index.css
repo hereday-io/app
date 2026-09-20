@@ -277,3 +277,24 @@
   background: var(--ed-primary-700);
   transform: translateY(-1px);
 }
+
+/* ── Mapbox container positioning ───────────────────────────────────
+   mapbox-gl.css ships `.mapboxgl-map { position: relative }` and, in the
+   production build, arrives as a lazily-loaded chunk that lands AFTER
+   the Tailwind bundle. Equal specificity, later wins — so a container
+   written as `absolute inset-0` silently computes to position:relative,
+   `inset-0` stops contributing height, and the empty div collapses to
+   height:0. The map initialises into nothing and paints black.
+
+   Vite injects styles in a different order in dev, so this reproduces
+   only in a built bundle. It took out every public map (runner,
+   spectator, scout) while the editor — which sets an explicit
+   `w-full h-full` — was unaffected.
+
+   Two classes beat one, regardless of load order. */
+.mapboxgl-map.absolute {
+  position: absolute;
+}
+.mapboxgl-map.fixed {
+  position: fixed;
+}
