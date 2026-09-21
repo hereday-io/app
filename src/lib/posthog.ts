@@ -22,6 +22,12 @@ export function initPostHog(): void {
     // the initial load.
     capture_pageview: 'history_change',
     capture_pageleave: true,
+    // Default is 'localStorage+cookie'. Cookies would contradict the
+    // privacy policy's "no third-party tracking cookies" promise, and we
+    // already keep the Supabase session in localStorage — so stay
+    // consistent and cookieless. Costs us nothing: identity still
+    // survives across sessions on the same browser.
+    persistence: 'localStorage',
   });
 }
 
