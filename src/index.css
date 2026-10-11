@@ -126,17 +126,36 @@
 
 /* Theme-aware Mapbox popups — the library ships a hard-coded white
    background + white arrow tip. Override both so POI popovers match
-   the app's light/dark mode. */
-.mapboxgl-popup-content {
+   the app's light/dark mode.
+
+   Same load-order trap as the container fix below: on public maps
+   mapbox-gl.css arrives in a lazy chunk AFTER this file, so a
+   single-class `.mapboxgl-popup-content` loses and the card stays
+   white while dark-mode text goes near-white — unreadable. The tip
+   rules in mapbox-gl.css are already two classes per anchor, so ours
+   need three. Specificity, not order, has to win here. */
+.mapboxgl-popup .mapboxgl-popup-content {
   background: hsl(var(--card));
   color: hsl(var(--card-foreground));
   border-radius: 0.75rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   padding: 14px;
 }
-.mapboxgl-popup-tip {
-  border-top-color: hsl(var(--card));
+.mapboxgl-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
+.mapboxgl-popup.mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
+.mapboxgl-popup.mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {
   border-bottom-color: hsl(var(--card));
+}
+.mapboxgl-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.mapboxgl-popup.mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
+.mapboxgl-popup.mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip {
+  border-top-color: hsl(var(--card));
+}
+.mapboxgl-popup.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
+  border-right-color: hsl(var(--card));
+}
+.mapboxgl-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
+  border-left-color: hsl(var(--card));
 }
 
 /* POI placement bounce — marker drops in from above on placement */
