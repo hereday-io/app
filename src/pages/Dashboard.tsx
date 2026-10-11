@@ -148,13 +148,15 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
   return (
     <div
       onClick={actions.onOpenEditor}
-      className="grid grid-cols-[4px_1fr_auto_auto] items-stretch bg-white border-b border-border last:border-b-0 hover:bg-[hsl(210_20%_99%)] transition-colors cursor-pointer"
+      className="grid grid-cols-[4px_1fr_auto] sm:grid-cols-[4px_1fr_auto_auto] items-stretch bg-white border-b border-border last:border-b-0 hover:bg-[hsl(210_20%_99%)] transition-colors cursor-pointer"
     >
-      <div className={cn('w-1', barColor)} />
+      {/* On phones the row stacks: name/meta spans the full width, then
+          stats + actions share a second line. sm+ is a single row. */}
+      <div className={cn('w-1 row-span-2 sm:row-span-1', barColor)} />
 
-      <div className="px-5 py-4 flex flex-col gap-[5px] min-w-0">
+      <div className="col-span-2 sm:col-span-1 px-4 pt-4 pb-2 sm:px-5 sm:py-4 flex flex-col gap-[5px] min-w-0">
         <h3 className="font-display font-semibold text-[15.5px] tracking-[-0.01em] text-foreground flex items-center gap-2 flex-wrap m-0">
-          <span className="truncate">{event.name}</span>
+          <span className="truncate min-w-0 max-w-full">{event.name}</span>
           {isPast ? (
             <EventChip kind="past">Past</EventChip>
           ) : isLive ? (
@@ -169,7 +171,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
             {event.event_date ? formatDate(event.event_date) : 'No date'}
             {event.city ? ` · ${event.city}` : ''}
           </span>
-          <span className="opacity-50">·</span>
+          <span className="opacity-50 hidden sm:inline">·</span>
           <span>
             <b className="text-[hsl(215_20%_35%)] font-medium">{event.route_count} routes</b>
             {' · '}
@@ -177,7 +179,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
           </span>
           {showLimitWarning && (
             <>
-              <span className="opacity-50">·</span>
+              <span className="opacity-50 hidden sm:inline">·</span>
               <span className="text-[hsl(38_92%_40%)]">
                 {markersUntilLimit(event)} markers until limit
               </span>
@@ -186,7 +188,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
         </div>
       </div>
 
-      <div className="px-3 py-4 flex flex-col justify-center items-end gap-[3px] min-w-[150px] text-right">
+      <div className="px-4 pb-4 sm:px-3 sm:py-4 flex flex-col justify-center items-start sm:items-end gap-[3px] min-w-0 sm:min-w-[150px] text-left sm:text-right">
         {isLive && (
           <>
             <div className="font-display font-semibold text-[13px] text-foreground tabular-nums">
@@ -214,7 +216,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
         )}
       </div>
 
-      <div className="px-5 py-4 flex items-center gap-2">
+      <div className="pl-2 pr-4 pb-4 sm:px-5 sm:py-4 flex items-center gap-2">
         {isPast ? (
           <button
             onClick={(e) => { e.stopPropagation(); actions.onDuplicate(); }}
@@ -625,7 +627,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1180px] px-6 pt-9 pb-16">
+      <main className="mx-auto max-w-[1180px] px-4 sm:px-6 pt-9 pb-16">
         {/* Email verification banner — non-blocking */}
         {user && !user.email_confirmed_at && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-3 mb-6">
@@ -794,15 +796,15 @@ const Dashboard = () => {
                   {events.length} total · {unlockedCount} unlocked
                 </span>
               </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative">
+              <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
+                <div className="relative basis-full sm:basis-auto">
                   <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     ref={searchInputRef}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search events…"
-                    className="h-8 w-[220px] pl-8 pr-3 rounded-lg text-[12.5px] focus-visible:ring-[hsl(217_91%_50%/0.15)] focus-visible:ring-offset-0"
+                    className="h-8 w-full sm:w-[220px] pl-8 pr-3 rounded-lg text-[12.5px] focus-visible:ring-[hsl(217_91%_50%/0.15)] focus-visible:ring-offset-0"
                   />
                 </div>
                 <div className="inline-flex items-center rounded-lg border border-border bg-white p-[2px] text-[12px]">
