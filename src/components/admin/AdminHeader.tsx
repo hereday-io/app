@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 const TABS: Array<{ to: string; label: string; end?: boolean }> = [
   { to: '/admin', label: 'Overview', end: true },
   { to: '/admin/comps', label: 'Comps' },
+  { to: '/admin/transfers', label: 'Transfers' },
 ];
 
 const AdminHeader = () => {

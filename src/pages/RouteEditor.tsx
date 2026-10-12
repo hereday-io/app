@@ -1400,7 +1400,7 @@ const RouteEditor = () => {
 
     const cleanPois = await materializePoiImages(pois);
 
-    const { error } = await supabase.from('events')
+    const { data: savedRows, error } = await supabase.from('events')
       .update({
         name: eventName,
         city: city || null,
@@ -1415,7 +1415,27 @@ const RouteEditor = () => {
         tracking_start: trackingStart,
         tracking_end: trackingEnd,
       })
-      .eq('id', eventId);
+      .eq('id', eventId)
+      .select('id');
+
+    // No error but no row: RLS filtered the update because this account
+    // no longer owns the event (e.g. an admin transferred it while this
+    // tab was open). Retrying can't help, so say so instead of showing
+    // "saved" over a write that went nowhere.
+    if (!error && (savedRows?.length ?? 0) === 0) {
+      isDirtyRef.current = false;
+      retryAttemptRef.current = 0;
+      clearRetryTimers();
+      setSaveState('error');
+      setStatusText('Save failed: no access.');
+      toast({
+        title: "Can't save: you no longer have access to this event",
+        description: 'It may have been moved to another account. Reload to check.',
+        variant: 'destructive',
+      });
+      setIsSaving(false);
+      return;
+    }
 
     if (error) {
       setSaveState('error');
@@ -1590,7 +1610,7 @@ const RouteEditor = () => {
     // Save first, then publish
     const newStatus = eventStatus === 'published' ? 'draft' : 'published';
     const cleanPois = await materializePoiImages(pois);
-    const { error } = await supabase.from('events')
+    const { data: publishedRows, error } = await supabase.from('events')
       .update({
         name: eventName,
         city: city || null,
@@ -1606,10 +1626,19 @@ const RouteEditor = () => {
         tracking_start: trackingStart,
         tracking_end: trackingEnd,
       })
-      .eq('id', eventId);
+      .eq('id', eventId)
+      .select('id');
 
     if (error) {
       toast({ title: 'Publish failed', description: error.message, variant: 'destructive' });
+    } else if ((publishedRows?.length ?? 0) === 0) {
+      // Same as handleSave: RLS matched no row, so this account no
+      // longer owns the event.
+      toast({
+        title: "Can't publish: you no longer have access to this event",
+        description: 'It may have been moved to another account. Reload to check.',
+        variant: 'destructive',
+      });
     } else {
       setEventStatus(newStatus);
       // Fetch the slug if we don't have it yet
