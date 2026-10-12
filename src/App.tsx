@@ -40,6 +40,7 @@ const Billing = lazy(() => import("./pages/Billing.tsx"));
 const AdminOverview = lazy(() => import("./pages/AdminOverview.tsx"));
 const AdminComps = lazy(() => import("./pages/AdminComps.tsx"));
 const AdminTransfers = lazy(() => import("./pages/AdminTransfers.tsx"));
+const AdminCrm = lazy(() => import("./pages/AdminCrm.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,8 @@ const App = () => (
             <Route path="/admin" element={<AdminOverview />} />
             <Route path="/admin/comps" element={<AdminComps />} />
             <Route path="/admin/transfers" element={<AdminTransfers />} />
+            <Route path="/admin/crm" element={<AdminCrm />} />
+            <Route path="/admin/crm/:slug" element={<AdminCrm />} />
             <Route path="/getting-started" element={<GettingStarted />} />
             <Route path="/faq" element={<Faq />} />
             <Route path="/unsubscribe/:token" element={<Unsubscribe />} />

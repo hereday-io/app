@@ -3,22 +3,28 @@ import { Link, NavLink } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useStaffRole } from '@/hooks/useStaffRole';
+import type { StaffRole } from '@/lib/crm/types';
 import { cn } from '@/lib/utils';
 
 /**
  * Shared chrome for every /admin page: the app header plus the admin
  * sub-nav. Extracted from AdminComps so a new admin tool is a route and
- * an entry in TABS, not another copy of this markup.
+ * an entry in TABS, not another copy of this markup. Sales reps see only
+ * the tabs whose `roles` include them.
  */
 
-const TABS: Array<{ to: string; label: string; end?: boolean }> = [
-  { to: '/admin', label: 'Overview', end: true },
-  { to: '/admin/comps', label: 'Comps' },
-  { to: '/admin/transfers', label: 'Transfers' },
+const TABS: Array<{ to: string; label: string; end?: boolean; roles: StaffRole[] }> = [
+  { to: '/admin', label: 'Overview', end: true, roles: ['admin'] },
+  { to: '/admin/crm', label: 'CRM', roles: ['admin', 'sales'] },
+  { to: '/admin/comps', label: 'Comps', roles: ['admin'] },
+  { to: '/admin/transfers', label: 'Transfers', roles: ['admin'] },
 ];
 
 const AdminHeader = () => {
   const { user, signOut } = useAuth();
+  const { role } = useStaffRole();
+  const tabs = TABS.filter((t) => role && t.roles.includes(role));
 
   const userInitials = useMemo(() => {
     return user?.email ? user.email.slice(0, 2).toUpperCase() : '?';
@@ -37,7 +43,7 @@ const AdminHeader = () => {
           <Link to="/billing" className="hover:text-foreground transition-colors">
             Billing
           </Link>
-          <span className="font-medium text-foreground">Admin</span>
+          <span className="font-medium text-foreground">{role === 'sales' ? 'CRM' : 'Admin'}</span>
           <div className="h-[30px] w-[30px] rounded-full bg-primary text-primary-foreground font-display font-semibold text-[12px] flex items-center justify-center tracking-wide">
             {userInitials}
           </div>
@@ -51,7 +57,7 @@ const AdminHeader = () => {
       {/* Admin sub-nav */}
       <div className="border-t border-border/60">
         <div className="max-w-[1180px] mx-auto px-6 flex items-center gap-1">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRightLeft, Check, ChevronRight, Copy, ExternalLink, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { ArrowRightLeft, Check, ChevronRight, ExternalLink, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import AdminHeader from '@/components/admin/AdminHeader';
 import AdminRouteGuard from '@/components/admin/AdminRouteGuard';
 import TransferEventDialog, { type TransferResult } from '@/components/admin/TransferEventDialog';
+import CopyRow from '@/components/admin/CopyRow';
+import { parseEventRef } from '@/lib/crm/eventRef';
 
 // Links handed to race directors always point at production, even when
 // an admin is working from localhost.
@@ -49,22 +51,6 @@ interface TransferRow {
   note: string | null;
 }
 
-const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-
-/**
- * Accepts whatever the admin has on hand — an editor URL
- * (`/editor?id=<uuid>`), a public URL (`/event/<slug>`), a bare id or a
- * bare slug — and returns the id or slug for admin_get_event.
- */
-const parseEventRef = (raw: string): string => {
-  const value = raw.trim();
-  const slugMatch = value.match(/\/event\/([^/?#\s]+)/i);
-  if (slugMatch) return decodeURIComponent(slugMatch[1]);
-  const idMatch = value.match(UUID_RE);
-  if (idMatch) return idMatch[0];
-  return value;
-};
-
 const formatDateTime = (value: string | null): string => {
   if (!value) return '—';
   return new Date(value).toLocaleString('en-US', {
@@ -97,31 +83,6 @@ const PRO_SOURCE_LABELS: Record<string, string> = {
   comp_recipient: "Pro (recipient's comp)",
   paid_other: 'Pro',
   free: 'Free',
-};
-
-const CopyRow = ({ label, value }: { label: string; value: string }) => {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard blocked; the value is visible and selectable.
-    }
-  };
-  return (
-    <div className="flex items-start gap-2">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-        <p className="text-sm text-foreground break-words select-all">{value}</p>
-      </div>
-      <Button variant="outline" size="sm" onClick={copy} className="gap-1 shrink-0">
-        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-        {copied ? 'Copied' : 'Copy'}
-      </Button>
-    </div>
-  );
 };
 
 const AdminTransfersInner = () => {
@@ -163,8 +124,8 @@ const AdminTransfersInner = () => {
     fetchHistory();
   }, [fetchHistory]);
 
-  const handleFindEvent = async () => {
-    const ref = parseEventRef(eventQuery);
+  const handleFindEvent = async (raw: string = eventQuery) => {
+    const ref = parseEventRef(raw);
     if (!ref) return;
     setEventLoading(true);
     setEventError(null);
@@ -186,8 +147,8 @@ const AdminTransfersInner = () => {
     setEvent(rows[0]);
   };
 
-  const handleFindUser = async () => {
-    const q = emailQuery.trim();
+  const handleFindUser = async (raw: string = emailQuery) => {
+    const q = raw.trim();
     if (!q) return;
     setUserLoading(true);
     setUserError(null);
@@ -207,6 +168,28 @@ const AdminTransfersInner = () => {
     }
     setRecipient(rows[0]);
   };
+
+  // The CRM's "Hand off" button arrives with the map and the director's
+  // email in router state (not the URL), and both lookups run at once.
+  const location = useLocation();
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current) return;
+    prefilled.current = true;
+    const prefill = (location.state as { prefill?: { event?: string | null; email?: string | null } } | null)?.prefill;
+    const eventParam = prefill?.event;
+    const emailParam = prefill?.email;
+    if (eventParam) {
+      setEventQuery(eventParam);
+      handleFindEvent(eventParam);
+    }
+    if (emailParam) {
+      setEmailQuery(emailParam);
+      handleFindUser(emailParam);
+    }
+    // Runs once on mount; the handlers read only their argument.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const resetAll = () => {
     setEventQuery('');
@@ -291,7 +274,7 @@ const AdminTransfersInner = () => {
               className="max-w-xl"
               disabled={eventLoading}
             />
-            <Button onClick={handleFindEvent} disabled={eventLoading || !eventQuery.trim()} className="gap-1.5">
+            <Button onClick={() => handleFindEvent()} disabled={eventLoading || !eventQuery.trim()} className="gap-1.5">
               <Search className="h-4 w-4" />
               {eventLoading ? 'Finding…' : 'Find'}
             </Button>
@@ -361,7 +344,7 @@ const AdminTransfersInner = () => {
               className="max-w-md"
               disabled={userLoading}
             />
-            <Button onClick={handleFindUser} disabled={userLoading || !emailQuery.trim()} className="gap-1.5">
+            <Button onClick={() => handleFindUser()} disabled={userLoading || !emailQuery.trim()} className="gap-1.5">
               <Search className="h-4 w-4" />
               {userLoading ? 'Looking up…' : 'Look up'}
             </Button>
