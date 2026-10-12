@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useStaffRole } from '@/hooks/useStaffRole';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import {
@@ -314,7 +314,10 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { isAdmin } = useIsAdmin();
+  const { role: staffRole } = useStaffRole();
+  // Sales reps only have the CRM; admins land on the Overview.
+  const staffHome = staffRole === 'admin' ? '/admin' : staffRole === 'sales' ? '/admin/crm' : null;
+  const staffLabel = staffRole === 'sales' ? 'CRM' : 'Admin';
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -587,13 +590,13 @@ const Dashboard = () => {
             >
               Billing
             </button>
-            {isAdmin && (
+            {staffHome && (
               <button
                 type="button"
-                onClick={() => navigate('/admin')}
+                onClick={() => navigate(staffHome)}
                 className="hidden sm:inline hover:text-foreground"
               >
-                Admin
+                {staffLabel}
               </button>
             )}
             <DropdownMenu>
@@ -613,9 +616,9 @@ const Dashboard = () => {
                 {/* Also in the menu, not just the inline nav — the inline
                     links are sm:inline only, so on a phone this is the
                     only way an admin reaches /admin. */}
-                {isAdmin && (
-                  <DropdownMenuItem onClick={() => navigate('/admin')}>
-                    <ShieldCheck className="h-4 w-4 mr-2" /> Admin
+                {staffHome && (
+                  <DropdownMenuItem onClick={() => navigate(staffHome)}>
+                    <ShieldCheck className="h-4 w-4 mr-2" /> {staffLabel}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={signOut}>

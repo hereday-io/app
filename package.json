@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "node supabase/tests/crm.check.mjs",
     "build:ssr": "vite build --ssr src/entry-prerender.tsx --outDir dist-ssr",
     "prerender": "node scripts/prerender.mjs"
   },
@@ -73,6 +74,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.57.0",
     "@tailwindcss/typography": "^0.5.16",
