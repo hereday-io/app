@@ -50,11 +50,12 @@ const corsHeaders = {
 };
 
 // How long an unfinished ledger claim is respected before another
-// delivery may take it over. Comfortably above the edge-function wall
-// clock, so this can never reclaim an event that is still being worked;
-// a Stripe retry landing inside the window is deferred to the next
-// retry, not lost, since Stripe redelivers for up to 3 days.
-const STALE_CLAIM_MS = 5 * 60 * 1000;
+// delivery may take it over. Above the edge-function wall clock (150s
+// free, 400s paid), so this can never reclaim an event that is still
+// being worked. A Stripe retry landing inside the window gets a 409 and
+// is deferred to the next retry, not lost, since Stripe redelivers for
+// up to 3 days.
+const STALE_CLAIM_MS = 10 * 60 * 1000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -131,9 +132,25 @@ Deno.serve(async (req) => {
       return new Response("Ledger error", { status: 500, headers: corsHeaders });
     }
     if (!reclaimed?.length) {
-      // Completed already, or claimed by a delivery still in flight.
-      // Nothing to do either way: if that in-flight one fails, its claim
-      // goes stale and Stripe's next retry reclaims it.
+      // Either the event is done, or another delivery holds a claim that
+      // isn't stale yet. Only the first is a replay. The second must not
+      // be acknowledged: that claim may belong to a delivery that already
+      // failed, and a 200 here would end Stripe's retries with the work
+      // never done. Answer 409 and let Stripe come back later, by which
+      // time the claim has either completed or gone stale.
+      const { data: existing, error: lookupErr } = await replayService
+        .from("stripe_webhook_events")
+        .select("completed_at")
+        .eq("event_id", event.id)
+        .maybeSingle();
+      if (lookupErr) {
+        console.error("[stripe-webhook] replay-ledger lookup failed", lookupErr);
+        return new Response("Ledger error", { status: 500, headers: corsHeaders });
+      }
+      if (!existing?.completed_at) {
+        console.log(`[stripe-webhook] ${event.id} (${event.type}) claimed by another delivery; deferring`);
+        return new Response("Claim in progress", { status: 409, headers: corsHeaders });
+      }
       console.log(`[stripe-webhook] replay ${event.id} (${event.type}) skipped`);
       return new Response(JSON.stringify({ received: true, replay: true }), {
         status: 200,
@@ -157,8 +174,8 @@ Deno.serve(async (req) => {
         console.log(`[stripe-webhook] ignoring ${event.type}`);
     }
   } catch (err) {
-    // Claim stays outstanding on purpose — after STALE_CLAIM_MS a Stripe
-    // retry reclaims it and runs the handler again.
+    // Claim stays outstanding on purpose. Retries inside STALE_CLAIM_MS
+    // get a 409; the first one after it reclaims and runs the handler.
     console.error(`[stripe-webhook] handler failed for ${event.type}`, err);
     return new Response("Handler failed", { status: 500, headers: corsHeaders });
   }
@@ -171,10 +188,10 @@ Deno.serve(async (req) => {
     .eq("event_id", event.id);
   if (completeErr) {
     // The work is already done; failing to stamp only means a later
-    // redelivery could re-run the handler. Both handlers are idempotent
-    // (paid_at is additionally guarded by .is("paid_at", null), refund
-    // revocation is a plain NULL write), so acknowledge anyway — a 500
-    // here would make Stripe retry work we have completed.
+    // redelivery could re-run the handler. Both handlers are idempotent,
+    // revenue rows included (each is logged only when its UPDATE actually
+    // changed paid_at), so acknowledge anyway — a 500 here would make
+    // Stripe retry work we have completed.
     console.error("[stripe-webhook] ledger completion stamp failed", completeErr);
   }
 
@@ -216,8 +233,8 @@ async function handleCheckoutCompleted(
 
   const service = getServiceClient();
 
-  // Flip paid_at idempotently. COALESCE keeps the original timestamp
-  // if a replay arrives after the event was already marked paid.
+  // Flip paid_at idempotently: the UPDATE below only matches while
+  // paid_at is still NULL, so a replay keeps the original timestamp.
   const { data: eventRow, error: fetchErr } = await service
     .from("events")
     .select("id, name, paid_at, user_id")
@@ -244,9 +261,10 @@ async function handleCheckoutCompleted(
   const percentOff = amountDiscount > 0 && amountSubtotal > 0
     ? Math.round((amountDiscount / amountSubtotal) * 100)
     : null;
+  const promoCode = await resolvePromoCode(stripe, session, meta, amountDiscount);
 
   if (!eventRow.paid_at) {
-    const { error: updateErr } = await service
+    const { data: flipped, error: updateErr } = await service
       .from("events")
       .update({
         paid_at: new Date().toISOString(),
@@ -255,7 +273,8 @@ async function handleCheckoutCompleted(
         stripe_payment_id: chargeId,
       })
       .eq("id", eventId)
-      .is("paid_at", null); // extra belt-and-suspenders against replay
+      .is("paid_at", null) // extra belt-and-suspenders against replay
+      .select("id");
     if (updateErr) {
       // Also catches exceptions raised by the enforce_pro_gates trigger,
       // which fires BEFORE UPDATE on events. Throw rather than return: a
@@ -264,11 +283,12 @@ async function handleCheckoutCompleted(
       throw new Error(`event update failed for ${eventId}: ${updateErr.message}`);
     }
 
-    // Inside the !paid_at branch on purpose: the replay ledger already
-    // stops duplicate deliveries of the same Stripe event, and this
-    // additionally stops a *different* event id landing a second
-    // conversion row on an event that was already paid.
-    await logRevenueEvent(service, {
+    // Only when this UPDATE is the one that flipped paid_at. The read
+    // above can be stale: two deliveries working the same event at once
+    // (a slow one and the retry that reclaimed its claim) can both see
+    // paid_at NULL, but only one UPDATE matches a row, so only one
+    // conversion row is written.
+    if (flipped?.length) await logRevenueEvent(service, {
       eventType: "purchase_completed",
       // create-checkout stamps the buyer into session metadata and
       // rejects anyone who isn't the event owner, so these agree; the
@@ -281,7 +301,7 @@ async function handleCheckoutCompleted(
         amount_discount: amountDiscount || null,
         currency: session.currency,
         percent_off: percentOff,
-        promo_code: meta.hereday_promo_code ?? null,
+        promo_code: promoCode,
         stripe_session_id: session.id,
         stripe_charge_id: chargeId,
       },
@@ -300,7 +320,7 @@ async function handleCheckoutCompleted(
           hereday_event_id: eventId,
           hereday_event_name: `${eventRow.name} — Pro unlock`,
           ...(meta.hereday_user_id ? { hereday_user_id: meta.hereday_user_id } : {}),
-          ...(meta.hereday_promo_code ? { hereday_promo_code: meta.hereday_promo_code } : {}),
+          ...(promoCode ? { hereday_promo_code: promoCode } : {}),
           ...(percentOff !== null ? { hereday_promo_percent_off: String(percentOff) } : {}),
         },
       });
@@ -329,8 +349,13 @@ async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
   // Prefer the event id from charge metadata; fall back to the
   // stripe_payment_id column if the charge was stamped before we
   // started writing metadata. select() returns the revoked rows so we
-  // can log the refund without a second lookup.
-  const update = service.from("events").update({ paid_at: null, plan: "free" });
+  // can log the refund without a second lookup. Matching only rows that
+  // are still paid keeps that log idempotent: a re-run (completion stamp
+  // failed, or a reclaim racing a slow delivery) revokes nothing and so
+  // logs nothing, where a bare NULL write would return the row again.
+  const update = service.from("events")
+    .update({ paid_at: null, plan: "free" })
+    .not("paid_at", "is", null);
   const query = eventId
     ? update.eq("id", eventId).select("id, user_id")
     : update.eq("stripe_payment_id", charge.id).select("id, user_id");
@@ -343,21 +368,63 @@ async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
     throw new Error(`refund revoke failed for charge ${charge.id}: ${error.message}`);
   }
 
+  if (!revoked?.length) {
+    console.log(`[stripe-webhook] refund on ${charge.id}: no paid event to revoke`);
+  }
+
   // Negative counterpart to purchase_completed, so revenue-by-source
-  // nets out instead of overstating. Amount stays positive — the
-  // subtraction belongs in the query, not the data.
+  // nets out instead of overstating. Amounts stay positive — the
+  // subtraction belongs in the query, not the data. amount_total is the
+  // refunded charge's total, the key crm_get_deal passes to the deal
+  // timeline; sum amount_refunded, not amount_total, when netting.
   for (const row of revoked ?? []) {
     await logRevenueEvent(service, {
       eventType: "purchase_refunded",
       userId: meta.hereday_user_id ?? row.user_id ?? null,
       eventId: row.id,
       properties: {
+        amount_total: charge.amount,
         amount_refunded: charge.amount_refunded,
         currency: charge.currency,
         stripe_charge_id: charge.id,
         promo_code: meta.hereday_promo_code ?? null,
       },
     });
+  }
+}
+
+/**
+ * The customer-facing promotion code (e.g. FIRSTMAP) behind this
+ * session's discount, or null.
+ *
+ * Codes applied on /billing arrive in metadata as hereday_promo_code.
+ * When none was pre-applied, create-checkout sets allow_promotion_codes
+ * and the customer may type one on Stripe's page instead; metadata
+ * doesn't know about that, so ask Stripe which promotion code the
+ * discount came from. Best-effort: this only labels the sale, so a
+ * Stripe error returns null rather than failing the payment.
+ */
+async function resolvePromoCode(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  meta: Record<string, string>,
+  amountDiscount: number,
+): Promise<string | null> {
+  if (meta.hereday_promo_code) return meta.hereday_promo_code;
+  if (amountDiscount <= 0) return null;
+  try {
+    const full = await stripe.checkout.sessions.retrieve(session.id, {
+      expand: ["total_details.breakdown"],
+    });
+    const promo = full.total_details?.breakdown?.discounts
+      .map((d) => d.discount.promotion_code)
+      .find((p) => p !== null && p !== undefined);
+    if (!promo) return null;
+    if (typeof promo !== "string") return promo.code;
+    return (await stripe.promotionCodes.retrieve(promo)).code;
+  } catch (err) {
+    console.warn("[stripe-webhook] promotion code lookup failed", session.id, err);
+    return null;
   }
 }
 
