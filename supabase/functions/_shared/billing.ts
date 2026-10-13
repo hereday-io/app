@@ -135,7 +135,11 @@ export async function clearActivePromo(userId: string): Promise<void> {
 export interface ProfileRow {
   user_id: string;
   stripe_customer_id: string | null;
-  /** The coupon behind the promotion code. Kept for display and webhook metadata. */
+  /**
+   * The code as the customer typed it (FIRSTMAP). Shown on /billing and copied
+   * into checkout metadata as hereday_promo_code, so each purchase records
+   * which code it used. Rows saved before 2026-10-13 hold a coupon id instead.
+   */
   active_promo_code?: string | null;
   active_promo_expires_at?: string | null;
   active_promo_percent_off?: number | null;

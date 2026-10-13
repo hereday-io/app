@@ -2,7 +2,7 @@
 // it on the caller's profile so subsequent checkouts auto-apply it.
 //
 // Body: { code }
-// Returns: { valid: true, percent_off, expires_at }
+// Returns: { valid: true, code, percent_off, expires_at }
 //       or { valid: false, error }
 //
 // Lookup: the code must be a Stripe Promotion Code (the customer-facing
@@ -10,10 +10,12 @@
 // coupon ids are not accepted (H-3, below). Only *active* + *not-expired*
 // codes are accepted.
 //
-// Stores the promotion code's own id (active_promotion_code_id) as well
-// as its coupon. create-checkout applies the promotion code, so Stripe
-// enforces its expiry, redemption limit and customer restrictions again
-// at payment time.
+// Stores the promotion code's own id (active_promotion_code_id) and the
+// code as typed (active_promo_code). First-time-only codes are checked
+// against the caller's Stripe payment history before they're saved.
+// create-checkout applies the promotion code, so Stripe enforces its
+// expiry, redemption limit and customer restrictions again at payment
+// time.
 
 import { authenticate, corsHeaders, getServiceClient, getStripe, json } from "../_shared/billing.ts";
 
@@ -64,15 +66,35 @@ Deno.serve(async (req) => {
     expiresAt = pc.expires_at ? new Date(pc.expires_at * 1000).toISOString() : null;
   }
 
-  if (!couponId) {
+  if (!couponId || !pc) {
     return json({ valid: false, error: "That code isn't valid or has expired." });
+  }
+
+  // First-time-only codes: Stripe only enforces this when checkout opens,
+  // and checkout then quietly falls back to full price. Check it here
+  // instead, with the same test Stripe uses (has this Stripe customer
+  // ever paid successfully, refunds included), so the customer hears
+  // "no" on /billing rather than discovering it at $49.
+  if (pc.restrictions?.first_time_transaction && auth.profile.stripe_customer_id) {
+    const charges = await stripe.charges.list({ customer: auth.profile.stripe_customer_id, limit: 100 });
+    if (charges.data.some((c) => c.status === "succeeded")) {
+      return json({
+        valid: false,
+        error: "That code is for your first Pro event, and this account has already paid for one.",
+      });
+    }
   }
 
   const service = getServiceClient();
   const { error: updateErr } = await service
     .from("profiles")
     .update({
-      active_promo_code: couponId,
+      // The code as the customer typed it (FIRSTMAP), not the coupon
+      // behind it: /billing shows it, and create-checkout copies it into
+      // session and charge metadata as hereday_promo_code, which is how a
+      // purchase records which code (or which rep's code) it came from.
+      // Stripe applies the discount by active_promotion_code_id.
+      active_promo_code: pc.code,
       active_promo_percent_off: percentOff,
       active_promo_expires_at: expiresAt,
       active_promotion_code_id: promotionCodeId,
@@ -85,7 +107,7 @@ Deno.serve(async (req) => {
 
   return json({
     valid: true,
-    code: codeInput,
+    code: pc.code,
     percent_off: percentOff,
     expires_at: expiresAt,
   });
