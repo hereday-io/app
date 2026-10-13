@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:db": "node supabase/tests/crm.check.mjs",
+    "test:db": "node supabase/tests/crm.check.mjs && node supabase/tests/profiles.check.mjs",
     "build:ssr": "vite build --ssr src/entry-prerender.tsx --outDir dist-ssr",
     "prerender": "node scripts/prerender.mjs"
   },

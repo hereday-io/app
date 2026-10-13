@@ -102,6 +102,58 @@ export async function createDb(repoRoot = REPO_ROOT, { stopBefore } = {}) {
   return { db, results };
 }
 
+/**
+ * Assertions and identity switching for check scripts. `as(userId)` runs
+ * the next statements the way PostgREST would for that signed-in user:
+ * JWT claims set, role authenticated, RLS and grants in force.
+ */
+export function testKit(db) {
+  let pass = 0;
+  let fail = 0;
+  const ok = (cond, label, extra) => {
+    if (cond) { pass++; console.log('  ok  ', label); }
+    else { fail++; console.log('  FAIL', label, extra === undefined ? '' : JSON.stringify(extra)); }
+  };
+  const asPostgres = async () => {
+    await db.exec(`RESET ROLE; SELECT set_config('request.jwt.claims', '', false);`);
+  };
+  const as = async (userId) => {
+    await asPostgres();
+    await db.query(`SELECT set_config('request.jwt.claims', $1, false)`,
+      [JSON.stringify({ sub: userId, role: 'authenticated' })]);
+    await db.exec(`SET ROLE authenticated`);
+  };
+  const rpc = async (name, args = {}) => {
+    const keys = Object.keys(args);
+    const sql = `SELECT public.${name}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) AS r`;
+    const res = await db.query(sql, keys.map((k) => args[k]));
+    return res.rows[0].r;
+  };
+  const expectError = async (fn, code, label) => {
+    try {
+      await fn();
+      ok(false, label, 'no error');
+    } catch (e) {
+      ok(e.code === code, label, { code: e.code, message: e.message });
+    }
+  };
+  const mkUser = async (email, provider) => {
+    const { rows } = await db.query(
+      `INSERT INTO auth.users (email, email_confirmed_at, raw_app_meta_data)
+       VALUES ($1, now(), jsonb_build_object('provider', $2::text)) RETURNING id`, [email, provider]);
+    if (provider === 'google') {
+      await db.query(`INSERT INTO auth.identities (user_id, provider) VALUES ($1, 'google')`, [rows[0].id]);
+    }
+    return rows[0].id;
+  };
+  const done = () => {
+    console.log(`
+${pass} passed, ${fail} failed`);
+    process.exit(fail ? 1 : 0);
+  };
+  return { ok, as, asPostgres, rpc, expectError, mkUser, done };
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { results } = await createDb();
   for (const r of results) console.log(r.ok ? 'ok  ' : 'FAIL', r.f, r.err ?? '');

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -59,30 +59,7 @@ const TRIGGER_COPY: Record<string, { headline: string; sub: string }> = {
 const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedirect }: UpgradeModalProps) => {
   const copy = TRIGGER_COPY[trigger];
   const [loading, setLoading] = useState(false);
-  const [activePromo, setActivePromo] = useState<string | null>(null);
   const navigate = useNavigate();
-
-  // Read the customer's active promo code so Stripe Checkout can
-  // pre-apply it. Done once when the modal opens — the code is sourced
-  // from the profiles row the organizer manages on /billing.
-  useEffect(() => {
-    if (!open || !PAYMENTS_LIVE) return;
-    let cancelled = false;
-    (async () => {
-      const { data: userRes } = await supabase.auth.getUser();
-      const uid = userRes.user?.id;
-      if (!uid) return;
-      const { data } = await supabase
-        .from('profiles')
-        .select('active_promo_code')
-        .eq('user_id', uid)
-        .maybeSingle();
-      if (!cancelled && data && typeof (data as { active_promo_code?: string | null }).active_promo_code === 'string') {
-        setActivePromo((data as { active_promo_code: string }).active_promo_code);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -136,7 +113,6 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
                     body: {
                       eventId,
                       returnUrl: `${window.location.origin}${returnPath}`,
-                      ...(activePromo ? { discountCode: activePromo } : {}),
                     },
                   });
                   if (error || !data?.url) {

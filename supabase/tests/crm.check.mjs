@@ -4,7 +4,7 @@
 // and paid / refunded state. Fixtures only; touches no real database.
 //
 //   npm run test:db
-import { createDb } from './pglite.mjs';
+import { createDb, testKit } from './pglite.mjs';
 
 const { db, results } = await createDb();
 const crmFails = results.filter((r) => !r.ok && r.f >= '20261012');
@@ -13,48 +13,10 @@ if (crmFails.length) {
   process.exit(1);
 }
 
-let pass = 0;
-let fail = 0;
-const ok = (cond, label, extra) => {
-  if (cond) { pass++; console.log('  ok  ', label); }
-  else { fail++; console.log('  FAIL', label, extra === undefined ? '' : JSON.stringify(extra)); }
-};
-
-const asPostgres = async () => {
-  await db.exec(`RESET ROLE; SELECT set_config('request.jwt.claims', '', false);`);
-};
-const as = async (userId) => {
-  await asPostgres();
-  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`,
-    [JSON.stringify({ sub: userId, role: 'authenticated' })]);
-  await db.exec(`SET ROLE authenticated`);
-};
-const rpc = async (name, args = {}) => {
-  const keys = Object.keys(args);
-  const sql = `SELECT public.${name}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) AS r`;
-  const res = await db.query(sql, keys.map((k) => args[k]));
-  return res.rows[0].r;
-};
-const expectError = async (fn, code, label) => {
-  try {
-    await fn();
-    ok(false, label, 'no error');
-  } catch (e) {
-    ok(e.code === code, label, { code: e.code, message: e.message });
-  }
-};
+const { ok, as, asPostgres, rpc, expectError, mkUser, done } = testKit(db);
 
 // ── Fixtures ───────────────────────────────────────────────────────
 await asPostgres();
-const mkUser = async (email, provider) => {
-  const { rows } = await db.query(
-    `INSERT INTO auth.users (email, email_confirmed_at, raw_app_meta_data)
-     VALUES ($1, now(), jsonb_build_object('provider', $2::text)) RETURNING id`, [email, provider]);
-  if (provider === 'google') {
-    await db.query(`INSERT INTO auth.identities (user_id, provider) VALUES ($1, 'google')`, [rows[0].id]);
-  }
-  return rows[0].id;
-};
 const KEVIN = await mkUser('founder@gmail.com', 'google');
 await db.query(`UPDATE public.profiles SET is_admin = true, display_name = 'Kevin' WHERE user_id = $1`, [KEVIN]);
 const REP = await mkUser('pat@hereday.io', 'google');
@@ -187,6 +149,7 @@ console.log('\nAdmin view');
   ok(d.deal.map_built && d.deal.map_published, 'linked staff map shows built + published', d.deal);
   ok(d.deal.effective_stage === 'signed_up', 'director already has an account → signed_up', d.deal.effective_stage);
   ok(d.timeline.some((t) => t.type === 'email_sent' && t.meta.synthetic), 'synthetic email_sent from sent date');
+  ok(d.deal.next_step_at === '2026-10-08' && d.deal.is_due, 'imported send gets a follow-up 5 business days out', d.deal);
   ok(d.timeline.some((t) => t.type === 'app_event_published'), 'timeline merges app publish');
   ok(d.events.length === 1 && d.events[0].owner_email === 'founder@gmail.com', 'events list with owner for admin');
 }
@@ -335,5 +298,30 @@ console.log('\nAssign, void');
   ok(v.activity_id === act.id, 'admin voids an activity');
 }
 
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+console.log('\nCLI RPCs (20261013121000)');
+{
+  const g = await dealId('glenview-gobbler');
+  const r = await rpc('crm_update_deal', {
+    p_deal_id: g,
+    p_patch: JSON.stringify({ gmail_draft_id: 'r-1', gmail_thread_id: 't-1', gmail_draft_mailbox: 'kevin@hereday.io' }),
+  });
+  ok(r.deal.gmail_draft_id === 'r-1' && r.deal.gmail_thread_id === 't-1', 'draft and thread ids saved');
+  await expectError(
+    async () => rpc('crm_update_deal', { p_deal_id: await dealId('rep-race-2027'), p_patch: JSON.stringify({ gmail_draft_id: 'r-2' }) }),
+    'CR002',
+    'no Gmail draft on a do-not-contact deal',
+  );
+  const objs = await rpc('crm_list_objections');
+  ok(objs.some((o) => o.deal_slug === 'pool-race' && o.quote === 'We already have a map.'), 'admin sees every objection');
+  const exp = await rpc('crm_export');
+  ok(exp.some((d) => d.slug === 'glenview-gobbler' && d.email_source === 'https://glenviewparks.org/contact'),
+    'export carries contact sources');
+}
+await as(REP2);
+{
+  const objs = await rpc('crm_list_objections');
+  ok(objs.length === 0, "a rep doesn't see objections on deals they don't own");
+  await expectError(() => rpc('crm_export'), '42501', 'export is admin-only');
+}
+
+done();
