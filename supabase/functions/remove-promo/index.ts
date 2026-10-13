@@ -24,6 +24,7 @@ Deno.serve(async (req) => {
       active_promo_code: null,
       active_promo_percent_off: null,
       active_promo_expires_at: null,
+      active_promotion_code_id: null,
     })
     .eq("user_id", auth.userId);
   if (error) {

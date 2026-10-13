@@ -47,7 +47,7 @@ export async function authenticate(req: Request): Promise<
   const service = getServiceClient();
   const { data: profile, error: profileErr } = await service
     .from("profiles")
-    .select("user_id, stripe_customer_id, active_promo_code, active_promo_expires_at, active_promo_percent_off")
+    .select("user_id, stripe_customer_id, active_promo_code, active_promo_expires_at, active_promo_percent_off, active_promotion_code_id")
     .eq("user_id", userData.user.id)
     .maybeSingle();
   if (profileErr) {
@@ -113,10 +113,32 @@ export async function ensureStripeCustomer(params: {
   return customer.id;
 }
 
+/**
+ * Detach the caller's saved promo. Billing columns are writable only
+ * with the service role (20261013120000_profiles_lock_billing_columns),
+ * so this is the one way they're cleared: remove-promo, and checkout
+ * when Stripe refuses a stale code.
+ */
+export async function clearActivePromo(userId: string): Promise<void> {
+  const { error } = await getServiceClient()
+    .from("profiles")
+    .update({
+      active_promo_code: null,
+      active_promo_percent_off: null,
+      active_promo_expires_at: null,
+      active_promotion_code_id: null,
+    })
+    .eq("user_id", userId);
+  if (error) console.error("[billing] failed to clear active promo", error);
+}
+
 export interface ProfileRow {
   user_id: string;
   stripe_customer_id: string | null;
+  /** The coupon behind the promotion code. Kept for display and webhook metadata. */
   active_promo_code?: string | null;
   active_promo_expires_at?: string | null;
   active_promo_percent_off?: number | null;
+  /** The validated Stripe promotion code (promo_…). What checkout applies. */
+  active_promotion_code_id?: string | null;
 }

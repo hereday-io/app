@@ -1,19 +1,31 @@
 // Stripe Checkout session creator — one-time $49 per-event unlock.
 //
-// Body: { eventId, returnUrl, discountCode? }
+// Body: { eventId, returnUrl }
 //   - eventId: the event being unlocked (must belong to the caller)
 //   - returnUrl: where to bounce back after success/cancel
-//   - discountCode: optional Stripe Coupon id to apply at checkout;
-//     when present, forwarded as discounts: [{ coupon }]. The caller
-//     pulls this from profiles.active_promo_code set on /billing.
+//
+// Discounts come only from the caller's profile: the Stripe promotion
+// code that apply-promo validated and stored on /billing. Anything else
+// a client sends is ignored. (Until 20261013 a `discountCode` in the
+// body was forwarded to Stripe as a raw coupon id, which let anyone apply
+// an internal coupon and skip apply-promo's promotion-code-only check.)
+//
+// Stripe re-validates the promotion code when the session is created —
+// active, not expired, under its redemption limit, allowed for this
+// customer. If it refuses, the stale code is cleared and the session is
+// created without it, with the promotion-code box shown, so a dead code
+// never blocks a payment.
 //
 // On success the redirect lands on returnUrl?paid=1&event=<id>. The
 // Stripe webhook (separate function) is the source of truth for
 // flipping events.paid_at.
 
-import { authenticate, corsHeaders, ensureStripeCustomer, getStripe, getServiceClient, json } from "../_shared/billing.ts";
+import { authenticate, clearActivePromo, corsHeaders, ensureStripeCustomer, getStripe, getServiceClient, json } from "../_shared/billing.ts";
 
 const PRICE_ID = Deno.env.get("STRIPE_PRICE_ID"); // $49 one-time price
+
+const isInvalidRequest = (err: unknown) =>
+  (err as { type?: string }).type === "StripeInvalidRequestError";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -26,7 +38,7 @@ Deno.serve(async (req) => {
   const auth = await authenticate(req);
   if (!auth.ok) return auth.response;
 
-  let body: { eventId?: string; returnUrl?: string; discountCode?: string };
+  let body: { eventId?: string; returnUrl?: string };
   try {
     body = await req.json();
   } catch {
@@ -61,28 +73,47 @@ Deno.serve(async (req) => {
 
   const stripe = getStripe();
 
-  // discountCode wins over the stored active_promo_code — the caller
-  // is explicit about wanting this session to use it. Fall back to the
-  // profile's stored code so subsequent unlocks still auto-apply.
-  const couponId = body.discountCode?.trim() || auth.profile.active_promo_code || null;
+  // A profile that has a coupon id but no promotion code id predates
+  // 20261013120000. There's no promotion code to re-check it against,
+  // so it's dropped; the customer can re-enter the code on /billing or
+  // at checkout.
+  let promotionCodeId = auth.profile.active_promotion_code_id ?? null;
+  if (!promotionCodeId && auth.profile.active_promo_code) {
+    await clearActivePromo(auth.userId);
+  }
 
   // Append status params with & or ? depending on whether returnUrl
   // already has a query string (e.g. /editor?id=<id>).
   const sep = body.returnUrl.includes("?") ? "&" : "?";
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer: customerId,
-    line_items: [{ price: PRICE_ID, quantity: 1 }],
-    success_url: `${body.returnUrl}${sep}paid=1&event=${encodeURIComponent(event.id)}`,
-    cancel_url: `${body.returnUrl}${sep}canceled=1&event=${encodeURIComponent(event.id)}`,
-    allow_promotion_codes: !couponId, // let users enter a code at checkout if none is pre-applied
-    ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
-    metadata: {
-      hereday_event_id: event.id,
-      hereday_user_id: auth.userId,
-      ...(couponId ? { hereday_promo_code: couponId } : {}),
-    },
-  });
+  const createSession = (promoId: string | null) =>
+    stripe.checkout.sessions.create({
+      mode: "payment",
+      customer: customerId,
+      line_items: [{ price: PRICE_ID, quantity: 1 }],
+      success_url: `${body.returnUrl}${sep}paid=1&event=${encodeURIComponent(event.id)}`,
+      cancel_url: `${body.returnUrl}${sep}canceled=1&event=${encodeURIComponent(event.id)}`,
+      // Let them type a code at checkout when none is pre-applied.
+      // Stripe allows one or the other, not both.
+      allow_promotion_codes: !promoId,
+      ...(promoId ? { discounts: [{ promotion_code: promoId }] } : {}),
+      metadata: {
+        hereday_event_id: event.id,
+        hereday_user_id: auth.userId,
+        ...(promoId && auth.profile.active_promo_code ? { hereday_promo_code: auth.profile.active_promo_code } : {}),
+        ...(promoId ? { hereday_promotion_code_id: promoId } : {}),
+      },
+    });
+
+  let session: Awaited<ReturnType<typeof createSession>>;
+  try {
+    session = await createSession(promotionCodeId);
+  } catch (err) {
+    if (!promotionCodeId || !isInvalidRequest(err)) throw err;
+    console.warn(`[create-checkout] promotion code ${promotionCodeId} refused by Stripe; clearing it`, (err as Error).message);
+    await clearActivePromo(auth.userId);
+    promotionCodeId = null;
+    session = await createSession(null);
+  }
 
   return json({ url: session.url, sessionId: session.id });
 });

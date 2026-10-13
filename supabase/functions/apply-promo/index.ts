@@ -5,11 +5,15 @@
 // Returns: { valid: true, percent_off, expires_at }
 //       or { valid: false, error }
 //
-// Lookup order:
-//   1. Try as a Promotion Code (the customer-facing string coupon
-//      like EARLYBIRD25) — stripe.promotionCodes.list({ code }).
-//   2. If that misses, try as a Coupon id directly.
-// Only *active* + *not-expired* codes are accepted.
+// Lookup: the code must be a Stripe Promotion Code (the customer-facing
+// string like EARLYBIRD25) — stripe.promotionCodes.list({ code }). Raw
+// coupon ids are not accepted (H-3, below). Only *active* + *not-expired*
+// codes are accepted.
+//
+// Stores the promotion code's own id (active_promotion_code_id) as well
+// as its coupon. create-checkout applies the promotion code, so Stripe
+// enforces its expiry, redemption limit and customer restrictions again
+// at payment time.
 
 import { authenticate, corsHeaders, getServiceClient, getStripe, json } from "../_shared/billing.ts";
 
@@ -41,6 +45,7 @@ Deno.serve(async (req) => {
   // 1) Try as a promotion code (preferred — that's what customers
   // actually type). Stripe returns the associated coupon nested.
   let couponId: string | null = null;
+  let promotionCodeId: string | null = null;
   let percentOff: number | null = null;
   let expiresAt: string | null = null;
 
@@ -54,6 +59,7 @@ Deno.serve(async (req) => {
   const pc = pcList.data[0];
   if (pc && pc.coupon && pc.coupon.valid) {
     couponId = pc.coupon.id;
+    promotionCodeId = pc.id;
     percentOff = pc.coupon.percent_off ?? null;
     expiresAt = pc.expires_at ? new Date(pc.expires_at * 1000).toISOString() : null;
   }
@@ -69,6 +75,7 @@ Deno.serve(async (req) => {
       active_promo_code: couponId,
       active_promo_percent_off: percentOff,
       active_promo_expires_at: expiresAt,
+      active_promotion_code_id: promotionCodeId,
     })
     .eq("user_id", auth.userId);
   if (updateErr) {
