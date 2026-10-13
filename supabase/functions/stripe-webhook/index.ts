@@ -51,13 +51,9 @@
 
 import Stripe from "npm:stripe@17.3.1";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getServiceClient, getStripe } from "../_shared/billing.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "stripe-signature, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { getStripe } from "../_shared/billing.ts";
+import { getServiceClient } from "../_shared/db.ts";
+import { publicCors } from "../_shared/http.ts";
 
 // How long an unfinished ledger claim is respected before another
 // delivery may take it over. Above the edge-function wall clock (150s
@@ -69,21 +65,21 @@ const STALE_CLAIM_MS = 10 * 60 * 1000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: publicCors });
   }
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+    return new Response("Method not allowed", { status: 405, headers: publicCors });
   }
 
   const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   if (!secret) {
     console.error("[stripe-webhook] STRIPE_WEBHOOK_SECRET not configured");
-    return new Response("Server misconfigured", { status: 500, headers: corsHeaders });
+    return new Response("Server misconfigured", { status: 500, headers: publicCors });
   }
 
   const signature = req.headers.get("stripe-signature");
   if (!signature) {
-    return new Response("Missing stripe-signature", { status: 400, headers: corsHeaders });
+    return new Response("Missing stripe-signature", { status: 400, headers: publicCors });
   }
 
   // IMPORTANT: read raw body — signature is computed over the exact
@@ -96,7 +92,7 @@ Deno.serve(async (req) => {
     event = await stripe.webhooks.constructEventAsync(rawBody, signature, secret);
   } catch (err) {
     console.error("[stripe-webhook] signature verification failed", err);
-    return new Response("Invalid signature", { status: 400, headers: corsHeaders });
+    return new Response("Invalid signature", { status: 400, headers: publicCors });
   }
 
   // H-1 (2026-05-01): replay guard. The success-path COALESCE keeps
@@ -120,7 +116,7 @@ Deno.serve(async (req) => {
   if (replayErr) {
     if ((replayErr as { code?: string }).code !== "23505") {
       console.error("[stripe-webhook] replay-ledger insert failed", replayErr);
-      return new Response("Ledger error", { status: 500, headers: corsHeaders });
+      return new Response("Ledger error", { status: 500, headers: publicCors });
     }
 
     // A row already exists: the event is either genuinely done, or was
@@ -139,7 +135,7 @@ Deno.serve(async (req) => {
       .select("event_id");
     if (reclaimErr) {
       console.error("[stripe-webhook] replay-ledger reclaim failed", reclaimErr);
-      return new Response("Ledger error", { status: 500, headers: corsHeaders });
+      return new Response("Ledger error", { status: 500, headers: publicCors });
     }
     if (!reclaimed?.length) {
       // Either the event is done, or another delivery holds a claim that
@@ -155,16 +151,16 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (lookupErr) {
         console.error("[stripe-webhook] replay-ledger lookup failed", lookupErr);
-        return new Response("Ledger error", { status: 500, headers: corsHeaders });
+        return new Response("Ledger error", { status: 500, headers: publicCors });
       }
       if (!existing?.completed_at) {
         console.log(`[stripe-webhook] ${event.id} (${event.type}) claimed by another delivery; deferring`);
-        return new Response("Claim in progress", { status: 409, headers: corsHeaders });
+        return new Response("Claim in progress", { status: 409, headers: publicCors });
       }
       console.log(`[stripe-webhook] replay ${event.id} (${event.type}) skipped`);
       return new Response(JSON.stringify({ received: true, replay: true }), {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...publicCors, "Content-Type": "application/json" },
       });
     }
     console.log(`[stripe-webhook] reclaimed stale claim on ${event.id} (${event.type})`);
@@ -195,7 +191,7 @@ Deno.serve(async (req) => {
     // Claim stays outstanding on purpose. Retries inside STALE_CLAIM_MS
     // get a 409; the first one after it reclaims and runs the handler.
     console.error(`[stripe-webhook] handler failed for ${event.type}`, err);
-    return new Response("Handler failed", { status: 500, headers: corsHeaders });
+    return new Response("Handler failed", { status: 500, headers: publicCors });
   }
 
   // Close the claim. Only now does this event read as a replay to any
@@ -215,7 +211,7 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ received: true }), {
     status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...publicCors, "Content-Type": "application/json" },
   });
 });
 

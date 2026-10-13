@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+    return json({ error: "Method not allowed" }, 405, req);
   }
 
   const auth = await authenticate(req);
@@ -29,8 +29,8 @@ Deno.serve(async (req) => {
     .eq("user_id", auth.userId);
   if (error) {
     console.error("[remove-promo] update failed", error);
-    return json({ error: "Could not remove code" }, 500);
+    return json({ error: "Could not remove code" }, 500, req);
   }
 
-  return json({ ok: true });
+  return json({ ok: true }, 200, req);
 });

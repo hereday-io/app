@@ -6,7 +6,8 @@
 //
 // No pagination yet — typical Hereday customer has <20 charges total.
 
-import { authenticate, corsHeaders, getStripe, json } from "../_shared/billing.ts";
+import { authenticate, getStripe } from "../_shared/billing.ts";
+import { corsHeaders, handler, json } from "../_shared/http.ts";
 
 interface ChargeRow {
   id: string;
@@ -25,19 +26,19 @@ interface ChargeRow {
   refunded: boolean;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handler("list-charges", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "GET" && req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+    return json({ error: "Method not allowed" }, 405, req);
   }
 
   const auth = await authenticate(req);
   if (!auth.ok) return auth.response;
 
   if (!auth.profile.stripe_customer_id) {
-    return json({ charges: [] as ChargeRow[] });
+    return json({ charges: [] as ChargeRow[] }, 200, req);
   }
 
   const stripe = getStripe();
@@ -68,5 +69,5 @@ Deno.serve(async (req) => {
     };
   });
 
-  return json({ charges: rows });
-});
+  return json({ charges: rows }, 200, req);
+}));

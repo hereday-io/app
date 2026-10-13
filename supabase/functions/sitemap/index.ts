@@ -25,10 +25,7 @@
 // - No pagination. Sitemaps support up to 50k URLs per file; we're
 //   nowhere near that. When we are, split into a sitemap index.
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { publicCors } from "../_shared/http.ts";
 
 // The public-facing origin used to build absolute URLs in the sitemap.
 // Hardcoded rather than env-driven because a stale PUBLIC_SITE_ORIGIN
@@ -57,7 +54,7 @@ function urlEntry(loc: string, lastmod?: string, changefreq = "weekly", priority
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: publicCors });
   }
 
   try {
@@ -84,7 +81,7 @@ ${staticUrls.join("\n")}
 
     return new Response(xml, {
       headers: {
-        ...corsHeaders,
+        ...publicCors,
         "Content-Type": "application/xml; charset=utf-8",
         // Edge + browser cache. The list is static, so this could be far
         // longer; 1h keeps it cheap to correct a mistake in the URL set.

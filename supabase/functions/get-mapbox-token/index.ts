@@ -1,24 +1,23 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Returns the public Mapbox token to the browser. Wildcard CORS on purpose:
+// every map viewer's browser receives this token anyway.
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { publicCors } from "../_shared/http.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: publicCors });
   }
 
   const token = Deno.env.get("MAPBOX_TOKEN");
   if (!token) {
     return new Response(JSON.stringify({ error: "MAPBOX_TOKEN not configured" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...publicCors, "Content-Type": "application/json" },
     });
   }
 
   return new Response(JSON.stringify({ token }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...publicCors, "Content-Type": "application/json" },
   });
 });
