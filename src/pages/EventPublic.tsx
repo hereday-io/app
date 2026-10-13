@@ -139,34 +139,36 @@ const EventPublic = () => {
           setLoading(false);
           return;
         }
-        if (!data) {
+        // View columns are all nullable in the generated types; id and
+        // name are NOT NULL on the base table, so a row missing either
+        // is treated as not-found.
+        if (!data?.id || !data.name) {
           setEvent(null);
           setLoading(false);
           return;
         }
-        const row = data;
         setEvent({
-          id: row.id,
-          name: row.name,
-          city: row.city,
-          event_date: row.event_date,
-          routes: (row.routes as unknown as EventRoute[]) || [],
-          pois: (row.pois as unknown as RoutePoi[]) || [],
-          route_count: row.route_count,
-          poi_count: row.poi_count,
-          logo_url: row.logo_url ?? null,
-          branding_style: row.branding_style ?? 'none',
+          id: data.id,
+          name: data.name,
+          city: data.city,
+          event_date: data.event_date,
+          routes: (data.routes as unknown as EventRoute[]) || [],
+          pois: (data.pois as unknown as RoutePoi[]) || [],
+          route_count: data.route_count ?? 0,
+          poi_count: data.poi_count ?? 0,
+          logo_url: data.logo_url ?? null,
+          branding_style: data.branding_style ?? 'none',
           // Despite the name, public_events.owner_is_paid is per-event
           // `paid_at IS NOT NULL` since 20260411120000_event_billing_columns.
-          is_pro: row.owner_is_paid === true,
-          tracking_start: row.tracking_start ?? null,
-          tracking_end: row.tracking_end ?? null,
-          has_ended: row.has_ended ?? false,
+          is_pro: data.owner_is_paid === true,
+          tracking_start: data.tracking_start ?? null,
+          tracking_end: data.tracking_end ?? null,
+          has_ended: data.has_ended ?? false,
         });
-        logEvent('public_view', row.id, {
+        logEvent('public_view', data.id, {
           mode: viewMode,
           slug,
-          ended: row.has_ended ?? false,
+          ended: data.has_ended ?? false,
         });
         setLoading(false);
       }, (err) => {

@@ -57,7 +57,7 @@ const TransferEventDialog = ({
     const { data, error } = await supabase.rpc('admin_transfer_event', {
       p_event_id: eventId,
       p_to_email: toEmail,
-      p_note: trimmed || null,
+      p_note: trimmed || undefined, // omitted → the RPC's DEFAULT NULL
     });
 
     setSubmitting(false);

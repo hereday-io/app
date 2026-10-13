@@ -177,6 +177,7 @@ Deno.serve(async (req) => {
       // later; this event carries the same session, now 'paid'. It has its
       // own event id, so the ledger runs it, and the paid_at UPDATE keeps
       // it from logging a second sale if both ever arrive reading 'paid'.
+      // falls through
       case "checkout.session.async_payment_succeeded":
         await handleCheckoutCompleted(stripe, event.data.object as Stripe.Checkout.Session);
         break;

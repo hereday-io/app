@@ -407,6 +407,7 @@ const Dashboard = () => {
         const current: Record<string, number> = {};
         const prior: Record<string, number> = {};
         views?.forEach((v) => {
+          if (!v.event_id) return;
           const ts = new Date(v.created_at as string).getTime();
           if (ts >= thirtyDaysAgoMs) current[v.event_id] = (current[v.event_id] || 0) + 1;
           else prior[v.event_id] = (prior[v.event_id] || 0) + 1;
@@ -440,7 +441,7 @@ const Dashboard = () => {
         .select('id'));
       // No error but no row: RLS filtered the update (e.g. the event was
       // transferred to another account while this tab was open).
-      if (rows.length === 0) {
+      if (!rows || rows.length === 0) {
         throw new Error('You no longer have access to this event. It may have been moved to another account.');
       }
     } catch (err) {

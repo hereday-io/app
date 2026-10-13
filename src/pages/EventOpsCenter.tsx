@@ -816,7 +816,7 @@ const VolunteerRosterPanel = ({
         .eq('event_id', event.id)
         .order('created_at', { ascending: false })
         .limit(200));
-      setHistory(data);
+      setHistory(data ?? []);
       setHistoryError(false);
     } catch (err) {
       console.error('[OpsCenter] volunteer activity fetch failed', err);
