@@ -44,8 +44,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Signs out this browser only. supabase-js defaults to scope 'global',
+  // which revokes every session the account has — other devices, and
+  // the CRM CLI (scripts/crm.mjs) — each time someone clicks Sign out.
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
   };
 
   return (
