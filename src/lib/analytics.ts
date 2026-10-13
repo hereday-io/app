@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { captureEvent } from '@/lib/posthog';
 
 /**
@@ -24,7 +25,7 @@ import { captureEvent } from '@/lib/posthog';
 export function logEvent(
   eventType: string,
   eventId: string | null = null,
-  properties: Record<string, unknown> = {},
+  properties: { [key: string]: Json | undefined } = {},
 ): void {
   // Mirror into PostHog (no-op without VITE_POSTHOG_KEY). Supabase
   // stays the source of truth; PostHog is for funnels/exploration.

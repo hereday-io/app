@@ -399,6 +399,7 @@ const Dashboard = () => {
         const current: Record<string, number> = {};
         const prior: Record<string, number> = {};
         views?.forEach((v) => {
+          if (!v.event_id) return;
           const ts = new Date(v.created_at as string).getTime();
           if (ts >= thirtyDaysAgoMs) current[v.event_id] = (current[v.event_id] || 0) + 1;
           else prior[v.event_id] = (prior[v.event_id] || 0) + 1;
