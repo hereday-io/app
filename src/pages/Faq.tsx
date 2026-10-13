@@ -104,6 +104,9 @@ const planFaqs: FaqItem[] = [
           <li><strong>Clean checklist PDF</strong> without the Hereday footer</li>
           <li>Priority support</li>
         </ul>
+        <p className="mt-2">
+          <Link to="/pro" className="text-primary hover:underline">See everything Pro adds</Link>
+        </p>
       </>
     ),
   },
@@ -333,6 +336,7 @@ const Faq = () => {
           </p>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <Link to="/getting-started" className="hover:text-foreground transition-colors">Getting Started</Link>
+            <Link to="/pro" className="hover:text-foreground transition-colors">Pro</Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <Link to="/refund" className="hover:text-foreground transition-colors">Refunds</Link>

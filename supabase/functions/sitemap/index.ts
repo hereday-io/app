@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
     const staticUrls = [
       urlEntry(`${PUBLIC_SITE_ORIGIN}/`, undefined, "weekly", "1.0"),
       urlEntry(`${PUBLIC_SITE_ORIGIN}/getting-started`, undefined, "monthly", "0.8"),
+      urlEntry(`${PUBLIC_SITE_ORIGIN}/pro`, undefined, "monthly", "0.7"),
       urlEntry(`${PUBLIC_SITE_ORIGIN}/faq`, undefined, "monthly", "0.7"),
       urlEntry(`${PUBLIC_SITE_ORIGIN}/signup`, undefined, "monthly", "0.5"),
       urlEntry(`${PUBLIC_SITE_ORIGIN}/refund`, undefined, "yearly", "0.3"),

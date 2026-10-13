@@ -126,8 +126,10 @@ const GettingStarted = () => {
           <h2 className="text-xl font-display font-semibold text-foreground mb-4">What's next?</h2>
           <div className="space-y-4 text-foreground/90">
             <NextItem title="Upgrade to Pro" tag="$49 / event">
-              Unlock unlimited routes and markers, remove the "Made with Hereday" footer, and add your
-              own logo and brand colors.
+              Run race day from the Event Ops Center with live volunteer status, unlock unlimited
+              routes and markers, remove the "Made with Hereday" footer, and add your own logo and
+              sponsors.{' '}
+              <Link to="/pro" className="text-primary hover:underline">See everything Pro adds</Link>
             </NextItem>
             <NextItem title="Collect email subscribers">
               Visitors can subscribe to your event updates directly from your public page. You'll
@@ -159,6 +161,7 @@ const GettingStarted = () => {
           <img src="/hereday-logo.png" alt="Hereday" className="h-16 w-auto -my-3 opacity-70" />
           <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} Hereday LLC. All rights reserved.</p>
           <div className="flex gap-4 text-xs text-muted-foreground">
+            <Link to="/pro" className="hover:text-foreground transition-colors">Pro</Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <Link to="/refund" className="hover:text-foreground transition-colors">Refunds</Link>

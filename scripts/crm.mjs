@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { join } from 'node:path';
 import { CLI, CrmCliError, OUTREACH, SITE_URL, connect, makeClient } from './lib/crm-client.mjs';
-import { discoveryWindow, screenRace, toImportRow, validateCandidate } from './lib/discovery.mjs';
+import { discoveryWindow, prioritise, screenRace, toImportRow, validateCandidate } from './lib/discovery.mjs';
 
 const LOGIN_PORT = 5733;
 const REDIRECT = `http://localhost:${LOGIN_PORT}/callback`;
@@ -401,7 +401,10 @@ const commands = {
       return n;
     };
     const today = todayChicago();
-    const window = discoveryWindow(today, { minWeeks: weeks('min-weeks', 8), maxWeeks: weeks('max-weeks', 14) });
+    const window = discoveryWindow(today, {
+      ...(flags['min-weeks'] !== undefined ? { minWeeks: weeks('min-weeks') } : {}),
+      ...(flags['max-weeks'] !== undefined ? { maxWeeks: weeks('max-weeks') } : {}),
+    });
     const candidates = readJsonArray(file);
 
     const c = await connect();
@@ -433,6 +436,10 @@ const commands = {
       rows.push(row);
     }
 
+    // Tier 1 first; numbers continue after every deal already in the CRM.
+    const maxPriority = Math.max(0, ...known.deals.map((d) => d.priority ?? 0));
+    rows.splice(0, rows.length, ...prioritise(rows, maxPriority));
+
     const result = { window, invalid, skipped, dry_run: null, applied: null };
     if (rows.length) {
       result.dry_run = await c.call('crm_import', { p_rows: rows, p_source: 'discovered', p_dry_run: true });
@@ -447,9 +454,10 @@ const commands = {
       console.log(`Window ${d.window.from} .. ${d.window.to}`);
       for (const r of d.invalid) console.log(`  invalid  ${r.race_name ?? '(no name)'}: ${r.errors.join(' ')}`);
       for (const r of d.skipped) console.log(`  skipped  ${r.race_name}: ${r.reason}`);
+      const tierOf = new Map(rows.map((r) => [r.slug, r.tier]));
       for (const r of d.dry_run?.rows ?? []) {
         const extra = r.action === 'conflict' ? ` (same race as ${r.conflict_with}, ${r.conflict_owner})` : r.error ? ` ${r.error}` : '';
-        console.log(`  ${pad(r.action, 8)} ${r.slug}${extra}${r.warnings?.length ? `  [${r.warnings.join(' ')}]` : ''}`);
+        console.log(`  ${pad(r.action, 8)} ${tierOf.get(r.slug) ? `T${tierOf.get(r.slug)} ` : ''}${r.slug}${extra}${r.warnings?.length ? `  [${r.warnings.join(' ')}]` : ''}`);
       }
       if (d.applied) console.log(`\nImported ${d.applied.counts.created ?? 0} unclaimed deal(s).`);
       else if (d.dry_run && flags.apply) console.log('\nNothing to import.');

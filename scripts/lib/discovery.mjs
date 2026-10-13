@@ -11,10 +11,10 @@
  *     "date_source": "https://…the race's own page…",   // date_verified needs this
  *     "date_verified": true,
  *     "town": "Woodstock",
- *     "tier": 1,
+ *     "tier": 1,                                         // must equal computeTier() in icp.mjs
  *     "distances": ["5K", "1 mile"],
- *     "est_participants": 350,
- *     "participants_source": "https://…2026 results…",
+ *     "est_participants": 350,                           // last year's finishers, all distances
+ *     "participants_source": "https://…2026 results…",   // required
  *     "org": { "name": "Woodstock Rotary", "type": "service_club", "description": null },
  *     "contact": { "full_name": "…", "role": "Race director",
  *                  "email": "…", "email_source": "https://…",
@@ -27,9 +27,11 @@
  *   }
  *
  * The rules mirror the CRM's CHECKs (20261012121000_crm_schema.sql) and
- * the ICP in outreach/sales-kit/00-start-here.md, so a bad row is caught
- * here instead of aborting the whole crm_import batch.
+ * the ICP in ./icp.mjs, so a bad row is caught here instead of aborting
+ * the whole crm_import batch.
  */
+
+import { MAX_FINISHERS, MIN_FINISHERS, NO_MAP_TYPES, RIGHT_HOSTS, WINDOW_WEEKS, computeTier } from './icp.mjs';
 
 export const ORG_TYPES = [
   'park_district', 'municipal', 'school_booster', 'school_foundation', 'school', 'church',
@@ -42,10 +44,13 @@ export const FIT_FLAGS = ['large_field', 'race_mgmt_company', 'has_published_map
 
 /** Flags that put a race outside the ICP: these get rejected, not imported. */
 const OUT_OF_ICP = ['large_field', 'race_mgmt_company', 'outside_radius'];
-export const MAX_PARTICIPANTS = 1000;
 
-/** Prior-year outcomes that mean "don't pitch this race again". */
-export const DONT_RECONTACT = ['not_interested', 'has_map', 'not_a_fit', 'do_not_contact', 'removed'];
+/**
+ * Prior-year outcomes that mean "don't pitch this race again". Not has_map:
+ * a race that already publishes a map is a tier 2 lead now, and next year's
+ * edition gets the rebuilt-map pitch.
+ */
+export const DONT_RECONTACT = ['not_interested', 'not_a_fit', 'do_not_contact', 'removed'];
 
 const URL_RE = /^https?:\/\/\S+$/i;
 const isUrl = (v) => typeof v === 'string' && URL_RE.test(v.trim());
@@ -73,7 +78,7 @@ const addDays = (day, n) => {
 };
 
 /** The ICP's date window: races 8–14 weeks out (registration opens 2–3 months ahead). */
-export function discoveryWindow(today, { minWeeks = 8, maxWeeks = 14 } = {}) {
+export function discoveryWindow(today, { minWeeks = WINDOW_WEEKS.min, maxWeeks = WINDOW_WEEKS.max } = {}) {
   return { from: addDays(today, minWeeks * 7), to: addDays(today, maxWeeks * 7) };
 }
 
@@ -95,11 +100,11 @@ export function validateCandidate(c, { window } = {}) {
     errors.push('date_verified needs date_source: the race page the date was read from.');
   }
 
-  if (!Number.isInteger(c.tier) || c.tier < 1 || c.tier > 3) errors.push('tier must be 1, 2 or 3.');
-
   if (!str(c.org?.name)) errors.push('org.name is missing (who hosts the race?).');
-  if (c.org?.type != null && !ORG_TYPES.includes(c.org.type)) errors.push(`org.type "${c.org.type}" is not one of ${ORG_TYPES.join(', ')}.`);
-  if (c.org?.type === 'race_mgmt_company') errors.push('Run by a race-management company: outside the ICP.');
+  if (c.org?.type == null) errors.push(`org.type is missing: the host has to be one of ${RIGHT_HOSTS.join(', ')}.`);
+  else if (!ORG_TYPES.includes(c.org.type)) errors.push(`org.type "${c.org.type}" is not one of ${ORG_TYPES.join(', ')}.`);
+  else if (c.org.type === 'race_mgmt_company') errors.push('Run by a race-management company: outside the ICP.');
+  else if (!RIGHT_HOSTS.includes(c.org.type)) errors.push(`A ${c.org.type} host is outside the ICP (wants ${RIGHT_HOSTS.join(', ')}).`);
 
   const flags = c.fit_flags ?? [];
   if (!Array.isArray(flags)) errors.push('fit_flags must be an array.');
@@ -109,12 +114,31 @@ export function validateCandidate(c, { window } = {}) {
     const out = flags.filter((f) => OUT_OF_ICP.includes(f));
     if (out.length) errors.push(`Outside the ICP (${out.join(', ')}): reject it instead.`);
   }
-  if (Number.isFinite(c.est_participants) && c.est_participants > MAX_PARTICIPANTS) {
-    errors.push(`~${c.est_participants} participants is over ${MAX_PARTICIPANTS}: outside the ICP.`);
+  if (!Number.isFinite(c.est_participants)) {
+    errors.push("est_participants is missing: last year's finisher count decides the tier.");
+  } else if (c.est_participants < MIN_FINISHERS || c.est_participants > MAX_FINISHERS) {
+    errors.push(`${c.est_participants} finishers is outside ${MIN_FINISHERS}–${MAX_FINISHERS}: outside the ICP.`);
+  }
+  if (Number.isFinite(c.est_participants) && !isUrl(c.participants_source)) {
+    errors.push("participants_source must be the URL of last year's results.");
   }
 
-  if (c.map_type != null && !MAP_TYPES.includes(c.map_type)) errors.push(`map_type "${c.map_type}" is not one of ${MAP_TYPES.join(', ')}.`);
+  if (c.map_type == null || c.map_type === 'unknown') errors.push('map_type is missing or unknown: find out whether they publish a map.');
+  else if (!MAP_TYPES.includes(c.map_type)) errors.push(`map_type "${c.map_type}" is not one of ${MAP_TYPES.join(', ')}.`);
   if (c.course_map_url != null && !isUrl(c.course_map_url)) errors.push('course_map_url must be a URL.');
+  if (MAP_TYPES.includes(c.map_type) && c.map_type !== 'unknown') {
+    const hasMap = !NO_MAP_TYPES.includes(c.map_type);
+    if (Array.isArray(flags) && hasMap !== flags.includes('has_published_map')) {
+      errors.push(hasMap
+        ? `map_type ${c.map_type} is a published map: add the has_published_map fit flag.`
+        : `map_type ${c.map_type} is not a published map: drop the has_published_map fit flag.`);
+    }
+    if (hasMap && !isUrl(c.course_map_url)) errors.push('A published map needs course_map_url.');
+  }
+
+  const tier = computeTier(c);
+  if (c.tier !== 1 && c.tier !== 2) errors.push('tier must be 1 or 2 (tier 3 is legacy, for old Chicagoland deals).');
+  else if (tier !== null && c.tier !== tier) errors.push(`tier is ${c.tier} but the ICP makes it tier ${tier} (icp.mjs computeTier).`);
 
   const ct = c.contact ?? {};
   const email = str(ct.email);
@@ -145,7 +169,7 @@ export function toImportRow(c, { discoveredOn }) {
     isUrl(ct.form_url) ? `Contact form: ${ct.form_url.trim()}` : null,
     distances.length ? `Distances: ${distances.join(', ')}.` : null,
     Number.isFinite(c.est_participants)
-      ? `About ${c.est_participants} participants${isUrl(c.participants_source) ? ` (${c.participants_source.trim()})` : ''}.`
+      ? `${c.est_participants} finishers last year${isUrl(c.participants_source) ? ` (${c.participants_source.trim()})` : ''}.`
       : null,
   ].filter(Boolean).join('\n');
 
@@ -227,4 +251,18 @@ export function screenRace({ race_name, race_date }, { deals = [], rejected = []
   const r = rejected.find((x) => raceKey(x.race_key ?? x.race_name) === key && (x.year == null || year === null || x.year === year));
   if (r) return `Rejected on ${r.on ?? '?'}: ${r.reason}`;
   return null;
+}
+
+/**
+ * Work order for a batch of import rows: tier 1 before tier 2, then races
+ * with more distances (more routes to draw, a likelier Pro sale). Priority
+ * numbers continue after `basePriority` (the CRM's current max), so
+ * `crm.mjs next --claim` hands tier 1 out first.
+ */
+export function prioritise(rows, basePriority = 0) {
+  const distances = (r) => (r.raw?.distances ? r.raw.distances.split(',').length : 0);
+  return rows
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => (a.r.tier ?? 9) - (b.r.tier ?? 9) || distances(b.r) - distances(a.r) || a.i - b.i)
+    .map(({ r }, rank) => ({ ...r, priority: basePriority + rank + 1 }));
 }

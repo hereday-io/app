@@ -43,6 +43,7 @@ const ROUTES = [
   { name: 'home', url: '/' },
   { name: 'faq', url: '/faq' },
   { name: 'getting-started', url: '/getting-started' },
+  { name: 'pro', url: '/pro' },
   { name: 'signup', url: '/signup' },
   { name: 'terms', url: '/terms' },
   { name: 'privacy', url: '/privacy' },

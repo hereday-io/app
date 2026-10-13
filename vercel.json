@@ -21,6 +21,10 @@
       "destination": "/api/page/getting-started"
     },
     {
+      "source": "/pro",
+      "destination": "/api/page/pro"
+    },
+    {
       "source": "/privacy",
       "destination": "/api/page/privacy"
     },

@@ -20,6 +20,7 @@ import Terms from "./pages/Terms.tsx";
 import Refund from "./pages/Refund.tsx";
 import GettingStarted from "./pages/GettingStarted.tsx";
 import Faq from "./pages/Faq.tsx";
+import ProGuide from "./pages/ProGuide.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -84,6 +85,7 @@ const App = () => (
             <Route path="/admin/crm/:slug" element={<AdminCrm />} />
             <Route path="/getting-started" element={<GettingStarted />} />
             <Route path="/faq" element={<Faq />} />
+            <Route path="/pro" element={<ProGuide />} />
             <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

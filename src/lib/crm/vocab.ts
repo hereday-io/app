@@ -124,6 +124,18 @@ export const ORG_TYPE_LABELS: Record<OrgType, string> = {
   other: 'Other',
 };
 
+/**
+ * What a deal's tier means. Tiers 1 and 2 follow the national target
+ * profile in scripts/lib/icp.mjs (host type, 200–800 finishers, map or
+ * not). Tier 3 is from the old Chicagoland distance tiers, kept for
+ * deals created before the profile changed.
+ */
+export const TIER_LABELS: Record<1 | 2 | 3, string> = {
+  1: 'Right host, no public map',
+  2: 'Right host, has a map',
+  3: 'Legacy (Chicagoland)',
+};
+
 export const FIT_FLAGS = [
   'large_field',
   'race_mgmt_company',

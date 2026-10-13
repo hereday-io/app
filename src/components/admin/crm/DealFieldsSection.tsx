@@ -18,6 +18,7 @@ import {
   MAP_TYPE_LABELS,
   ORG_TYPES,
   ORG_TYPE_LABELS,
+  TIER_LABELS,
   type FitFlag,
 } from '@/lib/crm/vocab';
 
@@ -146,7 +147,9 @@ const DealFieldsSection = ({ detail }: { detail: DealDetail }) => {
               <span className="text-muted-foreground">{account.org_description}</span>
             </Row>
           )}
-          <Row label="Tier">{deal.tier ?? '—'}</Row>
+          <Row label="Tier">
+            {deal.tier ? `${deal.tier} · ${TIER_LABELS[deal.tier as 1 | 2 | 3] ?? ''}` : '—'}
+          </Row>
           <Row label="Channel">{deal.channel ?? '—'}</Row>
           <Row label="Their map">
             {deal.map_type ? MAP_TYPE_LABELS[deal.map_type] : '—'}
@@ -239,9 +242,11 @@ const DealFieldsSection = ({ detail }: { detail: DealDetail }) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NONE}>—</SelectItem>
-              <SelectItem value="1">1</SelectItem>
-              <SelectItem value="2">2</SelectItem>
-              <SelectItem value="3">3</SelectItem>
+              {([1, 2, 3] as const).map((t) => (
+                <SelectItem key={t} value={String(t)}>
+                  {t} · {TIER_LABELS[t]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

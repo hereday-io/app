@@ -42,6 +42,30 @@ const gettingStartedArticleSchema = {
   },
 };
 
+const proArticleSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: 'Hereday Pro: run race day from one screen',
+  description:
+    'What Hereday Pro adds to a race map: the Event Ops Center, live volunteer status, unlimited routes and points of interest, custom branding and sponsors, and a clean race-day checklist.',
+  image: 'https://hereday.io/og-default.png',
+  datePublished: '2026-10-13',
+  dateModified: '2026-10-13',
+  author: {
+    '@type': 'Organization',
+    name: 'Hereday',
+    url: 'https://hereday.io',
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'Hereday',
+    logo: {
+      '@type': 'ImageObject',
+      url: 'https://hereday.io/hereday-logo.png',
+    },
+  },
+};
+
 // Keyed by the same name used in PAGE_META / the vercel.json rewrite.
 //
 // `/faq` is absent on purpose. Its FAQPage schema is built from answers
@@ -53,4 +77,5 @@ const gettingStartedArticleSchema = {
 // roadmap 1b) can capture it without duplication.
 export const PAGE_SCHEMAS: Record<string, Record<string, unknown>[]> = {
   'getting-started': [gettingStartedArticleSchema],
+  pro: [proArticleSchema],
 };

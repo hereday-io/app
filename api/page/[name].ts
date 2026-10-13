@@ -54,6 +54,11 @@ const PAGE_META: Record<string, PageMeta> = {
     description:
       'Step-by-step guide to creating your first event map with Hereday. From signup to a live shareable race-day page in under five minutes. No credit card needed.',
   },
+  pro: {
+    title: 'Hereday Pro for Race Directors — Event Ops Center, Branding & More',
+    description:
+      'What Hereday Pro adds to your race map: the Event Ops Center for race day, live volunteer status, unlimited routes, your own branding and sponsors. $49 per event, one time.',
+  },
   privacy: {
     title: 'Privacy Policy — Hereday',
     description:

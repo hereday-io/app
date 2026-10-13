@@ -1088,6 +1088,14 @@ const Index = () => {
               Getting Started
             </Link>
             <Link
+              to="/pro"
+              className="transition-colors"
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ed-ink)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '')}
+            >
+              Pro
+            </Link>
+            <Link
               to="/faq"
               className="transition-colors"
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ed-ink)')}

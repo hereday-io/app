@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useCrmAction } from '@/hooks/crm/useCrm';
 import type { Deal } from '@/lib/crm/types';
-import { ORG_TYPES, ORG_TYPE_LABELS, type OrgType } from '@/lib/crm/vocab';
+import { ORG_TYPES, ORG_TYPE_LABELS, TIER_LABELS, type OrgType } from '@/lib/crm/vocab';
 
 interface NewDealDialogProps {
   open: boolean;
@@ -116,9 +116,11 @@ const NewDealDialog = ({ open, onOpenChange, onCreated }: NewDealDialogProps) =>
                 <SelectValue placeholder="Optional" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">1 · McHenry + immediate NW</SelectItem>
-                <SelectItem value="2">2 · Near NW / west suburbs</SelectItem>
-                <SelectItem value="3">3 · Everything else in radius</SelectItem>
+                {([1, 2, 3] as const).map((t) => (
+                  <SelectItem key={t} value={String(t)}>
+                    {t} · {TIER_LABELS[t]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

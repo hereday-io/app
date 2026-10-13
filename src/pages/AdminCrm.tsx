@@ -44,7 +44,12 @@ const VIEWS: Array<{ value: View; label: string; admin?: boolean; test: (d: Deal
   { value: 'customers', label: 'Customers', test: (d) => CUSTOMER_STAGES.includes(d.effective_stage) },
   { value: 'inbound', label: 'Inbound', test: (d) => d.source === 'inbound' },
   { value: 'handoffs', label: 'Handoffs', admin: true, test: (d) => d.handoff_pending },
-  { value: 'fit', label: 'Fit concerns', test: (d) => d.fit_flags.length > 0 && d.stage !== 'closed' },
+  {
+    value: 'fit',
+    label: 'Fit concerns',
+    // Publishing a map isn't a concern any more: those races are tier 2 leads.
+    test: (d) => d.fit_flags.some((f) => f !== 'has_published_map') && d.stage !== 'closed',
+  },
   { value: 'closed', label: 'Closed', test: (d) => d.stage === 'closed' },
 ];
 
