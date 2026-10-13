@@ -54,12 +54,11 @@ const TransferEventDialog = ({
     if (!eventId || !toEmail || !noteValid) return;
     setSubmitting(true);
 
-    // admin_transfer_event is added in 20261011121000_admin_event_transfer.sql.
-    // Cast through `as never` until generated types catch up, as AdminComps does.
-    const { data, error } = await supabase.rpc(
-      'admin_transfer_event' as never,
-      { p_event_id: eventId, p_to_email: toEmail, p_note: trimmed || null } as never,
-    );
+    const { data, error } = await supabase.rpc('admin_transfer_event', {
+      p_event_id: eventId,
+      p_to_email: toEmail,
+      p_note: trimmed || null,
+    });
 
     setSubmitting(false);
 
@@ -72,7 +71,7 @@ const TransferEventDialog = ({
       return;
     }
 
-    const rows = (data ?? []) as unknown as TransferResult[];
+    const rows: TransferResult[] = data ?? [];
     if (rows.length === 0) {
       toast({ title: 'Transfer failed', description: 'No result returned.', variant: 'destructive' });
       return;

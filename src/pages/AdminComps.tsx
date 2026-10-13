@@ -60,7 +60,7 @@ const AdminCompsInner = () => {
   const fetchGrants = useCallback(async () => {
     setGrantsLoading(true);
     const { data, error } = await supabase
-      .from('comp_grants' as never)
+      .from('comp_grants')
       .select('*')
       .order('granted_at', { ascending: false });
     setGrantsLoading(false);
@@ -72,7 +72,7 @@ const AdminCompsInner = () => {
       });
       return;
     }
-    const rows = (data ?? []) as unknown as CompGrantRow[];
+    const rows: CompGrantRow[] = data ?? [];
     setActiveGrants(rows.filter((g) => !g.revoked_at));
     setRevokedGrants(rows.filter((g) => g.revoked_at));
   }, [toast]);
@@ -88,10 +88,7 @@ const AdminCompsInner = () => {
     setSearchError(null);
     setSearchResult(null);
 
-    const { data, error } = await supabase.rpc(
-      'admin_lookup_user_by_email' as never,
-      { p_email: q } as never,
-    );
+    const { data, error } = await supabase.rpc('admin_lookup_user_by_email', { p_email: q });
 
     setSearching(false);
 
@@ -99,7 +96,7 @@ const AdminCompsInner = () => {
       setSearchError('User not found.');
       return;
     }
-    const rows = (data ?? []) as unknown as UserLookup[];
+    const rows: UserLookup[] = data ?? [];
     if (rows.length === 0) {
       setSearchError('User not found.');
       return;

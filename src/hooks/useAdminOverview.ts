@@ -81,13 +81,9 @@ export function useAdminOverview(days: number) {
       else setRefreshing(true);
       setError(null);
 
-      // Cast through `never`: comp_grants / is_admin / this RPC post-date
-      // the generated types in integrations/supabase/types.ts. Same
-      // convention as admin_lookup_user_by_email in AdminComps.
-      const { data: result, error: rpcError } = await supabase.rpc(
-        'get_admin_overview' as never,
-        { p_days: days } as never,
-      );
+      const { data: result, error: rpcError } = await supabase.rpc('get_admin_overview', {
+        p_days: days,
+      });
 
       if (rpcError) {
         setError(rpcError.message);
