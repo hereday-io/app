@@ -24,7 +24,7 @@ export interface Deal {
   town: string | null;
   tier: number | null;
   priority: number | null;
-  source: 'leads_csv' | 'sales_sheet' | 'manual' | 'inbound' | 'renewal';
+  source: 'leads_csv' | 'sales_sheet' | 'manual' | 'inbound' | 'renewal' | 'discovered';
   stage: Stage;
   effective_stage: EffectiveStage;
   stage_changed_at: string;

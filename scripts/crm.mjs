@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { join } from 'node:path';
 import { CLI, CrmCliError, OUTREACH, SITE_URL, connect, makeClient } from './lib/crm-client.mjs';
+import { discoveryWindow, screenRace, toImportRow, validateCandidate } from './lib/discovery.mjs';
 
 const LOGIN_PORT = 5733;
 const REDIRECT = `http://localhost:${LOGIN_PORT}/callback`;
@@ -360,6 +361,103 @@ const commands = {
     out(flags, res, (d) => console.log(`Added ${d.deal.slug} (${d.deal.race_name}). It's yours.`));
   },
 
+  /**
+   * Which of these races are new to the CRM (for /lead-discover, before
+   * researching them). File: a JSON array of { race_name, race_date }.
+   * Skips races already in the CRM, earlier editions that closed as
+   * not interested / has a map / do not contact, and outreach/discovery/rejected.json.
+   */
+  async screen({ positional }, flags) {
+    const races = readJsonArray(need(positional[0], 'screen <races.json> [--json]'));
+    const c = await connect();
+    const known = { deals: await listDeals(c, true), rejected: readRejected() };
+    const keep = [];
+    const skip = [];
+    for (const r of races) {
+      const reason = screenRace(r, known);
+      reason ? skip.push({ ...r, reason }) : keep.push(r);
+    }
+    out(flags, { keep, skip }, (d) => {
+      console.log(`${d.keep.length} new, ${d.skip.length} skipped`);
+      for (const r of d.keep) console.log(`  new   ${r.race_date ?? '????-??-??'}  ${r.race_name}`);
+      for (const r of d.skip) console.log(`  skip  ${r.race_date ?? '????-??-??'}  ${r.race_name}: ${r.reason}`);
+    });
+  },
+
+  /**
+   * Imports /lead-discover candidates as unclaimed deals (admin). Always
+   * validates, screens and dry-runs first; --apply then writes only the
+   * rows the dry run would create, so one bad row can't block the rest.
+   */
+  async import({ positional }, flags) {
+    const usage = 'import <candidates.json> --source discovered [--apply] [--min-weeks 8] [--max-weeks 14] [--json]';
+    const file = need(positional[0], usage);
+    if (flags.source !== 'discovered') {
+      throw new CrmCliError(`Only --source discovered imports from here. leads.csv and the sheet go through Import in /admin/crm.\nUsage: ${CLI} ${usage}`);
+    }
+    const weeks = (name, dflt) => {
+      const n = flags[name] === undefined ? dflt : Number(flags[name]);
+      if (!Number.isInteger(n) || n < 0) throw new CrmCliError(`--${name} must be a whole number of weeks.`);
+      return n;
+    };
+    const today = todayChicago();
+    const window = discoveryWindow(today, { minWeeks: weeks('min-weeks', 8), maxWeeks: weeks('max-weeks', 14) });
+    const candidates = readJsonArray(file);
+
+    const c = await connect();
+    const role = await c.call('staff_role');
+    if (role !== 'admin') throw new CrmCliError(`Importing is admin-only; you're signed in as ${c.user.email} (${role ?? 'no role'}).`);
+    const known = { deals: await listDeals(c, true), rejected: readRejected() };
+
+    const invalid = [];
+    const skipped = [];
+    const rows = [];
+    const slugs = new Set();
+    for (const cand of candidates) {
+      const errors = validateCandidate(cand, { window });
+      if (errors.length) {
+        invalid.push({ race_name: cand?.race_name ?? null, race_date: cand?.race_date ?? null, errors });
+        continue;
+      }
+      const reason = screenRace(cand, known);
+      if (reason) {
+        skipped.push({ race_name: cand.race_name, race_date: cand.race_date, reason });
+        continue;
+      }
+      const row = toImportRow(cand, { discoveredOn: today });
+      if (slugs.has(row.slug)) {
+        skipped.push({ race_name: cand.race_name, race_date: cand.race_date, reason: `Listed twice in ${file}.` });
+        continue;
+      }
+      slugs.add(row.slug);
+      rows.push(row);
+    }
+
+    const result = { window, invalid, skipped, dry_run: null, applied: null };
+    if (rows.length) {
+      result.dry_run = await c.call('crm_import', { p_rows: rows, p_source: 'discovered', p_dry_run: true });
+      const created = new Set(result.dry_run.rows.filter((r) => r.action === 'created').map((r) => r.slug));
+      const toApply = rows.filter((r) => created.has(r.slug));
+      if (flags.apply && toApply.length) {
+        result.applied = await c.call('crm_import', { p_rows: toApply, p_source: 'discovered', p_dry_run: false });
+      }
+    }
+
+    out(flags, result, (d) => {
+      console.log(`Window ${d.window.from} .. ${d.window.to}`);
+      for (const r of d.invalid) console.log(`  invalid  ${r.race_name ?? '(no name)'}: ${r.errors.join(' ')}`);
+      for (const r of d.skipped) console.log(`  skipped  ${r.race_name}: ${r.reason}`);
+      for (const r of d.dry_run?.rows ?? []) {
+        const extra = r.action === 'conflict' ? ` (same race as ${r.conflict_with}, ${r.conflict_owner})` : r.error ? ` ${r.error}` : '';
+        console.log(`  ${pad(r.action, 8)} ${r.slug}${extra}${r.warnings?.length ? `  [${r.warnings.join(' ')}]` : ''}`);
+      }
+      if (d.applied) console.log(`\nImported ${d.applied.counts.created ?? 0} unclaimed deal(s).`);
+      else if (d.dry_run && flags.apply) console.log('\nNothing to import.');
+      else if (d.dry_run) console.log(`\nDry run only. Add --apply to import the ${d.dry_run.counts.created ?? 0} "created" row(s).`);
+      else console.log('\nNo importable rows.');
+    });
+  },
+
   async stage({ positional }, flags) {
     const [slug, stage] = positional;
     need(slug && stage, 'stage <slug> <stage> [--outcome x] [--note "…"|--note-file f] [--date YYYY-MM-DD]');
@@ -531,6 +629,9 @@ const commands = {
   ${CLI} next <n> [--claim]         next leads to research, claimed for you
   ${CLI} add --race "Name" [--date d] [--town t] [--tier n] [--org o] [--org-type t]
   ${CLI} research <slug> [--from file]   apply outreach/research/<slug>.md frontmatter
+  ${CLI} screen <races.json>        which races are new to the CRM (/lead-discover)
+  ${CLI} import <file.json> --source discovered [--apply]
+                                    discovered leads → unclaimed deals (admin; dry run unless --apply)
   ${CLI} stage <slug> <stage> [--outcome x] [--note "…"] [--date YYYY-MM-DD]
   ${CLI} log <slug> <type> [--body "…"] [--quote "…"] [--date YYYY-MM-DD]
         types: note email_sent followup_sent call voicemail form_submitted reply
@@ -546,6 +647,32 @@ Long text: use --body-file / --quote-file / --note-file / --reason-file.
 Add --json to any read for machine output.`);
   },
 };
+
+/** A JSON file holding an array (or { candidates: [...] }). */
+function readJsonArray(file) {
+  if (!existsSync(file)) throw new CrmCliError(`No file at ${file}.`);
+  let data;
+  try {
+    data = JSON.parse(readFileSync(file, 'utf8'));
+  } catch (e) {
+    throw new CrmCliError(`${file} isn't valid JSON: ${e.message}`);
+  }
+  const list = Array.isArray(data) ? data : data?.candidates;
+  if (!Array.isArray(list)) throw new CrmCliError(`${file} must hold a JSON array (or { "candidates": [...] }).`);
+  return list;
+}
+
+/** outreach/discovery/rejected.json: races /lead-discover looked at and ruled out. */
+function readRejected() {
+  const file = join(OUTREACH, 'discovery', 'rejected.json');
+  if (!existsSync(file)) return [];
+  try {
+    const list = JSON.parse(readFileSync(file, 'utf8'));
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    throw new CrmCliError(`${file} isn't valid JSON: ${e.message}`);
+  }
+}
 
 /** `---\\nkey: value\\n---` at the top of a file. */
 function frontmatter(text) {

@@ -20,18 +20,27 @@ import type { Deal } from '@/lib/crm/types';
 import { EFFECTIVE_STAGES, STAGE_LABELS, type EffectiveStage } from '@/lib/crm/vocab';
 import { cn } from '@/lib/utils';
 
-type View = 'open' | 'mine' | 'due' | 'unclaimed' | 'customers' | 'inbound' | 'handoffs' | 'fit' | 'closed';
+type View = 'open' | 'mine' | 'due' | 'unclaimed' | 'discovered' | 'customers' | 'inbound' | 'handoffs' | 'fit' | 'closed';
 
 const CUSTOMER_STAGES: EffectiveStage[] = ['signed_up', 'published', 'paid'];
 const IN_FLIGHT: EffectiveStage[] = ['sent', 'followed_up', 'replied'];
 const ALL = '__all__';
 const POOL = '__pool__';
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const VIEWS: Array<{ value: View; label: string; admin?: boolean; test: (d: Deal) => boolean }> = [
   { value: 'open', label: 'Open', test: (d) => d.stage !== 'closed' || CUSTOMER_STAGES.includes(d.effective_stage) },
   { value: 'mine', label: 'Mine', test: (d) => d.is_mine },
   { value: 'due', label: 'Follow-ups due', test: (d) => d.is_due },
   { value: 'unclaimed', label: 'Unclaimed', test: (d) => d.claim_open && !d.is_dnc && d.stage !== 'closed' },
+  {
+    value: 'discovered',
+    label: 'New this week',
+    // Races /lead-discover found and researched, still waiting for someone to claim them.
+    test: (d) =>
+      d.source === 'discovered' && d.claim_open && !d.is_dnc && d.stage === 'new' &&
+      Date.now() - Date.parse(d.created_at) < WEEK_MS,
+  },
   { value: 'customers', label: 'Customers', test: (d) => CUSTOMER_STAGES.includes(d.effective_stage) },
   { value: 'inbound', label: 'Inbound', test: (d) => d.source === 'inbound' },
   { value: 'handoffs', label: 'Handoffs', admin: true, test: (d) => d.handoff_pending },

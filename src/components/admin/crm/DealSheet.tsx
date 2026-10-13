@@ -173,7 +173,7 @@ const DealSheet = ({ slug, isAdmin, onClose }: DealSheetProps) => {
                   deal.town,
                   deal.tier ? `Tier ${deal.tier}` : null,
                   detail.account?.org_type ? ORG_TYPE_LABELS[detail.account.org_type] : null,
-                  deal.source === 'inbound' ? 'Inbound signup' : null,
+                  deal.source === 'inbound' ? 'Inbound signup' : deal.source === 'discovered' ? 'Found by weekly discovery' : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')}

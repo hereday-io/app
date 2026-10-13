@@ -5,6 +5,7 @@
 //
 //   npm run test:db
 import { createDb, testKit } from './pglite.mjs';
+import { toImportRow } from '../../scripts/lib/discovery.mjs';
 
 const { db, results } = await createDb();
 const crmFails = results.filter((r) => !r.ok && r.f >= '20261012');
@@ -322,6 +323,51 @@ await as(REP2);
   const objs = await rpc('crm_list_objections');
   ok(objs.length === 0, "a rep doesn't see objections on deals they don't own");
   await expectError(() => rpc('crm_export'), '42501', 'export is admin-only');
+}
+
+console.log('\nWeekly discovery import');
+await as(KEVIN);
+{
+  // Built by the CLI's own mapper, so this also proves its rows fit import_row.
+  const found = [toImportRow({
+    race_name: 'Woodstock Reindeer Run', race_date: '2027-01-09', date_verified: true,
+    date_source: 'https://woodstockrotary.org/reindeer', town: 'Woodstock', tier: 1,
+    distances: ['5K'], est_participants: 350,
+    org: { name: 'Woodstock Rotary', type: 'service_club', description: null },
+    contact: { full_name: 'Lee', role: 'Race director',
+               email: 'lee@woodstockrotary.org', email_source: 'https://woodstockrotary.org/reindeer',
+               phone: '815-555-0142', phone_source: 'https://woodstockrotary.org/reindeer' },
+    course_map_url: null, map_type: 'none', fit_flags: [],
+    found_via: ['https://runsignup.com/Race/IL/Woodstock/ReindeerRun'],
+    why: 'Rotary-run 5K, ~350 finishers, no published map.',
+  }, { discoveredOn: '2026-10-19' })];
+  ok(found[0].slug === 'woodstock-reindeer-run-2027', 'CLI slug includes the year', found[0].slug);
+  await expectError(() => rpc('crm_import', { p_rows: JSON.stringify(found), p_source: 'bogus' }), '22023', 'unknown source → 22023');
+  const dry = await rpc('crm_import', { p_rows: JSON.stringify(found), p_source: 'discovered', p_dry_run: true });
+  ok(dry.counts.created === 1, 'discovered dry run: 1 created', dry.counts);
+  const applied = await rpc('crm_import', { p_rows: JSON.stringify(found), p_source: 'discovered', p_dry_run: false });
+  ok(applied.counts.created === 1, 'discovered apply: 1 created', applied.counts);
+  const d = await rpc('crm_get_deal', { p_slug: 'woodstock-reindeer-run-2027' });
+  ok(d.deal.source === 'discovered' && d.deal.owner_id === null && d.deal.claim_open === true,
+    'discovered deal lands unclaimed', d.deal);
+  ok(d.timeline.some((t) => t.type === 'import' && t.meta.raw.found_via), 'import activity keeps where it was found');
+  const again = await rpc('crm_import', { p_rows: JSON.stringify(found), p_source: 'discovered', p_dry_run: true });
+  ok(again.counts.exists === 1, 'next week: same slug → exists', again.counts);
+  const renamed = await rpc('crm_import', {
+    p_rows: JSON.stringify([{ ...found[0], slug: 'reindeer-run-woodstock-2027', race_name: 'Woodstock  Reindeer Run!' }]),
+    p_source: 'discovered', p_dry_run: true });
+  ok(renamed.rows[0].action === 'conflict' && renamed.rows[0].conflict_with === 'woodstock-reindeer-run-2027',
+    'next week: same race under another slug → conflict', renamed.rows[0]);
+}
+await as(REP);
+{
+  await expectError(() => rpc('crm_import', { p_rows: '[]', p_source: 'discovered' }), '42501', 'rep cannot import discovered leads');
+  const list = await rpc('crm_list_deals');
+  const w = list.find((x) => x.slug === 'woodstock-reindeer-run-2027');
+  ok(w && w.source === 'discovered' && w.claim_open && w.has_email && w.contact_email === undefined,
+    'rep sees the discovered lead in the pool, details masked until claimed', w);
+  const claimed = await rpc('crm_claim_deal', { p_deal_id: w.id });
+  ok(claimed.is_mine && claimed.contact_email === 'lee@woodstockrotary.org', 'claiming unlocks the researched contact', claimed);
 }
 
 done();
