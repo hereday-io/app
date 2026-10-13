@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Check, ChevronRight, Loader2, Radio, X } from 'lucide-react';
 import type { PoiStatusState, RoutePoi } from '@/types/mapEditor';
 import {
@@ -11,6 +11,7 @@ import {
 import { poiTone } from '@/lib/pois';
 import { useToast } from '@/hooks/use-toast';
 import { logEvent } from '@/lib/analytics';
+import { errorToast, LINK_GONE, userFacingError, type FriendlyError } from '@/lib/userFacingError';
 
 /**
  * Volunteer status page — tokenized, no login. Mounted at /v/:token.
@@ -62,6 +63,11 @@ const STATES: Array<{
   },
 ];
 
+// Volunteers can't pick "Moved": update-poi-status requires moved_to
+// coordinates and this page has no location picker. The meta above stays
+// so a Moved status set by the organizer still renders correctly.
+const VOLUNTEER_STATES = STATES.filter((s) => s.state !== 'moved');
+
 const VOLUNTEER_NAME_KEY = 'hereday-volunteer-name';
 
 function relativeTime(iso: string): string {
@@ -77,11 +83,10 @@ function relativeTime(iso: string): string {
 
 const VolunteerStatusPage = () => {
   const { token } = useParams<{ token: string }>();
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [resolved, setResolved] = useState<ResolvedStatusEvent | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<FriendlyError | null>(null);
   const [statuses, setStatuses] = useState<Record<string, PoiStatusSnapshot>>({});
   const [savingPoiId, setSavingPoiId] = useState<string | null>(null);
   const [volunteerName, setVolunteerName] = useState<string>(() => {
@@ -105,7 +110,7 @@ const VolunteerStatusPage = () => {
 
   useEffect(() => {
     if (!token) {
-      setLoadError('Missing status token');
+      setLoadError(LINK_GONE);
       return;
     }
     let cancelled = false;
@@ -116,9 +121,9 @@ const VolunteerStatusPage = () => {
         setStatuses(data.statuses ?? {});
         logEvent('volunteer_page_opened', data.eventId, { status: data.status });
       })
-      .catch((err: Error) => {
+      .catch((err: unknown) => {
         if (cancelled) return;
-        setLoadError(err.message || 'Failed to load event');
+        setLoadError(userFacingError(err, { action: 'open this volunteer page', logLabel: 'VolunteerStatusPage load' }));
       });
     return () => { cancelled = true; };
   }, [token]);
@@ -190,11 +195,7 @@ const VolunteerStatusPage = () => {
         }
         return next;
       });
-      toast({
-        title: 'Update failed',
-        description: err instanceof Error ? err.message : 'Try again in a moment.',
-        variant: 'destructive',
-      });
+      toast(errorToast(err, { action: 'save this report', logLabel: 'VolunteerStatusPage update' }));
     } finally {
       setSavingPoiId(null);
     }
@@ -207,15 +208,19 @@ const VolunteerStatusPage = () => {
           <Radio className="h-7 w-7" />
         </div>
         <div className="space-y-1 max-w-sm">
-          <h1 className="text-xl font-display font-bold text-foreground">This volunteer link isn't active</h1>
-          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <h1 className="text-xl font-display font-bold text-foreground">{loadError.title}</h1>
+          <p className="text-sm text-muted-foreground">{loadError.description}</p>
         </div>
-        <button
-          onClick={() => navigate('/')}
-          className="mt-2 text-sm text-primary font-medium hover:underline"
-        >
-          Back to Hereday
-        </button>
+        {/* A dead link's only next step is the organizer — no button. A
+            network blip is worth retrying. */}
+        {loadError.kind !== 'link' && (
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 text-sm text-primary font-medium hover:underline"
+          >
+            Try again
+          </button>
+        )}
       </div>
     );
   }
@@ -263,7 +268,7 @@ const VolunteerStatusPage = () => {
       {/* One-line explainer */}
       <div className="shrink-0 px-4 py-2 bg-muted/40 border-b border-border/60">
         <p className="text-[11px] text-muted-foreground text-center leading-snug">
-          Tap any spot to mark it Open, Low, Closed, or Moved. Updates reach the organizer and runners in seconds.
+          Tap any spot to mark it Open, Low, or Closed. Updates reach the organizer and runners in seconds.
         </p>
       </div>
 
@@ -378,8 +383,8 @@ const VolunteerStatusPage = () => {
                   {isOpen && selectedPoi && (
                     <div className="px-4 pb-4 pt-1 bg-muted/20 border-t border-border/60">
                       {/* Status buttons */}
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        {STATES.map((s) => {
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        {VOLUNTEER_STATES.map((s) => {
                           const isActive = current?.state === s.state;
                           const isSaving = savingPoiId === poi.id;
                           return (

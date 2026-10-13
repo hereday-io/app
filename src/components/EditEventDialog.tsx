@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { errorToast } from '@/lib/userFacingError';
 
 export interface EmergencyContacts {
   raceDirectorPhone?: string;
@@ -166,16 +167,23 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
     };
     if (slugChanged) payload.slug = normalizedSlug;
 
-    const { error } = await supabase.from('events').update(payload).eq('id', event.id);
+    const { data: rows, error } = await supabase.from('events').update(payload).eq('id', event.id).select('id');
 
     if (error) {
       // 23505 on slug means another event already owns this URL. Surface
       // it as something the user can actually fix instead of a raw
       // constraint error.
       const isSlugCollision = slugChanged && (error as { code?: string }).code === '23505';
+      toast(
+        isSlugCollision
+          ? { title: 'That URL is already taken', description: 'Try a different URL.', variant: 'destructive' }
+          : errorToast(error, { action: 'save your changes', logLabel: 'EditEventDialog update' }),
+      );
+    } else if ((rows?.length ?? 0) === 0) {
+      // RLS matched no row: this account no longer owns the event.
       toast({
-        title: isSlugCollision ? 'That URL is already taken' : 'Failed to update event',
-        description: isSlugCollision ? 'Try a different URL.' : error.message,
+        title: "Can't save: you no longer have access to this event",
+        description: 'It may have been moved to another account. Reload to check.',
         variant: 'destructive',
       });
     } else {

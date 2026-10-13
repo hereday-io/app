@@ -11,6 +11,7 @@ import { submitScoutedPoi } from '@/lib/scoutApi';
 import { saveScoutPending, flushScoutPending } from '@/lib/scoutStorage';
 import { useToast } from '@/hooks/use-toast';
 import { logEvent } from '@/lib/analytics';
+import { EdgeFunctionError, errorToast } from '@/lib/userFacingError';
 
 interface DropPinSheetProps {
   token: string;
@@ -61,6 +62,12 @@ const DropPinSheet = ({ token, eventId, coordinates, onClose, onSubmitted }: Dro
       onSubmitted(coordinates);
     } catch (err) {
       console.error('[DropPinSheet] submit failed', err);
+      // The server answered and said no (dead link, rate limit, bad
+      // input): retrying later won't help, so don't pretend it will.
+      if (err instanceof EdgeFunctionError && err.status !== null && err.status < 500) {
+        toast(errorToast(err, { action: 'save this marker', logLabel: 'DropPinSheet rejected' }));
+        return;
+      }
       // Stash locally and let the user know it'll retry.
       try {
         await saveScoutPending(token, poi);
@@ -72,11 +79,7 @@ const DropPinSheet = ({ token, eventId, coordinates, onClose, onSubmitted }: Dro
         onSubmitted(coordinates);
       } catch (storeErr) {
         console.error('[DropPinSheet] local stash failed', storeErr);
-        toast({
-          title: 'Save failed',
-          description: err instanceof Error ? err.message : 'Please try again.',
-          variant: 'destructive',
-        });
+        toast(errorToast(err, { action: 'save this marker', logLabel: 'DropPinSheet submit' }));
       }
     } finally {
       setSaving(false);

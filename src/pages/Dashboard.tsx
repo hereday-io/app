@@ -43,6 +43,18 @@ import DeleteEventDialog from '@/components/DeleteEventDialog';
 import DuplicateEventDialog from '@/components/DuplicateEventDialog';
 import EventAnalyticsSheet from '@/components/EventAnalyticsSheet';
 import { logEvent } from '@/lib/analytics';
+import { errorToast } from '@/lib/userFacingError';
+import { ToastAction } from '@/components/ui/toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { EventChip } from '@/components/ui/event-chip';
 import { InfoCallout } from '@/components/ui/info-callout';
 import {
@@ -140,6 +152,9 @@ interface EventRowProps {
 
 const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
   const isLive = event.status === 'published' && !isPast;
+  // The publish menu item acts on `status`, so it must be labelled from
+  // `status` too — a past published event is not "live" but is published.
+  const isPublished = event.status === 'published';
   const isDraft = event.status === 'draft';
   const isPro = isEventPro(event);
   const barColor = isPro ? 'bg-[hsl(217_91%_50%)]' : isLive ? 'bg-[hsl(152_60%_42%)]' : 'bg-border';
@@ -259,7 +274,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
               <Pencil className="h-4 w-4 mr-2" /> Open Editor
             </DropdownMenuItem>
             <DropdownMenuItem onClick={actions.onTogglePublish}>
-              {isLive ? (
+              {isPublished ? (
                 <>
                   <EyeOff className="h-4 w-4 mr-2" /> Unpublish
                 </>
@@ -330,6 +345,7 @@ const Dashboard = () => {
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
   const [analyticsEvent, setAnalyticsEvent] = useState<Event | null>(null);
   const [sendUpdateEvent, setSendUpdateEvent] = useState<Event | null>(null);
+  const [unpublishEvent, setUnpublishEvent] = useState<Event | null>(null);
   const [isProUser, setIsProUser] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -422,10 +438,61 @@ const Dashboard = () => {
     fetchEvents();
   }, [fetchEvents]);
 
-  const toggleStatus = async (event: Event) => {
-    const newStatus = event.status === 'published' ? 'draft' : 'published';
-    await supabase.from('events').update({ status: newStatus }).eq('id', event.id);
+  const setPublished = async (event: Event, publish: boolean) => {
+    const action = publish ? 'publish' : 'unpublish';
+    const { data: rows, error } = await supabase
+      .from('events')
+      .update({ status: publish ? 'published' : 'draft' })
+      .eq('id', event.id)
+      .select('id');
+    if (error) {
+      toast(errorToast(error, { action, logLabel: `Dashboard ${action}` }));
+    } else if ((rows?.length ?? 0) === 0) {
+      // RLS matched no row: this account no longer owns the event.
+      toast({
+        title: `Can't ${action}: you no longer have access to this event`,
+        description: 'It may have been moved to another account. Reload to check.',
+        variant: 'destructive',
+      });
+    } else if (publish) {
+      logEvent('event_published', event.id, { source: 'dashboard' });
+      toast({ title: `${event.name} is published`, description: 'Anyone with the link can see the public map.' });
+    } else {
+      logEvent('event_unpublished', event.id, { source: 'dashboard' });
+      toast({ title: `${event.name} is unpublished`, description: 'The public map link is off until you publish again.' });
+    }
     fetchEvents();
+  };
+
+  const toggleStatus = (event: Event) => {
+    if (event.status === 'published') {
+      // Unpublishing breaks every shared link and QR code — confirm first.
+      setUnpublishEvent(event);
+      return;
+    }
+    // Same guards as the editor's Publish button (RouteEditor handlePublish).
+    if (user && !user.email_confirmed_at) {
+      toast({
+        title: 'Verify your email to publish',
+        description: 'Check your inbox for the confirmation link, then try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!(event.routes ?? []).some((r) => (r.waypoints?.length ?? 0) >= 2)) {
+      toast({
+        title: 'Draw a route first',
+        description: 'Your event needs at least one route with 2+ points before you can publish.',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Open editor" onClick={() => navigate(`/editor?id=${event.id}`)}>
+            Open editor
+          </ToastAction>
+        ),
+      });
+      return;
+    }
+    void setPublished(event, true);
   };
 
   // Lazy-imports @react-pdf/renderer on click so it stays out of the
@@ -641,8 +708,12 @@ const Dashboard = () => {
               type="button"
               className="shrink-0 text-xs h-8 px-3 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-100"
               onClick={async () => {
-                await supabase.auth.resend({ type: 'signup', email: user.email! });
-                toast({ title: 'Confirmation email resent' });
+                const { error } = await supabase.auth.resend({ type: 'signup', email: user.email! });
+                if (error) {
+                  toast(errorToast(error, { action: 'resend the confirmation email', flow: 'signup', email: user.email }));
+                } else {
+                  toast({ title: 'Confirmation email sent', description: `Check ${user.email} for the link.` });
+                }
               }}
             >
               Resend
@@ -965,6 +1036,28 @@ const Dashboard = () => {
         onUpdated={fetchEvents}
         isPro={!!editEvent?.paid_at}
       />
+
+      <AlertDialog open={!!unpublishEvent} onOpenChange={(open) => !open && setUnpublishEvent(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Unpublish {unpublishEvent?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The public map link stops working for runners and spectators until you publish again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep published</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (unpublishEvent) void setPublished(unpublishEvent, false);
+                setUnpublishEvent(null);
+              }}
+            >
+              Unpublish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <DeleteEventDialog
         open={!!deleteEvent}

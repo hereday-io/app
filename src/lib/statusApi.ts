@@ -4,7 +4,7 @@
 // supabase.functions.invoke() for the two status edge functions, plus
 // a token generator ergonomically prefixed for debugging.
 
-import { supabase } from '@/integrations/supabase/client';
+import { invokeFunction } from '@/lib/userFacingError';
 import type { PoiStatusState, RoutePoi } from '@/types/mapEditor';
 
 export interface ResolvedStatusEvent {
@@ -40,22 +40,13 @@ export interface UpdateStatusInput {
 
 /** Resolves a status-purpose token to the event + POIs + current statuses. */
 export async function resolveStatusToken(token: string): Promise<ResolvedStatusEvent> {
-  const { data, error } = await supabase.functions.invoke('resolve-status-token', {
-    body: { token },
-  });
-  if (error) throw new Error(error.message || 'Failed to resolve status link');
-  if (data?.error) throw new Error(data.error);
-  return data as ResolvedStatusEvent;
+  return invokeFunction<ResolvedStatusEvent>('resolve-status-token', { token });
 }
 
 /** Pushes a single POI status update. Returns the persisted snapshot. */
 export async function updatePoiStatus(input: UpdateStatusInput): Promise<PoiStatusSnapshot> {
-  const { data, error } = await supabase.functions.invoke('update-poi-status', {
-    body: input,
-  });
-  if (error) throw new Error(error.message || 'Failed to update status');
-  if (data?.error) throw new Error(data.error);
-  return data.status as PoiStatusSnapshot;
+  const data = await invokeFunction<{ status: PoiStatusSnapshot }>('update-poi-status', input);
+  return data.status;
 }
 
 /**

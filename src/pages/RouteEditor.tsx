@@ -32,7 +32,8 @@ import EditorTour from '@/components/editor/EditorTour';
 import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
 import PoiEditPopover from '@/components/editor/PoiEditPopover';
 import UpgradeModal from '@/components/UpgradeModal';
-import { usePaywall } from '@/hooks/usePaywall';
+import { PAYWALL_LIMITS, usePaywall } from '@/hooks/usePaywall';
+import { errorToast } from '@/lib/userFacingError';
 
 // Mapbox token fetched from backend at runtime
 const MAPBOX_TOKEN_FALLBACK = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
@@ -1440,7 +1441,8 @@ const RouteEditor = () => {
     if (error) {
       setSaveState('error');
       if (!opts.silent) {
-        toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+        // Edits stay in memory, so the copy can promise nothing was lost.
+        toast(errorToast(error, { action: 'save your changes', logLabel: 'RouteEditor save' }));
         setStatusText('Save failed.');
       }
       // Auto-retry: 3s → 6s → 12s. After three strikes, leave the
@@ -1630,7 +1632,10 @@ const RouteEditor = () => {
       .select('id');
 
     if (error) {
-      toast({ title: 'Publish failed', description: error.message, variant: 'destructive' });
+      toast(errorToast(error, {
+        action: newStatus === 'published' ? 'publish' : 'unpublish',
+        logLabel: 'RouteEditor publish',
+      }));
     } else if ((publishedRows?.length ?? 0) === 0) {
       // Same as handleSave: RLS matched no row, so this account no
       // longer owns the event.
@@ -1785,19 +1790,71 @@ const RouteEditor = () => {
     }
   };
 
+  // Delete a route with an Undo toast, matching marker delete and Clear —
+  // one click on the trash icon shouldn't be able to destroy a drawn course.
   const deleteRoute = (id: string) => {
+    const index = routes.findIndex((r) => r.id === id);
+    if (index < 0) return;
+    const snapshot = routes[index];
+    const wasActive = activeRouteId === id;
+    const wasFinished = finishedRouteIds.has(id);
+    const isAutoPoi = (p: RoutePoi) => p.id.startsWith(`auto-start-${id}`) || p.id.startsWith(`auto-finish-${id}`);
+    const removedPois = pois.filter(isAutoPoi);
+
     const remaining = routes.filter((r) => r.id !== id);
-    const next = remaining.length > 0 ? remaining : [makeRoute('5K Route', ROUTE_COLORS[0])];
+    // Deleting the last route leaves an empty one to draw into.
+    const placeholder = remaining.length > 0 ? null : makeRoute('5K Route', ROUTE_COLORS[0]);
+    const next = placeholder ? [placeholder] : remaining;
     setRoutes(next);
-    if (activeRouteId === id) setActiveRouteId(next[0].id);
+    if (wasActive) setActiveRouteId(next[0].id);
     // Remove auto-placed start/finish POIs for this route
-    setPois((prev) => prev.filter((p) => !p.id.startsWith(`auto-start-${id}`) && !p.id.startsWith(`auto-finish-${id}`)));
+    setPois((prev) => prev.filter((p) => !isAutoPoi(p)));
     // Clear finished state
     setFinishedRouteIds((prev) => {
       const next2 = new Set(prev);
       next2.delete(id);
       return next2;
     });
+
+    setTimeout(() => {
+      toast({
+        title: 'Route deleted',
+        description: snapshot.name || undefined,
+        action: (
+          <ToastAction
+            altText="Undo delete"
+            onClick={() => {
+              const current = routesRef.current;
+              if (current.some((r) => r.id === snapshot.id)) return;
+              // Drop the empty placeholder this delete created, unless
+              // it's been drawn on since.
+              const base = placeholder
+                ? current.filter((r) => !(r.id === placeholder.id && r.waypoints.length === 0))
+                : current;
+              if (!canAddRoute(base.length)) {
+                toast({
+                  title: "Couldn't restore the route",
+                  description: `Free events have up to ${PAYWALL_LIMITS.routes} routes. Delete one, then try again.`,
+                  variant: 'destructive',
+                });
+                return;
+              }
+              const restored = [...base];
+              restored.splice(Math.min(index, restored.length), 0, snapshot);
+              setRoutes(restored);
+              if (removedPois.length > 0) {
+                setPois((prev) => [...prev, ...removedPois.filter((p) => !prev.some((q) => q.id === p.id))]);
+              }
+              if (wasFinished) setFinishedRouteIds((prev) => new Set(prev).add(snapshot.id));
+              if (wasActive) setActiveRouteId(snapshot.id);
+              setStatusText('Route restored.');
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
+    }, 0);
   };
 
   const undoLastWaypoint = useCallback(async () => {

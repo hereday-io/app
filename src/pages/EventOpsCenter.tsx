@@ -38,6 +38,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { poiTone } from '@/lib/pois';
 import { STATUS_DOT_COLORS } from '@/lib/mapMarkers';
 import { logEvent } from '@/lib/analytics';
+import { errorToast, userFacingError } from '@/lib/userFacingError';
 import type { EventRoute, PoiStatusState, RoutePoi, VolunteerEntry } from '@/types/mapEditor';
 import StatusTokenDialog from '@/components/editor/StatusTokenDialog';
 import UpgradeModal, { PAYMENTS_LIVE } from '@/components/UpgradeModal';
@@ -151,11 +152,13 @@ const EventOpsCenter = () => {
       .maybeSingle();
     setLoading(false);
     if (error) {
-      setLoadError(error.message);
+      setLoadError(userFacingError(error, { action: 'open this event', logLabel: 'OpsCenter load' }).description);
       return;
     }
     if (!data) {
-      setLoadError('Event not found');
+      // RLS hides events this account doesn't own, so "missing" and
+      // "not yours" look the same from here.
+      setLoadError("It may have been deleted, or moved to another account.");
       return;
     }
     setEvent(data as unknown as EventRow);
@@ -238,7 +241,13 @@ const EventOpsCenter = () => {
     );
   }
   if (loadError || !event) {
-    return <LoadErrorState message={loadError ?? 'Event not found'} onBack={() => navigate('/dashboard')} />;
+    return (
+      <LoadErrorState
+        message={loadError ?? "It may have been deleted, or moved to another account."}
+        onReload={() => window.location.reload()}
+        onBack={() => navigate('/dashboard')}
+      />
+    );
   }
 
   if (!isPublished) {
@@ -284,18 +293,23 @@ export default EventOpsCenter;
 // ────────────────────────────────────────────────────────────────────
 // Gating screens
 // ────────────────────────────────────────────────────────────────────
-const LoadErrorState = ({ message, onBack }: { message: string; onBack: () => void }) => (
+const LoadErrorState = ({ message, onReload, onBack }: { message: string; onReload: () => void; onBack: () => void }) => (
   <div className="min-h-screen bg-background flex items-center justify-center px-6">
     <div className="max-w-md text-center space-y-3">
       <div className="w-12 h-12 mx-auto rounded-xl bg-destructive/10 text-destructive flex items-center justify-center">
         <BarChart3 className="h-6 w-6" />
       </div>
-      <h1 className="text-xl font-display font-bold text-foreground">Ops center unavailable</h1>
+      <h1 className="text-xl font-display font-bold text-foreground">We couldn't open this event</h1>
       <p className="text-sm text-muted-foreground">{message}</p>
-      <Button variant="outline" size="sm" onClick={onBack}>
-        <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-        Back to dashboard
-      </Button>
+      <div className="flex items-center justify-center gap-2">
+        <Button size="sm" onClick={onReload}>
+          Reload
+        </Button>
+        <Button variant="outline" size="sm" onClick={onBack}>
+          <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+          Back to dashboard
+        </Button>
+      </div>
     </div>
   </div>
 );
@@ -433,7 +447,7 @@ const Header = ({
       await navigator.clipboard.writeText(publicUrl);
       toast({ title: 'Share link copied!' });
     } catch {
-      toast({ title: 'Copy failed', variant: 'destructive' });
+      toast({ title: "Couldn't copy the link", description: publicUrl, variant: 'destructive' });
     }
   };
 
@@ -553,7 +567,7 @@ const OpsCenterContent = ({
   checklistLoading: boolean;
 }) => {
   const statuses = usePoiStatuses(event.id);
-  const { data: analytics, loading: analyticsLoading } = useEventAnalytics(event.id);
+  const { data: analytics, loading: analyticsLoading, error: analyticsError, retry: retryAnalytics } = useEventAnalytics(event.id);
   const scoutedPois = event.scouted_pois ?? [];
 
   return (
@@ -587,7 +601,7 @@ const OpsCenterContent = ({
 
           {/* RIGHT column */}
           <aside className="space-y-5">
-            <AnalyticsColumn analytics={analytics} loading={analyticsLoading} />
+            <AnalyticsColumn analytics={analytics} loading={analyticsLoading} error={analyticsError} onRetry={retryAnalytics} />
             <SubscribersPanel event={event} />
           </aside>
         </div>
@@ -854,8 +868,7 @@ const VolunteerRosterPanel = ({
       .eq('id', event.id);
     setMutating(false);
     if (error) {
-      console.error('[OpsCenter] roster persist failed', error);
-      toast({ title: 'Failed to save', variant: 'destructive' });
+      toast(errorToast(error, { action: 'save the volunteer list', logLabel: 'OpsCenter roster persist' }));
       return false;
     }
     onEventUpdated();
@@ -914,7 +927,7 @@ const VolunteerRosterPanel = ({
       .eq('id', event.id);
     setMutating(false);
     if (error) {
-      toast({ title: 'Failed to save thresholds', variant: 'destructive' });
+      toast(errorToast(error, { action: 'save these settings', logLabel: 'OpsCenter thresholds' }));
       return;
     }
     onEventUpdated();
@@ -1353,8 +1366,7 @@ const OrganizerOverridePanel = ({
         title: `Marked ${poi.title || poiTone(poi.type).label} ${OVERRIDE_STATES.find((s) => s.state === state)?.label}`,
       });
     } catch (err) {
-      console.error('[OpsCenter] override failed', err);
-      toast({ title: 'Override failed', variant: 'destructive' });
+      toast(errorToast(err, { action: 'update this marker', logLabel: 'OpsCenter override' }));
     } finally {
       setMutating(null);
     }
@@ -1490,7 +1502,7 @@ const SubscribersPanel = ({ event }: { event: EventRow }) => {
       .eq('id', row.id);
     setMutating(null);
     if (error) {
-      toast({ title: 'Unsubscribe failed', variant: 'destructive' });
+      toast(errorToast(error, { action: 'unsubscribe this person', logLabel: 'OpsCenter unsubscribe' }));
       return;
     }
     toast({ title: 'Unsubscribed' });
@@ -1776,8 +1788,7 @@ const ScoutedPoisPanel = ({
       toast({ title: 'Accepted — marker added to your event' });
       logEvent('scouted_poi_accepted', event.id, { poi_id: poi.id });
     } catch (err) {
-      console.error('[OpsCenter] accept failed', err);
-      toast({ title: 'Failed to accept', variant: 'destructive' });
+      toast(errorToast(err, { action: 'add this marker', logLabel: 'OpsCenter accept scouted' }));
     } finally {
       setMutating(null);
     }
@@ -1792,8 +1803,7 @@ const ScoutedPoisPanel = ({
       toast({ title: 'Dismissed' });
       logEvent('scouted_poi_rejected', event.id, { poi_id: poi.id });
     } catch (err) {
-      console.error('[OpsCenter] reject failed', err);
-      toast({ title: 'Failed to dismiss', variant: 'destructive' });
+      toast(errorToast(err, { action: 'dismiss this marker', logLabel: 'OpsCenter reject scouted' }));
     } finally {
       setMutating(null);
     }
@@ -1885,9 +1895,13 @@ const ScoutedPoisPanel = ({
 const AnalyticsColumn = ({
   analytics,
   loading,
+  error,
+  onRetry,
 }: {
   analytics: ReturnType<typeof useEventAnalytics>['data'];
   loading: boolean;
+  error: string | null;
+  onRetry: () => void;
 }) => {
   if (loading) {
     return (
@@ -1898,12 +1912,28 @@ const AnalyticsColumn = ({
       </div>
     );
   }
-  if (!analytics) return null;
+  if (!analytics) {
+    if (!error) return null;
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 text-center">
+        <p className="text-sm font-medium text-foreground">{error}</p>
+        <p className="text-xs text-muted-foreground mt-1">Your public map isn't affected. Try again in a moment.</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={onRetry}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   const chartData = analytics.views_by_day.map((d) => ({ day: formatDay(d.day), count: d.count }));
 
   return (
     <>
+      {error && (
+        <p className="text-xs text-muted-foreground mb-2" role="status">
+          {error}. Showing the last numbers we loaded.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           icon={Eye}
