@@ -8,6 +8,13 @@ export interface EventStatusFields {
   paid_at?: string | null;
 }
 
+/**
+ * The one definition of Pro: Pro is per event, and `events.paid_at` is the
+ * source of truth (20260411120000_event_billing_columns). `events.plan` is a
+ * legacy mirror and `profiles.plan` / `is_paid` predate per-event billing —
+ * don't read either for gating. Public pages can't see paid_at; the
+ * public_events view exposes the same test as `owner_is_paid`.
+ */
 export function isPro(event: Pick<EventStatusFields, 'paid_at'>): boolean {
   return !!event.paid_at;
 }

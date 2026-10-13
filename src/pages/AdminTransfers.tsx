@@ -107,8 +107,7 @@ const AdminTransfersInner = () => {
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
     const { data, error } = await supabase
-      // event_transfers is added in 20261011121000_admin_event_transfer.sql.
-      .from('event_transfers' as never)
+      .from('event_transfers')
       .select('*')
       .order('transferred_at', { ascending: false })
       .limit(50);
@@ -117,7 +116,7 @@ const AdminTransfersInner = () => {
       toast({ title: "Couldn't load transfer history", description: error.message, variant: 'destructive' });
       return;
     }
-    setHistory((data ?? []) as unknown as TransferRow[]);
+    setHistory(data ?? []);
   }, [toast]);
 
   useEffect(() => {
@@ -132,14 +131,14 @@ const AdminTransfersInner = () => {
     setEvent(null);
     setResult(null);
 
-    const { data, error } = await supabase.rpc('admin_get_event' as never, { p_ref: ref } as never);
+    const { data, error } = await supabase.rpc('admin_get_event', { p_ref: ref });
     setEventLoading(false);
 
     if (error) {
       setEventError(error.message);
       return;
     }
-    const rows = (data ?? []) as unknown as AdminEvent[];
+    const rows: AdminEvent[] = data ?? [];
     if (rows.length === 0) {
       setEventError('No event matches that link, slug or id.');
       return;
@@ -155,13 +154,10 @@ const AdminTransfersInner = () => {
     setRecipient(null);
     setResult(null);
 
-    const { data, error } = await supabase.rpc(
-      'admin_lookup_user_by_email' as never,
-      { p_email: q } as never,
-    );
+    const { data, error } = await supabase.rpc('admin_lookup_user_by_email', { p_email: q });
     setUserLoading(false);
 
-    const rows = (data ?? []) as unknown as UserLookup[];
+    const rows: UserLookup[] = data ?? [];
     if (error || rows.length === 0) {
       setUserError(`No Hereday account uses ${q} yet. Ask them to sign up at hereday.io/signup first.`);
       return;

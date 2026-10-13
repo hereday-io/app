@@ -51,6 +51,7 @@ import {
   markersUntilLimit,
   isPro as isEventPro,
 } from '@/lib/eventStatus';
+import { unwrap } from '@/lib/unwrap';
 import { cn } from '@/lib/utils';
 
 interface Event {
@@ -67,7 +68,6 @@ interface Event {
   routes?: Array<{ routeCoords?: [number, number][]; waypoints?: [number, number][] }>;
   tracking_start?: string | null;
   tracking_end?: string | null;
-  plan?: string | null;
   paid_at?: string | null;
 }
 
@@ -321,6 +321,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [viewsByEvent, setViewsByEvent] = useState<Record<string, number>>({});
   const [viewsByEventPrior, setViewsByEventPrior] = useState<Record<string, number>>({});
@@ -330,7 +331,6 @@ const Dashboard = () => {
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
   const [analyticsEvent, setAnalyticsEvent] = useState<Event | null>(null);
   const [sendUpdateEvent, setSendUpdateEvent] = useState<Event | null>(null);
-  const [isProUser, setIsProUser] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'draft' | 'past'>('all');
@@ -364,22 +364,30 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('is_paid, plan, display_name').eq('user_id', user.id).single()
+    // Pro is per event (events.paid_at), so the profile only supplies the greeting.
+    supabase.from('profiles').select('display_name').eq('user_id', user.id).single()
       .then(({ data }) => {
-        if (!data) return;
-        setIsProUser(data.plan === 'pro' || data.is_paid === true);
-        if (data.display_name) setDisplayName(data.display_name);
+        if (data?.display_name) setDisplayName(data.display_name);
       });
   }, [user]);
 
   const fetchEvents = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('events')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('updated_at', { ascending: false });
-    const evts = (data ?? []) as unknown as Event[];
+    let evts: Event[];
+    try {
+      const data = unwrap(await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false }));
+      evts = data as unknown as Event[];
+    } catch (err) {
+      // Keep whatever list is already on screen; the error card says it may be stale.
+      setLoadError(err instanceof Error ? err.message : 'Network error');
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setEvents(evts);
     setLoading(false);
 
@@ -425,7 +433,25 @@ const Dashboard = () => {
 
   const toggleStatus = async (event: Event) => {
     const newStatus = event.status === 'published' ? 'draft' : 'published';
-    await supabase.from('events').update({ status: newStatus }).eq('id', event.id);
+    try {
+      const rows = unwrap(await supabase
+        .from('events')
+        .update({ status: newStatus })
+        .eq('id', event.id)
+        .select('id'));
+      // No error but no row: RLS filtered the update (e.g. the event was
+      // transferred to another account while this tab was open).
+      if (!rows || rows.length === 0) {
+        throw new Error('You no longer have access to this event. It may have been moved to another account.');
+      }
+    } catch (err) {
+      toast({
+        title: newStatus === 'published' ? "Couldn't publish event" : "Couldn't unpublish event",
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'destructive',
+      });
+      return;
+    }
     fetchEvents();
   };
 
@@ -761,8 +787,26 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* Load failure — never fall through to the empty state */}
+        {loadError && (
+          <section role="alert" className={cn(PANEL_CHROME, 'py-10 text-center px-6 mb-9')}>
+            <p className="font-display font-semibold text-[16px] mb-1">Couldn't load your events</p>
+            <p className="text-[13px] text-muted-foreground mb-5">
+              {events.length > 0 ? 'The list below may be out of date. ' : ''}
+              {loadError}
+            </p>
+            <button
+              type="button"
+              onClick={() => { void fetchEvents(); }}
+              className="h-9 px-4 rounded-lg border border-border bg-white font-medium text-[13px] hover:bg-secondary"
+            >
+              Try again
+            </button>
+          </section>
+        )}
+
         {/* Empty state — no events at all */}
-        {events.length === 0 && (
+        {!loadError && events.length === 0 && (
           <section className={cn(PANEL_CHROME, 'py-16 text-center px-6')}>
             <p className="font-display font-semibold text-[18px] mb-1">No events yet</p>
             <p className="text-[13px] text-muted-foreground mb-5">
@@ -946,7 +990,6 @@ const Dashboard = () => {
           open={createOpen}
           onOpenChange={setCreateOpen}
           userId={user.id}
-          isPro={isProUser}
           onCreated={(eventId, cityCenter) => {
             fetchEvents();
             const params = new URLSearchParams({ id: eventId });
@@ -964,7 +1007,7 @@ const Dashboard = () => {
         onOpenChange={(open) => !open && setEditEvent(null)}
         event={editEvent}
         onUpdated={fetchEvents}
-        isPro={!!editEvent?.paid_at}
+        isPro={!!editEvent && isEventPro(editEvent)}
       />
 
       <DeleteEventDialog
@@ -993,7 +1036,7 @@ const Dashboard = () => {
         onOpenChange={(open) => !open && setAnalyticsEvent(null)}
         eventId={analyticsEvent?.id ?? null}
         eventName={analyticsEvent?.name ?? ''}
-        isPro={isProUser}
+        isPro={!!analyticsEvent && isEventPro(analyticsEvent)}
       />
 
       {sendUpdateEvent && (

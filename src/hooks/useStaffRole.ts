@@ -21,8 +21,11 @@ export const useStaffRole = (): { role: StaffRole | null; loading: boolean } => 
     staleTime: 5 * 60_000,
     retry: false,
     queryFn: async (): Promise<StaffRole | null> => {
-      const { data } = await supabase.from('profiles').select('*').eq('user_id', user!.id).maybeSingle();
-      const row = data as unknown as { is_admin?: boolean; is_sales?: boolean } | null;
+      const { data: row } = await supabase
+        .from('profiles')
+        .select('is_admin, is_sales')
+        .eq('user_id', user!.id)
+        .maybeSingle();
       if (row?.is_admin === true) return 'admin';
       if (row?.is_sales === true) return 'sales';
       return null;

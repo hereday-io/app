@@ -22,7 +22,8 @@ interface PublicEvent {
   poi_count: number;
   logo_url: string | null;
   branding_style: string;
-  plan: 'free' | 'pro';
+  /** Same meaning as isPro() in lib/eventStatus; paid_at itself isn't public. */
+  is_pro: boolean;
   tracking_start: string | null;
   tracking_end: string | null;
   has_ended: boolean;
@@ -157,7 +158,9 @@ const EventPublic = () => {
           poi_count: data.poi_count ?? 0,
           logo_url: data.logo_url ?? null,
           branding_style: data.branding_style ?? 'none',
-          plan: data.owner_is_paid ? 'pro' : 'free',
+          // Despite the name, public_events.owner_is_paid is per-event
+          // `paid_at IS NOT NULL` since 20260411120000_event_billing_columns.
+          is_pro: data.owner_is_paid === true,
           tracking_start: data.tracking_start ?? null,
           tracking_end: data.tracking_end ?? null,
           has_ended: data.has_ended ?? false,
