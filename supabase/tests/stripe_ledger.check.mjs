@@ -146,15 +146,58 @@ await asService();
   ok(ev.paid_at === null && ev.plan === 'free', 'event ends free');
 }
 
+// A 100%-off promotion code completes checkout with payment_status
+// 'no_payment_required' and no charge, so the webhook writes paid_at with
+// stripe_payment_id NULL. That is the shape comp grants use (paid_at, no
+// charge id), so the comp triggers must leave it alone in both directions.
+console.log('\nEvents: a $0 checkout (no charge) unlocks, and comp grants leave it alone');
+await asPostgres();
+const FREE_BUYER = await mkUser('partner@example.org', 'email');
+const ADMIN = await mkUser('admin@example.org', 'email');
+const { rows: [{ id: FREE_EVENT }] } = await db.query(
+  `INSERT INTO public.events (user_id, name, status, slug) VALUES ($1, 'Partner 5K', 'draft', 'partner-5k-zz') RETURNING id`,
+  [FREE_BUYER]);
+await asService();
+{
+  const markPaidFree = () => db.query(
+    `UPDATE public.events SET paid_at = now(), plan = 'pro', stripe_session_id = 'cs_free', stripe_payment_id = NULL
+      WHERE id = $1 AND paid_at IS NULL RETURNING id`, [FREE_EVENT]);
+  ok((await markPaidFree()).rows.length === 1, '$0 checkout flips paid_at with no charge id (and passes the pro-gates trigger)');
+  ok((await markPaidFree()).rows.length === 0, 'a re-run flips nothing, so logs no second purchase_completed');
+
+  await asPostgres();
+  const { rows: [{ id: GRANT }] } = await db.query(
+    `INSERT INTO public.comp_grants (user_id, granted_by, grant_reason) VALUES ($1, $2, 'test grant') RETURNING id`,
+    [FREE_BUYER, ADMIN]);
+  let { rows: [ev] } = await db.query(
+    `SELECT paid_at, plan, comp_grant_id, stripe_session_id FROM public.events WHERE id = $1`, [FREE_EVENT]);
+  ok(ev.paid_at !== null && ev.comp_grant_id === null, 'a later comp grant does not adopt the $0 unlock');
+  await db.query(
+    `UPDATE public.comp_grants SET revoked_at = now(), revoked_by = $2, revoke_reason = 'test revoke' WHERE id = $1`,
+    [GRANT, ADMIN]);
+  ({ rows: [ev] } = await db.query(
+    `SELECT paid_at, plan, stripe_session_id FROM public.events WHERE id = $1`, [FREE_EVENT]));
+  ok(ev.paid_at !== null && ev.plan === 'pro' && ev.stripe_session_id === 'cs_free',
+    'revoking that grant leaves the $0 unlock Pro');
+
+  // Documented, not asserted as desirable: with no charge id the CRM's
+  // event_facts reads a $0 unlock as comped rather than paid.
+  const { rows: [facts] } = await db.query(
+    `SELECT is_paid, is_comped FROM crm_internal.event_facts WHERE event_id = $1`, [FREE_EVENT]);
+  ok(facts.is_comped === true && facts.is_paid === false, 'CRM reads a $0 unlock as comped (no revenue)');
+  await asService();
+}
+
 console.log('\nproduct_events: the webhook can write revenue rows');
 {
   const r = await db.query(
     `INSERT INTO public.product_events (event_type, user_id, event_id, properties)
      VALUES ('purchase_completed', $1, $2, '{"amount_total": 3675, "currency": "usd", "promo_code": "FIRSTMAP"}'),
-            ('purchase_refunded',  $1, $2, '{"amount_total": 3675, "amount_refunded": 3675, "currency": "usd"}')
+            ('purchase_refunded',  $1, $2, '{"amount_total": 3675, "amount_refunded": 3675, "currency": "usd"}'),
+            ('purchase_completed', $3, $4, '{"amount_total": 0, "amount_discount": 4900, "percent_off": 100, "currency": "usd", "promo_code": "PARTNER100"}')
      RETURNING id`,
-    [BUYER, EVENT]);
-  ok(r.rows.length === 2, 'service_role inserts purchase_completed and purchase_refunded');
+    [BUYER, EVENT, FREE_BUYER, FREE_EVENT]);
+  ok(r.rows.length === 3, 'service_role inserts purchase_completed (paid and $0) and purchase_refunded');
 }
 
 done();

@@ -2,7 +2,10 @@
 //
 // Stripe dashboard → Developers → Webhooks → Add endpoint
 //   URL:    https://<project-ref>.supabase.co/functions/v1/stripe-webhook
-//   Events: checkout.session.completed, charge.refunded
+//   Events: checkout.session.completed,
+//           checkout.session.async_payment_succeeded,
+//           checkout.session.async_payment_failed,
+//           charge.refunded
 //   Secret: copy the signing secret into STRIPE_WEBHOOK_SECRET on the
 //           Supabase project (Edge Functions → Secrets).
 //
@@ -16,7 +19,14 @@
 //                                   `purchase_completed` product event,
 //                                   stamp charge metadata so /billing can
 //                                   display event name + applied promo.
-//   - charge.refunded             → revoke Pro on the matched event and
+//                                   Also covers a 100%-off promotion code
+//                                   (no_payment_required: no charge).
+//   - checkout.session.async_payment_succeeded
+//                                 → same handler, for a delayed payment
+//                                   method that settled after checkout.
+//   - checkout.session.async_payment_failed
+//                                 → log only; nothing was granted.
+//   - charge.refunded            → revoke Pro on the matched event and
 //                                   log `purchase_refunded`.
 //
 // Idempotency:
@@ -163,7 +173,15 @@ Deno.serve(async (req) => {
   try {
     switch (event.type) {
       case "checkout.session.completed":
+      // A delayed payment method completes checkout 'unpaid' and settles
+      // later; this event carries the same session, now 'paid'. It has its
+      // own event id, so the ledger runs it, and the paid_at UPDATE keeps
+      // it from logging a second sale if both ever arrive reading 'paid'.
+      case "checkout.session.async_payment_succeeded":
         await handleCheckoutCompleted(stripe, event.data.object as Stripe.Checkout.Session);
+        break;
+      case "checkout.session.async_payment_failed":
+        handleAsyncPaymentFailed(event.data.object as Stripe.Checkout.Session);
         break;
       case "charge.refunded":
         await handleChargeRefunded(event.data.object as Stripe.Charge);
@@ -212,13 +230,21 @@ async function handleCheckoutCompleted(
     return;
   }
 
-  if (session.payment_status !== "paid") {
-    // Stripe sometimes fires this before the payment actually settles
-    // (e.g. async payment methods). Skip — charge.updated will follow.
-    console.log(`[stripe-webhook] session ${session.id} not paid yet (${session.payment_status})`);
+  // 'paid' is the usual case. 'no_payment_required' is a promotion code
+  // that took the total to zero: the customer finished checkout and gets
+  // Pro, but Stripe creates no PaymentIntent and no charge. 'unpaid' is a
+  // delayed method (bank debit, voucher) that hasn't settled; Pro waits
+  // for checkout.session.async_payment_succeeded, which re-enters here
+  // reading 'paid'. Returning acknowledges this delivery, which is right:
+  // nothing is owed until that later event arrives.
+  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
+    console.log(`[stripe-webhook] session ${session.id} not paid yet (${session.payment_status}); waiting for async_payment_succeeded`);
     return;
   }
 
+  // Null for a no_payment_required session, so chargeId stays null and
+  // stripe_payment_id is written NULL: there is no charge to point at,
+  // refund or stamp. stripe_session_id still records the purchase.
   const paymentIntentId = typeof session.payment_intent === "string"
     ? session.payment_intent
     : session.payment_intent?.id ?? null;
@@ -296,6 +322,7 @@ async function handleCheckoutCompleted(
       userId: meta.hereday_user_id ?? eventRow.user_id ?? null,
       eventId,
       properties: {
+        // 0 for a 100%-off code: a conversion with no revenue.
         amount_total: session.amount_total,
         amount_subtotal: amountSubtotal || null,
         amount_discount: amountDiscount || null,
@@ -330,6 +357,17 @@ async function handleCheckoutCompleted(
       console.error("[stripe-webhook] charge metadata stamp failed", err);
     }
   }
+}
+
+function handleAsyncPaymentFailed(session: Stripe.Checkout.Session): void {
+  // Nothing to undo. Pro is granted only on 'paid' or
+  // 'no_payment_required', and a session whose delayed payment failed
+  // read 'unpaid' when it completed, so it never got Pro. Log it so "I
+  // paid but my map is still free" has a trail in the function logs.
+  const meta = (session.metadata ?? {}) as Record<string, string>;
+  console.warn(
+    `[stripe-webhook] async payment failed for session ${session.id} (event ${meta.hereday_event_id ?? "unknown"})`,
+  );
 }
 
 async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
