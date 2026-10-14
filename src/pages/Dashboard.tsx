@@ -66,6 +66,7 @@ import {
 } from '@/lib/eventStatus';
 import { unwrap } from '@/lib/unwrap';
 import { cn } from '@/lib/utils';
+import { SAMPLE_EVENT_PATH } from '@/lib/sampleEvent';
 
 interface Event {
   id: string;
@@ -898,11 +899,9 @@ const Dashboard = () => {
               >
                 <Plus className="h-4 w-4" /> Create event
               </button>
-              {/* Hereday's own sample map, owned by kevin@hereday.io. It has
-                  no date on purpose: public_events only marks dated events
-                  as ended, so the sample never expires. Keep it published. */}
+              {/* Hereday's own sample map (see lib/sampleEvent.ts). */}
               <a
-                href="/event/hereday-sample-5k-10k"
+                href={SAMPLE_EVENT_PATH}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
