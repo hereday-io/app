@@ -11,8 +11,10 @@ import {
   Palette,
   Lock,
   ChevronDown,
+  ExternalLink,
 } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
+import { SAMPLE_EVENT_PATH, SAMPLE_EVENT_DISPLAY_URL } from '@/lib/sampleEvent';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
 import {
@@ -21,12 +23,12 @@ import {
   HOMEPAGE_TITLE,
 } from '../../api/_shared/homepageSchema';
 
-// Hero map is a pre-baked PNG in /public so the landing page has zero
-// runtime dependency on the Mapbox Static Images API — no token
-// referrer issues, no extra request on first paint, no broken-image
-// state when Mapbox hiccups. Regenerate it by re-running the helper
-// script if you want to change the route or markers.
-const heroMapUrl = '/hero-map1.png';
+// Hero map is a static screenshot of the live sample event (see
+// lib/sampleEvent.ts) so the landing page has zero runtime dependency on
+// Mapbox: no token referrer issues, no extra request on first paint. It
+// was captured from hereday.io at 1280x950 CSS px, 1.7x, JPEG q80; re-take
+// it when the sample map changes so the picture matches the link.
+const heroMapUrl = '/hero-sample.jpg';
 
 // ─── Features ────────────────────────────────────────────────────────
 // Editorial palette alternates: every 3n+2 card flips icon tile to the
@@ -357,8 +359,12 @@ const Index = () => {
             >
               Start for free <ArrowRight className="h-4 w-4" />
             </Link>
+            {/* A real, never-expiring sample beats a screenshot. New tab:
+                the public map has no way back to this page. */}
             <a
-              href="#how-it-works"
+              href={SAMPLE_EVENT_PATH}
+              target="_blank"
+              rel="noopener"
               className="inline-flex items-center gap-2 font-semibold rounded-[4px] transition-transform hover:-translate-y-px"
               style={{
                 background: 'var(--ed-card)',
@@ -369,7 +375,7 @@ const Index = () => {
                 letterSpacing: '-0.01em',
               }}
             >
-              See how it works
+              View a live sample <ExternalLink className="h-4 w-4" />
             </a>
           </div>
 
@@ -386,13 +392,17 @@ const Index = () => {
             ))}
           </div>
 
-          {/* Hero static image frame */}
+          {/* Hero: a screenshot of the live sample, and a link to it */}
           <div
             className="ed-hero-glow relative mx-auto"
             style={{ marginTop: 56, maxWidth: 1080 }}
           >
-            <div
-              className="overflow-hidden"
+            <a
+              href={SAMPLE_EVENT_PATH}
+              target="_blank"
+              rel="noopener"
+              aria-label="Open the live sample map in a new tab"
+              className="group block overflow-hidden transition-transform hover:-translate-y-0.5"
               style={{
                 background: 'var(--ed-card)',
                 border: '1px solid var(--ed-line)',
@@ -416,7 +426,7 @@ const Index = () => {
                   <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#28C840' }} />
                 </div>
                 <div
-                  className="flex-1 flex items-center text-left"
+                  className="flex-1 min-w-0 flex items-center text-left"
                   style={{
                     background: 'var(--ed-card)',
                     border: '1px solid var(--ed-line)',
@@ -429,17 +439,28 @@ const Index = () => {
                   }}
                 >
                   <Lock className="h-3 w-3 shrink-0" style={{ color: 'var(--ed-success)' }} />
-                  hereday.io/event/crystal-lake-5k
+                  <span className="truncate">{SAMPLE_EVENT_DISPLAY_URL}</span>
                 </div>
               </div>
-              {/* Hero map */}
+              {/* Hero map — the live sample, captured from hereday.io */}
               <img
                 src={heroMapUrl}
-                alt="Example Hereday event map showing a 5K loop around Crystal Lake with start, water stop, sponsor, and finish markers"
+                alt="Hereday's sample event map: a 5K and a 10K through Lincoln Park, Chicago, with water stations, parking, mile markers and an elevation profile"
                 className="block w-full h-auto"
+                width={2176}
+                height={1615}
                 loading="eager"
               />
-            </div>
+            </a>
+            <a
+              href={SAMPLE_EVENT_PATH}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 font-semibold hover:underline"
+              style={{ marginTop: 16, fontSize: 14, color: 'var(--ed-primary)' }}
+            >
+              Try the live sample map on your phone <ArrowRight className="h-3.5 w-3.5" />
+            </a>
           </div>
         </div>
       </section>

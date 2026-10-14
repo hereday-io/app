@@ -72,7 +72,7 @@ vi.mock('@/hooks/usePoiStatuses', () => ({ usePoiStatuses: () => new Map() }));
 vi.mock('@/hooks/useTrackingSubscription', () => ({ useTrackingSubscription: () => ({ runners: new Map() }) }));
 vi.mock('@/lib/analytics', () => ({ logEvent: vi.fn() }));
 vi.mock('@/components/map/MapBottomSheet', () => ({ default: () => null }));
-vi.mock('@/components/public/SubscribeButton', () => ({ default: () => null }));
+vi.mock('@/components/public/SubscribeButton', () => ({ default: () => <button>Get event updates</button> }));
 vi.mock('@/components/public/PublicShareButton', () => ({ default: () => null }));
 
 const route: EventRoute = {
@@ -157,5 +157,16 @@ describe('PublicEventView', () => {
     const { default: PublicEventView } = await import('./PublicEventView');
     render(<PublicEventView event={event} mode="runner" onSwitchMode={() => {}} />);
     expect(screen.queryByRole('note')).toBeNull();
+  });
+});
+
+describe('PublicEventView on the sample event', () => {
+  it("hides Get updates on Hereday's sample (its race doesn't exist)", async () => {
+    const { default: PublicEventView } = await import('./PublicEventView');
+    const { SAMPLE_EVENT_ID } = await import('@/lib/sampleEvent');
+    const { rerender } = render(<PublicEventView event={event} mode="runner" onSwitchMode={() => {}} />);
+    expect(screen.getByRole('button', { name: /get event updates/i })).toBeTruthy();
+    rerender(<PublicEventView event={{ ...event, id: SAMPLE_EVENT_ID }} mode="runner" onSwitchMode={() => {}} />);
+    expect(screen.queryByRole('button', { name: /get event updates/i })).toBeNull();
   });
 });

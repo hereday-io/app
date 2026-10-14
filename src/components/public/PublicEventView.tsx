@@ -26,6 +26,7 @@ import { useTrackingSubscription } from '@/hooks/useTrackingSubscription';
 import { LIVE_TRACKING_ENABLED } from '@/lib/featureFlags';
 import { buildGpx, downloadGpx, gpxFilename } from '@/lib/gpx';
 import { logEvent } from '@/lib/analytics';
+import { isSampleEvent } from '@/lib/sampleEvent';
 
 export type PublicViewMode = 'runner' | 'spectator';
 
@@ -632,7 +633,10 @@ const PublicEventView = ({ event, mode, onSwitchMode, showModeHint = false, onMo
             from a shared link or QR code, and "back" only ever led to
             Hereday's marketing page. */}
         <div className="flex items-center gap-2">
-          <SubscribeButton eventId={event.id} eventName={event.name} source={source} expanded={!isRunner} />
+          {/* The sample's race doesn't exist, so it doesn't collect emails. */}
+          {!isSampleEvent(event.id) && (
+            <SubscribeButton eventId={event.id} eventName={event.name} source={source} expanded={!isRunner} />
+          )}
           <PublicShareButton eventId={event.id} eventName={event.name} source={source} />
         </div>
 
