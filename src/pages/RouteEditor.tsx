@@ -2063,7 +2063,13 @@ const RouteEditor = () => {
     window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 768
   );
   if (isTouchDevice) {
-    return <MobileEditorGate onBack={() => navigate('/dashboard')} />;
+    return (
+      <MobileEditorGate
+        onBack={() => navigate('/dashboard')}
+        editorUrl={window.location.href}
+        userEmail={user?.email ?? undefined}
+      />
+    );
   }
 
   return (
