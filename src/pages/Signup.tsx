@@ -169,7 +169,7 @@ const Signup = () => {
                 Create your account
               </h2>
               <p className="text-[14.5px] text-muted-foreground leading-[1.6] max-w-[62ch]">
-                Free forever. Upgrade per event when you publish —{' '}
+                Free forever. Upgrade any event to Pro whenever it needs more —{' '}
                 <b className="text-foreground font-medium">no subscription, no auto-renew</b>.
               </p>
             </div>
