@@ -25,6 +25,8 @@ export interface PostHogTrafficData {
   app_url?: string;
   totals?: TrafficTotals;
   prev_totals?: TrafficTotals;
+  /** Earliest pageview across this window and the one before (ISO). */
+  first_seen?: string | null;
   by_day?: Array<{ day: string; pageviews: number; visitors: number }>;
   top_pages?: Array<{ path: string; pageviews: number; visitors: number }>;
   top_referrers?: Array<{ domain: string; sessions: number; visitors: number }>;

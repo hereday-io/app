@@ -8,7 +8,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { Delta, EmptyRow, SectionCard, StatCard } from '@/components/admin/AdminStats';
-import { buildSeries, nf } from '@/lib/metrics';
+import { buildSeries, formatDay, nf, windowCoverage } from '@/lib/metrics';
 import { usePostHogTraffic, type TrafficTotals } from '@/hooks/usePostHogTraffic';
 
 /**
@@ -37,18 +37,31 @@ interface TrafficPanelProps {
   days: number;
   /** Signups in the same rolling window, from get_admin_overview. */
   signups: number;
+  /** The same signups by UTC day, for when PostHog covers only part of the window. */
+  signupsByDay: Array<{ day: string; count: number }>;
 }
 
-const TrafficPanel = ({ days, signups }: TrafficPanelProps) => {
+const TrafficPanel = ({ days, signups, signupsByDay }: TrafficPanelProps) => {
   const { data, loading, error } = usePostHogTraffic(days);
 
+  const coverage = useMemo(() => windowCoverage(data?.first_seen, days), [data, days]);
+
+  // Before PostHog has data the days aren't zero, they're unknown, so
+  // the axis starts where tracking does.
   const series = useMemo(() => {
     if (!data?.by_day) return [];
     return buildSeries(days, {
       visitors: data.by_day.map((d) => ({ day: d.day, count: d.visitors })),
       pageviews: data.by_day.map((d) => ({ day: d.day, count: d.pageviews })),
-    });
-  }, [data, days]);
+    }).slice(-coverage.coveredDays);
+  }, [data, days, coverage]);
+
+  // Divide like by like: when tracking began inside the window, count
+  // only the signups since then. Day granularity, so on the first day
+  // signups from before tracking started that morning still count.
+  const trackedSignups = coverage.startDay
+    ? signupsByDay.filter((d) => d.day >= coverage.startDay!).reduce((n, d) => n + d.count, 0)
+    : signups;
 
   const link = data?.app_url ? (
     <a
@@ -125,12 +138,26 @@ const TrafficPanel = ({ days, signups }: TrafficPanelProps) => {
     );
   }
 
-  const signupRate = totals.visitors > 0 ? (signups / totals.visitors) * 100 : null;
+  const signupRate = totals.visitors > 0 ? (trackedSignups / totals.visitors) * 100 : null;
+  const since = coverage.startDay ? formatDay(coverage.startDay) : null;
+
+  // A prior window PostHog only partly saw would turn the first weeks
+  // of tracking into a fake surge.
+  const delta = (current: number, previous: number) =>
+    coverage.prevPartial ? (
+      <span className="text-[11px] text-muted-foreground">no full prior period yet</span>
+    ) : (
+      <Delta current={current} previous={previous} />
+    );
 
   return (
     <SectionCard
       title="Site traffic"
-      hint={`Every pageview on hereday.io in the last ${days} days, signed in or not, excluding /admin. Ad-blockers stop some visitors reaching PostHog, so counts run low.`}
+      hint={`Every pageview on hereday.io in the last ${days} days, signed in or not, excluding /admin. ${
+        since
+          ? `PostHog data starts ${since}, so this covers ${coverage.coveredDays} day${coverage.coveredDays === 1 ? '' : 's'} and the signup rate counts signups from then on. `
+          : ''
+      }Ad-blockers stop some visitors reaching PostHog, so counts run low.`}
       action={link}
     >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -139,14 +166,14 @@ const TrafficPanel = ({ days, signups }: TrafficPanelProps) => {
           tint="bg-primary/10 text-primary"
           label="Visitors"
           value={nf.format(totals.visitors)}
-          footer={<Delta current={totals.visitors} previous={prev.visitors} />}
+          footer={delta(totals.visitors, prev.visitors)}
         />
         <StatCard
           icon={Eye}
           tint="bg-blue-500/10 text-blue-600"
           label="Pageviews"
           value={nf.format(totals.pageviews)}
-          footer={<Delta current={totals.pageviews} previous={prev.pageviews} />}
+          footer={delta(totals.pageviews, prev.pageviews)}
         />
         <StatCard
           icon={Repeat}
@@ -167,8 +194,8 @@ const TrafficPanel = ({ days, signups }: TrafficPanelProps) => {
           value={signupRate === null ? '—' : `${signupRate.toFixed(1)}%`}
           footer={
             <span className="text-[11px] text-muted-foreground">
-              <span className="font-semibold text-foreground">{nf.format(signups)}</span> signups ÷
-              visitors
+              <span className="font-semibold text-foreground">{nf.format(trackedSignups)}</span> signups
+              {since ? ` since ${since}` : ''} ÷ visitors
             </span>
           }
         />
