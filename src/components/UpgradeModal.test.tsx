@@ -28,19 +28,19 @@ describe('UpgradeModal checkout', () => {
     const err = Object.assign(new Error('Edge Function returned a non-2xx status code'), { context: { status: 500 } });
     invoke.mockResolvedValue({ data: null, error: err });
     renderModal();
-    fireEvent.click(screen.getByRole('button', { name: /Unlock this event/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Unlock Pro for this event/ }));
     expect(await screen.findByText(/Couldn't open checkout/)).toBeTruthy();
     expect(reportError).toHaveBeenCalledWith(err, expect.objectContaining({
       area: 'billing', action: 'create_checkout', hereday_event_id: 'evt-1', trigger: 'routes',
     }));
     // The button is usable again for a retry.
-    await waitFor(() => expect(screen.getByRole('button', { name: /Unlock this event/ })).not.toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: /Unlock Pro for this event/ })).not.toBeDisabled());
   });
 
   it('reports a response with no checkout url', async () => {
     invoke.mockResolvedValue({ data: {}, error: null });
     renderModal();
-    fireEvent.click(screen.getByRole('button', { name: /Unlock this event/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Unlock Pro for this event/ }));
     expect(await screen.findByText(/Couldn't open checkout/)).toBeTruthy();
     expect(reportError.mock.calls[0][0].message).toBe('create-checkout returned no url');
   });

@@ -72,7 +72,7 @@ const ProGuide = () => {
             </p>
           </Feature>
 
-          <Feature title="Unlimited routes and points of interest">
+          <Feature title="Unlimited routes and markers">
             <p>
               Free events get {PAYWALL_LIMITS.routes} routes and {PAYWALL_LIMITS.pois} points of
               interest. Pro removes both limits, which matters when you run a 5K, 10K, half and a
@@ -118,7 +118,7 @@ const ProGuide = () => {
               takes about five minutes.
             </li>
             <li>
-              Open the event and choose <strong>Unlock for $49</strong>. Pro applies to that one
+              Open the event in the editor and choose <strong>Unlock Pro</strong>. Pro applies to that one
               event; your other events stay free until you decide otherwise.
             </li>
             <li>

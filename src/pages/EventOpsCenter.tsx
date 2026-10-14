@@ -339,7 +339,7 @@ const PublishFirstState = ({ event, onBack }: { event: EventRow; onBack: () => v
         <div className="space-y-1.5">
           <h1 className="text-xl font-display font-bold text-foreground">Publish this event first</h1>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            The ops center shows live volunteer activity, subscriber growth, and analytics — all of
+            The Ops Center shows live volunteer activity, subscriber growth, and analytics — all of
             which start once <strong>{event.name}</strong> is published.
           </p>
         </div>
@@ -384,7 +384,7 @@ const LockedPreviewState = ({
             <Lock className="h-6 w-6" />
           </div>
           <div className="space-y-1.5">
-            <h1 className="text-2xl font-display font-bold text-foreground">Open the ops center for {event.name}</h1>
+            <h1 className="text-2xl font-display font-bold text-foreground">Open the Ops Center for {event.name}</h1>
             <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
               Unlock Pro to follow live volunteer updates, scouted markers, and race-day analytics — all
               in one place.
@@ -399,7 +399,7 @@ const LockedPreviewState = ({
           {PAYMENTS_LIVE ? (
             <Button onClick={onUpgrade} className="gap-2 mt-2">
               <Crown className="h-4 w-4" />
-              Unlock for $49
+              Unlock Pro — $49
             </Button>
           ) : (
             <div className="max-w-sm mx-auto w-full pt-1">
@@ -416,7 +416,7 @@ const LockedPreviewState = ({
     <UpgradeModal
       open={upgradeModalOpen}
       onClose={onCloseUpgrade}
-      trigger="publish"
+      trigger="ops"
       eventId={event.id}
     />
   </>
@@ -479,7 +479,7 @@ const Header = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
               <Radio className="h-3 w-3" />
-              Ops center
+              Ops Center
             </div>
             <h1 className="font-display font-bold text-[18px] leading-tight text-foreground truncate">
               {event.name}

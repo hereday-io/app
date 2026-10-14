@@ -17,7 +17,7 @@ interface ScoutReviewBannerProps {
  */
 const ScoutReviewBanner = ({ count, onReview }: ScoutReviewBannerProps) => {
   if (count <= 0) return null;
-  const label = count === 1 ? '1 scouted POI waiting for review' : `${count} scouted POIs waiting for review`;
+  const label = count === 1 ? '1 scouted marker waiting for review' : `${count} scouted markers waiting for review`;
   return (
     <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-border bg-amber-500/10 text-foreground">
       <Compass className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />

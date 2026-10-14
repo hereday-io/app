@@ -32,7 +32,10 @@ import { type ScoutedPoiRecord } from '@/components/editor/ScoutReviewPanel';
 import EditorTour from '@/components/editor/EditorTour';
 import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
 import PoiEditPopover from '@/components/editor/PoiEditPopover';
-import UpgradeModal from '@/components/UpgradeModal';
+import UpgradeModal, { type UpgradeTrigger } from '@/components/UpgradeModal';
+import EventLiveModal from '@/components/editor/EventLiveModal';
+import type { PublishResult } from '@/components/editor/PublishConfirmPopover';
+import { isUniqueViolation } from '@/lib/slug';
 import { PAYWALL_LIMITS, usePaywall } from '@/hooks/usePaywall';
 import { useCheckoutReturn } from '@/hooks/useCheckoutReturn';
 import { errorToast } from '@/lib/userFacingError';
@@ -81,7 +84,7 @@ const RouteEditor = () => {
   const [eventName, setEventName] = useState('Untitled Event');
   const [eventDate, setEventDate] = useState('');
   const [city, setCity] = useState('');
-  const [routes, setRoutes] = useState<EventRoute[]>([makeRoute('5K Route', ROUTE_COLORS[0])]);
+  const [routes, setRoutes] = useState<EventRoute[]>([makeRoute('Route 1', ROUTE_COLORS[0])]);
   const [activeRouteId, setActiveRouteId] = useState('');
   const [pois, setPois] = useState<RoutePoi[]>([]);
   const [pendingPoiType, setPendingPoiType] = useState<PoiType | null>(null);
@@ -130,7 +133,12 @@ const RouteEditor = () => {
   const [eventIsPro, setEventIsPro] = useState(false);
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
-  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | 'sponsors' | null>(null);
+  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<UpgradeTrigger | null>(null);
+  const [liveModalOpen, setLiveModalOpen] = useState(false);
+  // True while the map is still at country zoom; drives the
+  // "find where your race starts" hint. searchOpenSignal opens the search.
+  const [mapZoomedOut, setMapZoomedOut] = useState(false);
+  const [searchOpenSignal, setSearchOpenSignal] = useState(0);
 
   // ── Vertex editing ──────────────────────────────────────────────────────
   // Drag a handle to move a point, click the line to insert one, Alt-click a
@@ -349,7 +357,7 @@ const RouteEditor = () => {
         const rawRoutes = data.routes as unknown;
         const loadedRoutes = Array.isArray(rawRoutes) && (rawRoutes as EventRoute[]).length > 0
           ? (rawRoutes as EventRoute[])
-          : [makeRoute('5K Route', ROUTE_COLORS[0])];
+          : [makeRoute('Route 1', ROUTE_COLORS[0])];
         setRoutes(loadedRoutes);
         setActiveRouteId(loadedRoutes[0]?.id ?? '');
         // Mark routes with existing waypoints as finished
@@ -463,7 +471,13 @@ const RouteEditor = () => {
       zoom: initialZoom,
     });
 
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    // Compass only: zoom buttons already sit by the bottom sheet, and two
+    // sets of +/- on one map read as two different controls.
+    map.addControl(new mapboxgl.NavigationControl({ showZoom: false }), 'top-right');
+    // Country-level zoom means there's no start location yet (see
+    // EditorCoachMark). jumpTo/fitBounds/flyTo all end in zoomend.
+    setMapZoomedOut(initialZoom < 9);
+    map.on('zoomend', () => setMapZoomedOut(map.getZoom() < 9));
     mapRef.current = map;
     map.once('load', () => setMapReady(true));
 
@@ -1578,8 +1592,11 @@ const RouteEditor = () => {
     [routes],
   );
 
-  const handlePublish = useCallback(async () => {
-    if (!eventId) return;
+  // newSlug comes from the publish step (PublishConfirmPopover) when a
+  // draft goes live; unpublishing passes nothing. The result tells the
+  // popover whether to close or say "that link is taken".
+  const handlePublish = useCallback(async (newSlug?: string): Promise<PublishResult> => {
+    if (!eventId) return 'failed';
     // Block publishing for unverified email users
     if (eventStatus !== 'published' && user && !user.email_confirmed_at) {
       toast({
@@ -1587,7 +1604,7 @@ const RouteEditor = () => {
         description: 'Check your inbox for the confirmation link, then try again.',
         variant: 'destructive',
       });
-      return;
+      return 'failed';
     }
     // Going live? Enforce validation. Unpublishing always allowed.
     if (eventStatus !== 'published' && !canPublish) {
@@ -1596,11 +1613,13 @@ const RouteEditor = () => {
         description: 'Your event needs at least one route with 2+ points before it can go live.',
         variant: 'destructive',
       });
-      return;
+      return 'failed';
     }
     setIsPublishing(true);
     // Save first, then publish
     const newStatus = eventStatus === 'published' ? 'draft' : 'published';
+    // Only a draft going live can change its link (see PublishConfirmPopover).
+    const slugChanged = newStatus === 'published' && !!newSlug && newSlug !== eventSlug;
     const cleanPois = await materializePoiImages(pois);
     const { data: publishedRows, error } = await supabase.from('events')
       .update({
@@ -1617,11 +1636,16 @@ const RouteEditor = () => {
         branding_style: brandingStyle,
         tracking_start: trackingStart,
         tracking_end: trackingEnd,
+        ...(slugChanged ? { slug: newSlug } : {}),
       })
       .eq('id', eventId)
       .select('id, slug');
 
-    if (error) {
+    let result: PublishResult = 'failed';
+    if (error && slugChanged && isUniqueViolation(error)) {
+      // Nothing was written; the publish step says the link is taken.
+      result = 'slug-taken';
+    } else if (error) {
       toast(errorToast(error, {
         action: newStatus === 'published' ? 'publish' : 'unpublish',
         logLabel: 'RouteEditor publish',
@@ -1635,6 +1659,7 @@ const RouteEditor = () => {
         variant: 'destructive',
       });
     } else {
+      result = 'ok';
       setEventStatus(newStatus);
       // The update returns the slug, so a first publish can show the
       // share link without a second round trip that could fail on its own.
@@ -1646,36 +1671,18 @@ const RouteEditor = () => {
           poi_count: cleanPois.length,
           branding_style: brandingStyle,
         });
-        // Post-publish CTA routes to the Ops Center — that's where
-        // organizers run race day. For Pro events it takes them
-        // straight in; for Free events the Ops Center renders its
-        // waitlist-gated preview so they see what they'd get.
-        toast({
-          title: 'Event is live',
-          description: 'Share the link or head to the ops center for race-day tools.',
-          action: (
-            <ToastAction
-              altText="Open ops center"
-              onClick={() => navigate(`/dashboard/events/${eventId}`)}
-            >
-              Ops Center →
-            </ToastAction>
-          ),
-        });
-        // Soft Pro upsell at the publish moment — only for free events.
-        // A slight delay lets the toast land first so the modal feels
-        // like a follow-up, not a block. Republishing a pro event
-        // skips this entirely.
-        if (!eventIsPro) {
-          setTimeout(() => setUpgradeModalTrigger('publish'), 600);
-        }
+        // The live screen leads with sharing (link, QR, preview). Pro
+        // events also get the Ops Center; Free events get one quiet
+        // unlock line inside it instead of a second modal.
+        setLiveModalOpen(true);
       } else {
         logEvent('event_unpublished', eventId);
         toast({ title: 'Event unpublished' });
       }
     }
     setIsPublishing(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, eventIsPro, materializePoiImages]);
+    return result;
+  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, materializePoiImages]);
 
   const handleResumeRoute = useCallback((id: string) => {
     setFinishedRouteIds((prev) => {
@@ -1792,7 +1799,7 @@ const RouteEditor = () => {
 
     const remaining = routes.filter((r) => r.id !== id);
     // Deleting the last route leaves an empty one to draw into.
-    const placeholder = remaining.length > 0 ? null : makeRoute('5K Route', ROUTE_COLORS[0]);
+    const placeholder = remaining.length > 0 ? null : makeRoute('Route 1', ROUTE_COLORS[0]);
     const next = placeholder ? [placeholder] : remaining;
     setRoutes(next);
     if (wasActive) setActiveRouteId(next[0].id);
@@ -2083,6 +2090,21 @@ const RouteEditor = () => {
         eventId={eventId}
         onBeforeRedirect={() => handleSave({ silent: true })}
       />
+      {eventSlug && (
+        <EventLiveModal
+          open={liveModalOpen}
+          onClose={() => setLiveModalOpen(false)}
+          publicUrl={`${window.location.origin}/event/${eventSlug}`}
+          eventName={eventName}
+          eventId={eventId}
+          isPro={eventIsPro}
+          onOpenOpsCenter={() => navigate(`/dashboard/events/${eventId}`)}
+          onUnlockPro={() => {
+            setLiveModalOpen(false);
+            setUpgradeModalTrigger('manual');
+          }}
+        />
+      )}
       {eventId && user && (
         <ScoutLinkDialog
           open={scoutLinkDialogOpen}
@@ -2123,16 +2145,31 @@ const RouteEditor = () => {
         onClearRoute={clearActiveRoute}
         onLocationSelect={(center) => {
           mapRef.current?.flyTo({ center, zoom: 14, duration: 1500 });
+          // Fill an empty City from the searched spot. The result's own
+          // name may be a park or street, so ask for the town (types=place).
+          if (!city.trim() && mapboxToken) {
+            fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${center[0]},${center[1]}.json?types=place&limit=1&access_token=${mapboxToken}`)
+              .then((r) => r.json())
+              .then((geo: { features?: { text?: string }[] }) => {
+                const town = geo?.features?.[0]?.text;
+                if (town) setCity((prev) => (prev.trim() ? prev : town));
+              })
+              .catch(() => { /* City stays empty; the organizer can type it. */ });
+          }
         }}
+        searchOpenSignal={searchOpenSignal}
         onHelp={() => setTourActive(true)}
         onScoutLink={() => setScoutLinkDialogOpen(true)}
         onPublish={handlePublish}
+        // Only once the event has loaded, so a Pro event never flashes it.
+        onUnlockPro={eventSlug && !eventIsPro ? () => setUpgradeModalTrigger('manual') : undefined}
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
         canPublish={canPublish}
         pendingScoutedCount={scoutedPois.length}
         onReviewScouts={() => navigate(`/dashboard/events/${eventId}`)}
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
+        eventSlug={eventSlug}
         eventId={eventId}
         canFinishRoute={!!activeRoute && activeRoute.waypoints.length >= 3 && !finishedRouteIds.has(activeRouteId)}
         onFinishRoute={() => {
@@ -2177,6 +2214,7 @@ const RouteEditor = () => {
               poiSnapToRoute={poiSnapToRoute}
               setPoiSnapToRoute={setPoiSnapToRoute}
               isPaid={isPaid}
+              onUnlockPro={() => { logEvent('paywall_hit', eventId, { trigger: 'branding' }); setUpgradeModalTrigger('branding'); }}
               finishedRouteIds={finishedRouteIds}
               onResumeRoute={handleResumeRoute}
               logoUrl={logoUrl}
@@ -2202,6 +2240,8 @@ const RouteEditor = () => {
               hasRouteWaypoints={routes.some((r) => r.waypoints.length > 0)}
               hasFinishedRoute={finishedRouteIds.size > 0}
               isPublished={eventStatus === 'published'}
+              zoomedOut={mapZoomedOut}
+              onFindStart={() => setSearchOpenSignal((n) => n + 1)}
             />
           )}
 

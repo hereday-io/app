@@ -14,11 +14,16 @@ import ProWaitlistCapture from '@/components/ProWaitlistCapture';
 // can render waitlist capture instead of a dead checkout button.
 export const PAYMENTS_LIVE = true;
 
+/** Where the modal was opened from. Each one shapes the headline, so the
+ *  copy only claims what is true at that moment ("live" never shows for a
+ *  draft). */
+export type UpgradeTrigger = 'routes' | 'pois' | 'branding' | 'sponsors' | 'ops' | 'manual';
+
 interface UpgradeModalProps {
   open: boolean;
   onClose: () => void;
-  /** Which limit was hit — shapes the headline */
-  trigger?: 'routes' | 'pois' | 'branding' | 'publish' | 'sponsors';
+  /** Where the modal was opened from — shapes the headline */
+  trigger?: UpgradeTrigger;
   /** The event being upgraded */
   eventId?: string | null;
   /** Called before navigating to Stripe so the caller can flush pending saves */
@@ -34,30 +39,34 @@ const FEATURES = [
   { icon: Crown, text: 'Priority support' },
 ];
 
-const TRIGGER_COPY: Record<string, { headline: string; sub: string }> = {
+const TRIGGER_COPY: Record<UpgradeTrigger, { headline: string; sub: string }> = {
   routes: {
     headline: 'Need more routes?',
-    sub: `Free events include up to ${PAYWALL_LIMITS.routes} routes. Unlock this event for unlimited routes — perfect for marathon weekends and multi-day festivals.`,
+    sub: `Free events include up to ${PAYWALL_LIMITS.routes} routes. Unlock Pro for unlimited routes — perfect for marathon weekends and multi-day festivals.`,
   },
   pois: {
     headline: 'Need more markers?',
-    sub: `Free events include ${PAYWALL_LIMITS.pois} markers. Unlock this event to add as many water stations, parking spots, and more as you need.`,
+    sub: `Free events include ${PAYWALL_LIMITS.pois} markers. Unlock Pro to add as many water stations, parking spots, and more as you need.`,
   },
   branding: {
     headline: 'Custom branding is a Pro feature',
-    sub: 'Add your event logo and a branded banner to the public map. Unlock this event to make it look professional.',
-  },
-  publish: {
-    headline: 'Your event is live — want to go Pro?',
-    sub: "It's published on the Free plan. Unlock this event to remove limits and add custom branding.",
+    sub: 'Add your event logo and a branded banner to the public map so it looks like yours, not ours.',
   },
   sponsors: {
     headline: 'Show every sponsor on the map',
-    sub: "Free events show one branded sponsor publicly — the rest render as generic pins. Unlock this event to publish all your sponsors with logos, CTAs, and tracked analytics.",
+    sub: "Free events show one branded sponsor publicly — the rest render as generic pins. Unlock Pro to publish all your sponsors with logos, CTAs, and tracked analytics.",
+  },
+  ops: {
+    headline: 'Unlock race-day tools',
+    sub: 'The Ops Center shows live volunteer updates, scouted markers, and race-day analytics for this event.',
+  },
+  manual: {
+    headline: 'Unlock Pro for this event',
+    sub: 'Remove the Free limits and add your own branding. Pro applies to this one event.',
   },
 };
 
-const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedirect }: UpgradeModalProps) => {
+const UpgradeModal = ({ open, onClose, trigger = 'manual', eventId, onBeforeRedirect }: UpgradeModalProps) => {
   const copy = TRIGGER_COPY[trigger];
   const [loading, setLoading] = useState(false);
   const [checkoutFailed, setCheckoutFailed] = useState(false);
@@ -139,11 +148,11 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
               }}
             >
               <Crown className="h-4 w-4" />
-              {loading ? 'Redirecting to checkout…' : 'Unlock this event — $49'}
+              {loading ? 'Redirecting to checkout…' : 'Unlock Pro for this event — $49'}
             </Button>
             {checkoutFailed && (
               <p role="alert" className="text-xs text-destructive text-center mt-2">
-                Couldn't open checkout. You haven't been charged. Try again, or email support@hereday.io.
+                Couldn't open checkout. You haven't been charged. Try again, or email hello@hereday.io.
               </p>
             )}
             <p className="text-xs text-muted-foreground text-center mt-2">

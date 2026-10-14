@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { Radio, Crown, Check } from 'lucide-react';
-import { LIVE_TRACKING_ENABLED } from '@/lib/featureFlags';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,10 +11,10 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { reportError } from '@/lib/posthog';
 import { errorToast } from '@/lib/userFacingError';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import CitySearch from '@/components/editor/CitySearch';
+import { normalizeSlug, isUniqueViolation, withRandomTail } from '@/lib/slug';
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -32,7 +30,6 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [saving, setSaving] = useState(false);
-  const [wantsPro, setWantsPro] = useState(false);
   const { toast } = useToast();
   const { token: mapboxToken } = useMapboxToken();
 
@@ -41,23 +38,20 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
     if (!name.trim()) return;
     setSaving(true);
 
-    // crypto.randomUUID() gives 122 bits of entropy → effectively zero collision
-    // risk vs. the prior Math.random()-derived 5-char suffix (~26 bits) which
-    // could collide on near-simultaneous creates and surface a confusing
-    // unique-violation toast. Slice to 8 hex chars for a friendly URL.
-    const slugSuffix = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-      ? crypto.randomUUID().replace(/-/g, '').slice(0, 8)
-      : Math.random().toString(36).slice(2, 10);
-    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + slugSuffix;
-
-    const { data, error } = await supabase.from('events').insert({
+    // The plain name: the events_unique_slug trigger adds -2, -3… if the
+    // URL is taken. One retry with a random tail covers a create racing
+    // another for the same name.
+    const slug = normalizeSlug(name);
+    const insert = (s: string) => supabase.from('events').insert({
       user_id: userId,
       name: name.trim(),
       city: city.trim() || null,
       event_date: date || null,
       start_time: startTime || null,
-      slug,
+      slug: s,
     }).select('id').single();
+    let { data, error } = await insert(slug);
+    if (isUniqueViolation(error)) ({ data, error } = await insert(withRandomTail(slug)));
 
     if (error || !data) {
       toast(errorToast(error, { action: 'create your event', logLabel: 'CreateEventDialog insert' }));
@@ -65,34 +59,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
       return;
     }
 
-    // If the user selected Pro, redirect to Stripe checkout. If checkout
-    // can't be opened the event still exists, so fall through to the
-    // editor, where the upgrade button retries it.
-    if (wantsPro && data.id) {
-      try {
-        const { data: checkout, error: checkoutErr } = await supabase.functions.invoke('create-checkout', {
-          body: { eventId: data.id, returnUrl: `${window.location.origin}/editor?id=${data.id}` },
-        });
-        if (!checkoutErr && checkout?.url) {
-          // Stripe checkout will redirect back; don't navigate to editor
-          window.location.href = checkout.url;
-          return;
-        }
-        reportError(checkoutErr ?? new Error('create-checkout returned no url'), {
-          area: 'billing', action: 'create_checkout', hereday_event_id: data.id, trigger: 'create_dialog',
-        });
-      } catch (err) {
-        reportError(err, {
-          area: 'billing', action: 'create_checkout', hereday_event_id: data.id, trigger: 'create_dialog',
-        });
-      }
-      toast({
-        title: 'Event created',
-        description: "Checkout didn't open and you haven't been charged. Upgrade from the editor to try again.",
-      });
-    } else {
-      toast({ title: 'Event created' });
-    }
+    toast({ title: 'Event created' });
 
     const center = cityCenter;
     setName('');
@@ -100,7 +67,6 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
     setCityCenter(null);
     setDate('');
     setStartTime('');
-    setWantsPro(false);
     onOpenChange(false);
     onCreated(data.id, center);
     setSaving(false);
@@ -179,63 +145,15 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
               />
             </div>
           </div>
-          {/* Pro section — the create-time upgrade opt-in. Pro is per event
-              (paid_at), and an event that doesn't exist yet hasn't been
-              paid for, so the tracking-window fields live in the Edit
-              dialog once the event is Pro. */}
-          <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              {LIVE_TRACKING_ENABLED ? (
-                <><Radio className="h-3.5 w-3.5 text-primary" /> Live Tracking Window</>
-              ) : (
-                <><Crown className="h-3.5 w-3.5 text-primary" /> Go Pro</>
-              )}
-            </div>
-            {wantsPro ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5 text-amber-600" />
-                    <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Pro upgrade selected</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setWantsPro(false)}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Remove
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground leading-snug">
-                  You'll be taken to checkout after creating this event. Unlimited routes & markers and custom branding included.
-                </p>
-              </>
-            ) : (
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-muted-foreground leading-snug">
-                  {LIVE_TRACKING_ENABLED
-                    ? 'Let spectators watch runners move along the course in real time.'
-                    : 'Unlock unlimited routes & markers and custom branding.'}
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0 text-xs border-primary text-primary hover:bg-primary/10"
-                  onClick={() => setWantsPro(true)}
-                >
-                  Upgrade to Pro
-                </Button>
-              </div>
-            )}
-          </div>
-
+          {/* No Pro offer here: nobody has seen the event yet, so there's
+              nothing to pay for. Pro is offered where it earns its place —
+              hitting a limit, branding, the Ops Center, and after publish. */}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !name.trim()} className={wantsPro ? 'gap-2 bg-amber-600 hover:bg-amber-700' : ''}>
-              <>{wantsPro && <Crown className="h-3.5 w-3.5" />}{saving ? 'Creating…' : wantsPro ? 'Create & Upgrade — $49' : 'Create Event'}</>
+            <Button type="submit" disabled={saving || !name.trim()}>
+              {saving ? 'Creating…' : 'Create Event'}
             </Button>
           </div>
         </form>

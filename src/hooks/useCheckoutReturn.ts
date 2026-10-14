@@ -89,7 +89,7 @@ export function useCheckoutReturn(onPro?: (eventId: string, row: CheckoutProRow)
         // "failed". Sticky so it's still there when they look back.
         finish(
           'Your payment went through',
-          "Pro is taking longer than usual to switch on. You won't be charged again. Refresh in a minute, or email support@hereday.io and we'll sort it out.",
+          "Pro is taking longer than usual to switch on. You won't be charged again. Refresh in a minute, or email hello@hereday.io and we'll sort it out.",
           true,
         );
         reportError(new Error('paid return but not Pro'), {

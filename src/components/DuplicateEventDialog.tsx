@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { errorToast } from '@/lib/userFacingError';
+import { normalizeSlug, isUniqueViolation, withRandomTail } from '@/lib/slug';
 
 interface SourceEvent {
   id: string;
@@ -75,19 +76,18 @@ const DuplicateEventDialog = ({ open, onOpenChange, event, userId, onCreated }: 
       return;
     }
 
-    const slug =
-      name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') +
-      '-' +
-      Math.random().toString(36).slice(2, 7);
-
-    const { data, error } = await supabase
+    // The plain name: the events_unique_slug trigger adds -2, -3… (so a
+    // copied "Turkey Trot" becomes turkey-trot-2). One retry with a random
+    // tail covers a create racing another for the same name.
+    const slug = normalizeSlug(name);
+    const insert = (s: string) => supabase
       .from('events')
       .insert({
         user_id: userId,
         name: name.trim(),
         city: source.city ?? null,
         event_date: date ? format(date, 'yyyy-MM-dd') : null,
-        slug,
+        slug: s,
         status: 'draft',
         routes: source.routes ?? [],
         pois: source.pois ?? [],
@@ -96,6 +96,8 @@ const DuplicateEventDialog = ({ open, onOpenChange, event, userId, onCreated }: 
       })
       .select('id')
       .single();
+    let { data, error } = await insert(slug);
+    if (isUniqueViolation(error)) ({ data, error } = await insert(withRandomTail(slug)));
 
     if (error || !data) {
       toast(errorToast(error, { action: `copy ${event.name}`, logLabel: 'DuplicateEventDialog insert' }));
@@ -115,7 +117,7 @@ const DuplicateEventDialog = ({ open, onOpenChange, event, userId, onCreated }: 
             Duplicate Event
           </DialogTitle>
           <DialogDescription>
-            Creates a new draft with the same route and POIs as <strong>{event.name}</strong>.
+            Creates a new draft with the same route and markers as <strong>{event.name}</strong>.
           </DialogDescription>
         </DialogHeader>
 
@@ -156,7 +158,7 @@ const DuplicateEventDialog = ({ open, onOpenChange, event, userId, onCreated }: 
           </div>
 
           <p className="text-xs text-muted-foreground bg-secondary/60 rounded-lg px-3 py-2">
-            The city, route, and all points of interest will be copied. You can make changes in the editor.
+            The city, route, and all markers will be copied. You can make changes in the editor.
           </p>
 
           <div className="flex justify-end gap-2 pt-1">

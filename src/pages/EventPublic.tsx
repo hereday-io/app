@@ -4,10 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import PublicEventView from '@/components/public/PublicEventView';
 import EventEndedView from '@/components/public/EventEndedView';
-import RolePickerSheet from '@/components/public/RolePickerSheet';
-import { MapPin, Calendar, Trophy, Eye, WifiOff } from 'lucide-react';
+import { WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import WeatherForecast from '@/components/public/WeatherForecast';
 import { logEvent } from '@/lib/analytics';
 
 interface PublicEvent {
@@ -58,17 +56,15 @@ const EventPublic = () => {
       return 'runner';
     }
   });
-  // First-visit role picker: show the floating sheet over the map until the
-  // user explicitly chooses (or dismisses, which implicitly picks spectator).
-  // Returning visitors — anyone with a stored role — skip the sheet entirely.
+  // First visit: show a one-time hint next to the Run/Watch toggle.
+  // Returning visitors (anyone with a stored mode) skip it.
   const [hasChosenRole, setHasChosenRole] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     try {
       return window.localStorage.getItem(VIEW_MODE_KEY) !== null;
     } catch {
-      // If localStorage is unreadable, surface the picker so the visitor
-      // explicitly chooses — better than locking them into a default.
-      return false;
+      // Unreadable storage would show the hint on every visit; skip it.
+      return true;
     }
   });
 
@@ -79,13 +75,11 @@ const EventPublic = () => {
     try { window.localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* ignore */ }
   };
 
-  const handleRolePick = (mode: ViewMode) => {
-    switchView(mode);
-  };
-  // Dismissing the sheet is an implicit "spectator" pick — it's the lower-
-  // commitment default for a cold QR visitor who may not even be running.
-  const handleRoleDismiss = () => {
-    switchView('spectator');
+  // Closing the first-visit hint keeps the current mode and stops the
+  // hint from coming back. Not a mode switch, so nothing is logged.
+  const dismissModeHint = () => {
+    setHasChosenRole(true);
+    try { window.localStorage.setItem(VIEW_MODE_KEY, viewMode); } catch { /* ignore */ }
   };
 
   // Honor the OS theme on public pages. Organizer pages keep the app's
@@ -251,122 +245,17 @@ const EventPublic = () => {
   }
 
   // One component for both roles so Run/Watch restyles the live map
-  // instead of tearing it down and loading a fresh one.
-  if (viewMode === 'runner' || viewMode === 'spectator') {
-    return (
-      <>
-        <PublicEventView
-          event={event}
-          mode={viewMode}
-          onBack={() => navigate('/')}
-          onSwitchMode={switchView}
-        />
-        {!hasChosenRole && (
-          <RolePickerSheet onPick={handleRolePick} onDismiss={handleRoleDismiss} />
-        )}
-      </>
-    );
-  }
-
-  // Landing page (unreachable in the default flow — kept for fallback/SEO)
-  const formattedDate = event.event_date
-    ? new Date(event.event_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-    : null;
-
-  // Pull coordinates from first route waypoint for weather
-  const firstCoord = event.routes?.[0]?.routeCoords?.[0] ?? event.routes?.[0]?.waypoints?.[0] ?? null;
-  const weatherLat = firstCoord ? firstCoord[1] : null;
-  const weatherLon = firstCoord ? firstCoord[0] : null;
-
+  // instead of tearing it down and loading a fresh one. There's no role
+  // picker: visitors land in Run (most open the link because they're
+  // racing), and a first-visit hint points spectators at the toggle.
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Hero section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.08),transparent_60%)]" />
-        <div className="relative max-w-3xl mx-auto px-4 pt-10 pb-8 sm:px-6 sm:pt-16 sm:pb-12 text-center">
-          {event.logo_url && event.branding_style !== 'none' && (
-            <img
-              src={event.logo_url}
-              alt={`${event.name} logo`}
-              className="w-20 h-20 object-contain mx-auto mb-6 rounded-xl border border-border bg-card/80 p-2 shadow-sm"
-            />
-          )}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-            <MapPin className="w-4 h-4" />
-            {event.city || 'Event'}
-          </div>
-
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4" style={{ fontFamily: 'var(--font-display)' }}>
-            {event.name}
-          </h1>
-
-          {formattedDate && (
-            <div className="flex items-center justify-center gap-2 text-muted-foreground mb-2">
-              <Calendar className="w-4 h-4" />
-              <span>{formattedDate}</span>
-            </div>
-          )}
-
-          <p className="text-muted-foreground mt-4 max-w-md mx-auto">
-            {event.route_count} route{event.route_count !== 1 ? 's' : ''} · {event.poi_count} point{event.poi_count !== 1 ? 's' : ''} of interest
-          </p>
-        </div>
-      </div>
-
-      {/* Weather forecast */}
-      {event.event_date && (
-        <div className="pt-6">
-          <WeatherForecast
-            eventDate={event.event_date}
-            lat={weatherLat}
-            lon={weatherLon}
-          />
-        </div>
-      )}
-
-      {/* View selection */}
-      <div className="flex-1 flex items-start justify-center px-4 py-8 sm:px-6 sm:py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-2xl w-full">
-          {/* Runner card */}
-          <button
-            onClick={() => switchView('runner')}
-            className="group relative rounded-xl border border-border bg-card p-6 sm:p-8 text-left transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <div className="mb-4 inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              <Trophy className="w-6 h-6 sm:w-7 sm:h-7" />
-            </div>
-            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-              I'm Running
-            </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              View the full course with route details, aid stations, water stops, and everything you need on race day.
-            </p>
-            <div className="mt-4 text-sm font-medium text-primary">
-              View runner map →
-            </div>
-          </button>
-
-          {/* Spectator card */}
-          <button
-            onClick={() => switchView('spectator')}
-            className="group relative rounded-xl border border-border bg-card p-6 sm:p-8 text-left transition-all hover:border-accent/40 hover:shadow-lg hover:shadow-accent/5 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <div className="mb-4 inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-accent/10 text-accent group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
-              <Eye className="w-6 h-6 sm:w-7 sm:h-7" />
-            </div>
-            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-              I'm Spectating
-            </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Find the best viewing spots, parking, restrooms, and amenities to cheer on your runner.
-            </p>
-            <div className="mt-4 text-sm font-medium text-accent">
-              View spectator map →
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
+    <PublicEventView
+      event={event}
+      mode={viewMode}
+      onSwitchMode={switchView}
+      showModeHint={!hasChosenRole}
+      onModeHintDismiss={dismissModeHint}
+    />
   );
 };
 

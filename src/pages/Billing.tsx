@@ -713,7 +713,7 @@ const Billing = () => {
       <UpgradeModal
         open={!!unlockEvent}
         onClose={() => setUnlockEvent(null)}
-        trigger="publish"
+        trigger="manual"
         eventId={unlockEvent?.id ?? null}
       />
 
@@ -931,7 +931,7 @@ const EventRow = ({
         ) : (
           <Button size="sm" className="h-8 gap-1.5 whitespace-nowrap" onClick={onUnlock}>
             <Crown className="h-3 w-3" />
-            Unlock — $49
+            Unlock Pro — $49
           </Button>
         )}
       </div>

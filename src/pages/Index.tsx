@@ -11,8 +11,10 @@ import {
   Palette,
   Lock,
   ChevronDown,
+  ExternalLink,
 } from 'lucide-react';
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
+import { SAMPLE_EVENT_PATH, SAMPLE_EVENT_DISPLAY_URL } from '@/lib/sampleEvent';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
 import {
@@ -21,12 +23,12 @@ import {
   HOMEPAGE_TITLE,
 } from '../../api/_shared/homepageSchema';
 
-// Hero map is a pre-baked PNG in /public so the landing page has zero
-// runtime dependency on the Mapbox Static Images API — no token
-// referrer issues, no extra request on first paint, no broken-image
-// state when Mapbox hiccups. Regenerate it by re-running the helper
-// script if you want to change the route or markers.
-const heroMapUrl = '/hero-map1.png';
+// Hero map is a static screenshot of the live sample event (see
+// lib/sampleEvent.ts) so the landing page has zero runtime dependency on
+// Mapbox: no token referrer issues, no extra request on first paint. It
+// was captured from hereday.io at 1280x950 CSS px, 1.7x, JPEG q80; re-take
+// it when the sample map changes so the picture matches the link.
+const heroMapUrl = '/hero-sample.jpg';
 
 // ─── Features ────────────────────────────────────────────────────────
 // Editorial palette alternates: every 3n+2 card flips icon tile to the
@@ -42,7 +44,7 @@ const features = [
   },
   {
     icon: MapPinned,
-    title: 'Points of interest',
+    title: 'Markers',
     description:
       'Drop water stations, parking, aid, and start/finish in a click. They cluster when zoomed out so your map stays clean.',
   },
@@ -62,7 +64,7 @@ const features = [
     icon: Globe,
     title: 'Instant public pages',
     description:
-      "One click publishes a polished, shareable map page. Drop in your logo — it looks like yours, not ours.",
+      'One click publishes a polished map page that works on any phone, with no app to install.',
   },
   {
     icon: Palette,
@@ -91,7 +93,7 @@ const plans = [
     features: [
       'Unlimited events',
       `Up to ${PAYWALL_LIMITS.routes} routes per event`,
-      `Up to ${PAYWALL_LIMITS.pois} points of interest`,
+      `Up to ${PAYWALL_LIMITS.pois} markers`,
       'Runner & spectator views',
       'Elevation profiles & weather',
       'Public share links',
@@ -106,12 +108,12 @@ const plans = [
     highlight: true,
     features: [
       'Everything in Free',
-      'Unlimited routes & points of interest',
+      'Unlimited routes & markers',
       'Custom logo & banner branding',
       'Live volunteer status reporting',
       'Event Ops Center for race-day ops',
       'All branded sponsors on the map',
-      'Remove Hereday watermark',
+      'No "Made with Hereday" footer',
     ],
   },
 ];
@@ -131,13 +133,13 @@ const steps = [
     number: '01',
     title: 'Name it',
     description:
-      "Type an event name and hit Enter. You're in the editor in under 10 seconds.",
+      "Name your event and you're straight into the editor. No templates, no setup.",
   },
   {
     number: '02',
     title: 'Draw the course',
     description:
-      'Click to place waypoints — they snap to roads automatically. Drop water stations and markers along the way.',
+      'Click to place points along the course. They snap to roads automatically. Drop water stations, parking and other markers along the way.',
   },
   {
     number: '03',
@@ -218,7 +220,7 @@ const Index = () => {
           <div className="flex items-center gap-2">
             <Link
               to="/login"
-              className="hidden sm:inline-flex text-sm font-semibold px-3.5 py-2.5 rounded-[4px] transition-colors"
+              className="inline-flex text-sm font-semibold px-2.5 sm:px-3.5 py-2.5 rounded-[4px] transition-colors"
               style={{ color: 'var(--ed-muted)' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = 'var(--ed-ink)';
@@ -357,8 +359,12 @@ const Index = () => {
             >
               Start for free <ArrowRight className="h-4 w-4" />
             </Link>
+            {/* A real, never-expiring sample beats a screenshot. New tab:
+                the public map has no way back to this page. */}
             <a
-              href="#how-it-works"
+              href={SAMPLE_EVENT_PATH}
+              target="_blank"
+              rel="noopener"
               className="inline-flex items-center gap-2 font-semibold rounded-[4px] transition-transform hover:-translate-y-px"
               style={{
                 background: 'var(--ed-card)',
@@ -369,7 +375,7 @@ const Index = () => {
                 letterSpacing: '-0.01em',
               }}
             >
-              See how it works
+              View a live sample <ExternalLink className="h-4 w-4" />
             </a>
           </div>
 
@@ -386,13 +392,17 @@ const Index = () => {
             ))}
           </div>
 
-          {/* Hero static image frame */}
+          {/* Hero: a screenshot of the live sample, and a link to it */}
           <div
             className="ed-hero-glow relative mx-auto"
             style={{ marginTop: 56, maxWidth: 1080 }}
           >
-            <div
-              className="overflow-hidden"
+            <a
+              href={SAMPLE_EVENT_PATH}
+              target="_blank"
+              rel="noopener"
+              aria-label="Open the live sample map in a new tab"
+              className="group block overflow-hidden transition-transform hover:-translate-y-0.5"
               style={{
                 background: 'var(--ed-card)',
                 border: '1px solid var(--ed-line)',
@@ -416,7 +426,7 @@ const Index = () => {
                   <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#28C840' }} />
                 </div>
                 <div
-                  className="flex-1 flex items-center text-left"
+                  className="flex-1 min-w-0 flex items-center text-left"
                   style={{
                     background: 'var(--ed-card)',
                     border: '1px solid var(--ed-line)',
@@ -429,17 +439,28 @@ const Index = () => {
                   }}
                 >
                   <Lock className="h-3 w-3 shrink-0" style={{ color: 'var(--ed-success)' }} />
-                  hereday.io/crystal-lake-5k
+                  <span className="truncate">{SAMPLE_EVENT_DISPLAY_URL}</span>
                 </div>
               </div>
-              {/* Hero map */}
+              {/* Hero map — the live sample, captured from hereday.io */}
               <img
                 src={heroMapUrl}
-                alt="Example Hereday event map showing a 5K loop around Crystal Lake with start, water stop, sponsor, and finish markers"
+                alt="Hereday's sample event map: a 5K and a 10K through Lincoln Park, Chicago, with water stations, parking, mile markers and an elevation profile"
                 className="block w-full h-auto"
+                width={2176}
+                height={1615}
                 loading="eager"
               />
-            </div>
+            </a>
+            <a
+              href={SAMPLE_EVENT_PATH}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 font-semibold hover:underline"
+              style={{ marginTop: 16, fontSize: 14, color: 'var(--ed-primary)' }}
+            >
+              Try the live sample map on your phone <ArrowRight className="h-3.5 w-3.5" />
+            </a>
           </div>
         </div>
       </section>

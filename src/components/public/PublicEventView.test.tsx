@@ -72,7 +72,7 @@ vi.mock('@/hooks/usePoiStatuses', () => ({ usePoiStatuses: () => new Map() }));
 vi.mock('@/hooks/useTrackingSubscription', () => ({ useTrackingSubscription: () => ({ runners: new Map() }) }));
 vi.mock('@/lib/analytics', () => ({ logEvent: vi.fn() }));
 vi.mock('@/components/map/MapBottomSheet', () => ({ default: () => null }));
-vi.mock('@/components/public/SubscribeButton', () => ({ default: () => null }));
+vi.mock('@/components/public/SubscribeButton', () => ({ default: () => <button>Get event updates</button> }));
 vi.mock('@/components/public/PublicShareButton', () => ({ default: () => null }));
 
 const route: EventRoute = {
@@ -105,7 +105,7 @@ describe('PublicEventView', () => {
   it('holds markers back until the map has loaded, then names them', async () => {
     const { default: PublicEventView } = await import('./PublicEventView');
     render(
-      <PublicEventView event={event} mode="runner" onBack={() => {}} onSwitchMode={() => {}} />
+      <PublicEventView event={event} mode="runner" onSwitchMode={() => {}} />
     );
 
     expect(mapState.markersAdded).toBe(0);
@@ -116,14 +116,15 @@ describe('PublicEventView', () => {
     expect(mapState.markersAdded).toBeGreaterThan(0);
     expect(screen.queryByRole('status')).toBeNull();
     expect(mapState.markerLabels).toContain('Aid Station: Mile 2 table');
-    expect(screen.getByRole('button', { name: /back to hereday home/i })).toBeTruthy();
+    // Visitors arrive from a shared link; there's no back-to-marketing button.
+    expect(screen.queryByRole('button', { name: /back to hereday home/i })).toBeNull();
   });
 
   it('switches Run/Watch without rebuilding the map or reloading its style', async () => {
     const { default: PublicEventView } = await import('./PublicEventView');
     const onSwitchMode = vi.fn();
     const { rerender } = render(
-      <PublicEventView event={event} mode="runner" onBack={() => {}} onSwitchMode={onSwitchMode} />
+      <PublicEventView event={event} mode="runner" onSwitchMode={onSwitchMode} />
     );
     act(() => { mapState.loadHandlers.forEach((cb) => cb()); });
 
@@ -131,11 +132,41 @@ describe('PublicEventView', () => {
     expect(onSwitchMode).toHaveBeenCalledWith('spectator');
 
     mapState.paint = [];
-    rerender(<PublicEventView event={event} mode="spectator" onBack={() => {}} onSwitchMode={onSwitchMode} />);
+    rerender(<PublicEventView event={event} mode="spectator" onSwitchMode={onSwitchMode} />);
 
     expect(mapState.constructed).toBe(1);
     expect(mapState.setStyleCalls).toBe(0);
     expect(mapState.paint).toContainEqual(['route-line-r1', 'line-dasharray', [2, 2]]);
     expect(screen.getByRole('button', { name: /watch/i }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('shows the first-visit tip by the toggle, worded for the current mode', async () => {
+    const { default: PublicEventView } = await import('./PublicEventView');
+    const onModeHintDismiss = vi.fn();
+    const { rerender } = render(
+      <PublicEventView event={event} mode="runner" onSwitchMode={() => {}} showModeHint onModeHintDismiss={onModeHintDismiss} />
+    );
+    expect(screen.getByRole('note').textContent).toMatch(/tap watch/i);
+    rerender(<PublicEventView event={event} mode="spectator" onSwitchMode={() => {}} showModeHint onModeHintDismiss={onModeHintDismiss} />);
+    expect(screen.getByRole('note').textContent).toMatch(/tap run/i);
+    fireEvent.click(screen.getByRole('button', { name: /dismiss tip/i }));
+    expect(onModeHintDismiss).toHaveBeenCalledOnce();
+  });
+
+  it('shows no tip for returning visitors', async () => {
+    const { default: PublicEventView } = await import('./PublicEventView');
+    render(<PublicEventView event={event} mode="runner" onSwitchMode={() => {}} />);
+    expect(screen.queryByRole('note')).toBeNull();
+  });
+});
+
+describe('PublicEventView on the sample event', () => {
+  it("hides Get updates on Hereday's sample (its race doesn't exist)", async () => {
+    const { default: PublicEventView } = await import('./PublicEventView');
+    const { SAMPLE_EVENT_ID } = await import('@/lib/sampleEvent');
+    const { rerender } = render(<PublicEventView event={event} mode="runner" onSwitchMode={() => {}} />);
+    expect(screen.getByRole('button', { name: /get event updates/i })).toBeTruthy();
+    rerender(<PublicEventView event={{ ...event, id: SAMPLE_EVENT_ID }} mode="runner" onSwitchMode={() => {}} />);
+    expect(screen.queryByRole('button', { name: /get event updates/i })).toBeNull();
   });
 });

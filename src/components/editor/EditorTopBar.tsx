@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass, Radio } from 'lucide-react';
+import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass, Radio, Crown } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
 import ShareQrCode from '@/components/editor/ShareQrCode';
+import PublishConfirmPopover, { type PublishResult } from '@/components/editor/PublishConfirmPopover';
 import { logEvent } from '@/lib/analytics';
 
 interface EditorTopBarProps {
@@ -30,6 +31,8 @@ interface EditorTopBarProps {
    *  — parent should navigate to `/dashboard/events/:id` (Ops Center). */
   onReviewScouts?: () => void;
   publicUrl?: string;
+  /** Current slug, editable in the publish step while a draft. */
+  eventSlug?: string | null;
   eventId?: string | null;
   mapboxToken: string;
   onSave: () => void;
@@ -37,9 +40,15 @@ interface EditorTopBarProps {
   onUndo: () => void;
   onClearRoute: () => void;
   onLocationSelect: (center: [number, number], name: string) => void;
+  /** Bump to open the location search (see LocationSearch). */
+  searchOpenSignal?: number;
   onHelp?: () => void;
   onScoutLink?: () => void;
-  onPublish?: () => void;
+  /** Publish a draft (with the slug confirmed in the publish step) or
+   *  unpublish a live event (no slug). */
+  onPublish?: (slug?: string) => Promise<PublishResult | void> | void;
+  /** Set for Free events only; renders the "Unlock Pro" button. */
+  onUnlockPro?: () => void;
   onFinishRoute?: () => void;
   canFinishRoute?: boolean;
   sidebarOpen?: boolean;
@@ -65,6 +74,7 @@ const EditorTopBar = ({
   pendingScoutedCount = 0,
   onReviewScouts,
   publicUrl,
+  eventSlug,
   eventId,
   mapboxToken,
   onSave,
@@ -72,9 +82,11 @@ const EditorTopBar = ({
   onUndo,
   onClearRoute,
   onLocationSelect,
+  searchOpenSignal,
   onHelp,
   onScoutLink,
   onPublish,
+  onUnlockPro,
   onFinishRoute,
   canFinishRoute,
   sidebarOpen,
@@ -215,7 +227,7 @@ const EditorTopBar = ({
           </span>
         )}
         {mapboxToken && (
-          <LocationSearch token={mapboxToken} onSelect={onLocationSelect} />
+          <LocationSearch token={mapboxToken} onSelect={onLocationSelect} openSignal={searchOpenSignal} />
         )}
         {/* Icons collapse back to icon-only on narrow viewports; on ≥lg
              screens the text labels surface power features (Tour, Scout)
@@ -260,7 +272,7 @@ const EditorTopBar = ({
             variant="outline"
             size="sm"
             onClick={onReviewScouts}
-            title="Review scouted markers in the ops center"
+            title="Review scouted markers in the Ops Center"
             className="h-8 gap-1.5 px-2 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
           >
             <Compass className="h-4 w-4" />
@@ -268,6 +280,20 @@ const EditorTopBar = ({
               {pendingScoutedCount === 1 ? '1 scouted' : `${pendingScoutedCount} scouted`}
             </span>
             <span className="text-[10px] opacity-70 hidden md:inline">Review →</span>
+          </Button>
+        )}
+        {/* Free events only: the one always-visible way to buy Pro, so the
+            Pro guide's "choose Unlock Pro" points at something real. */}
+        {onUnlockPro && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onUnlockPro}
+            className="h-8 gap-1.5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+            title="Unlock Pro for this event — $49"
+          >
+            <Crown className="h-3.5 w-3.5" />
+            <span className={labelClass}>Unlock Pro</span>
           </Button>
         )}
         {/* Autosave status chip — doubles as a manual-save trigger.
@@ -418,7 +444,7 @@ const EditorTopBar = ({
                           className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-foreground transition-colors"
                         >
                           <Radio className="h-4 w-4 text-primary" />
-                          <span className="flex-1">Open ops center</span>
+                          <span className="flex-1">Open Ops Center</span>
                           <span className="text-[11px] text-muted-foreground">race day →</span>
                         </a>
                       )}
@@ -428,16 +454,12 @@ const EditorTopBar = ({
               </div>
             </div>
           ) : (
-            <Button
-              size="sm"
-              onClick={onPublish}
-              disabled={isPublishing || !canPublish}
-              title={!canPublish ? 'Draw a route first — you need at least 2 points to publish' : undefined}
-              className="h-8 gap-1.5"
-            >
-              <Globe className="h-4 w-4" />
-              {isPublishing ? 'Publishing…' : 'Publish'}
-            </Button>
+            <PublishConfirmPopover
+              slug={eventSlug ?? null}
+              canPublish={canPublish}
+              isPublishing={!!isPublishing}
+              onConfirm={async (slug) => (await onPublish(slug)) ?? 'ok'}
+            />
           )
         )}
       </div>

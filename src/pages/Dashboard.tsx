@@ -66,6 +66,7 @@ import {
 } from '@/lib/eventStatus';
 import { unwrap } from '@/lib/unwrap';
 import { cn } from '@/lib/utils';
+import { SAMPLE_EVENT_PATH } from '@/lib/sampleEvent';
 
 interface Event {
   id: string;
@@ -158,7 +159,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
   const isPublished = event.status === 'published';
   const isDraft = event.status === 'draft';
   const isPro = isEventPro(event);
-  const barColor = isPro ? 'bg-[hsl(217_91%_50%)]' : isLive ? 'bg-[hsl(152_60%_42%)]' : 'bg-border';
+  const barColor = isPro ? 'bg-primary' : isLive ? 'bg-[hsl(152_60%_42%)]' : 'bg-border';
   const showLimitWarning = !isPro && event.poi_count >= 22;
 
   return (
@@ -189,9 +190,9 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
           </span>
           <span className="opacity-50 hidden sm:inline">·</span>
           <span>
-            <b className="text-[hsl(215_20%_35%)] font-medium">{event.route_count} routes</b>
+            <b className="text-[hsl(215_20%_35%)] font-medium">{event.route_count} {event.route_count === 1 ? 'route' : 'routes'}</b>
             {' · '}
-            <b className="text-[hsl(215_20%_35%)] font-medium">{event.poi_count} markers</b>
+            <b className="text-[hsl(215_20%_35%)] font-medium">{event.poi_count} {event.poi_count === 1 ? 'marker' : 'markers'}</b>
           </span>
           {showLimitWarning && (
             <>
@@ -252,7 +253,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); actions.onTogglePublish(); }}
-            className="h-8 px-3 rounded-lg bg-[hsl(217_91%_50%)] text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 hover:bg-[hsl(217_91%_45%)] whitespace-nowrap"
+            className="h-8 px-3 rounded-lg bg-primary text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 hover:bg-[hsl(217_91%_45%)] whitespace-nowrap"
           >
             <Rocket className="h-3 w-3" />
             Publish
@@ -578,8 +579,19 @@ const Dashboard = () => {
     });
   }, [events, normalizedQuery, statusFilter, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const upcoming = useMemo(() => filtered.filter((e) => !isPastEvent(e)), [filtered, today]); // eslint-disable-line react-hooks/exhaustive-deps
-  const past = useMemo(() => filtered.filter(isPastEvent), [filtered, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Upcoming: soonest race first, undated drafts after (most recently
+  // edited first, the order they're fetched in). Past: most recent first.
+  const upcoming = useMemo(() => filtered
+    .filter((e) => !isPastEvent(e))
+    .sort((a, b) => {
+      if (a.event_date && b.event_date) return a.event_date.localeCompare(b.event_date);
+      if (a.event_date) return -1;
+      if (b.event_date) return 1;
+      return 0;
+    }), [filtered, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  const past = useMemo(() => filtered
+    .filter(isPastEvent)
+    .sort((a, b) => (b.event_date ?? '').localeCompare(a.event_date ?? '')), [filtered, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stats — computed off the unfiltered list so the row counts don't shift when the user searches.
   const liveEvents = useMemo(() => events.filter(isLiveEvent), [events, today]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -644,7 +656,7 @@ const Dashboard = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[hsl(210_20%_98%)]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading…</div>
       </div>
     );
@@ -658,7 +670,7 @@ const Dashboard = () => {
   })();
 
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
+    <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-md">
         <div className="mx-auto max-w-[1180px] flex items-center justify-between py-[10px] px-6">
           <button
@@ -692,7 +704,7 @@ const Dashboard = () => {
                 <button
                   type="button"
                   aria-label="Open user menu"
-                  className="h-[30px] w-[30px] rounded-full bg-[hsl(217_91%_50%)] text-white font-display font-semibold text-[12px] flex items-center justify-center tracking-[0.02em] hover:bg-[hsl(217_91%_45%)]"
+                  className="h-[30px] w-[30px] rounded-full bg-primary text-white font-display font-semibold text-[12px] flex items-center justify-center tracking-[0.02em] hover:bg-[hsl(217_91%_45%)]"
                 >
                   {userInitials}
                 </button>
@@ -753,7 +765,8 @@ const Dashboard = () => {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-7">
           <div>
             <h1 className="font-display font-bold text-[32px] leading-none tracking-[-0.02em] mb-[6px]">
-              {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
+              {/* "back" only once they have something to come back to */}
+              {`Welcome${events.length > 0 ? ' back' : ''}${firstName ? `, ${firstName}` : ''}`}
             </h1>
             <p className="text-[14.5px] text-muted-foreground max-w-[62ch] leading-[1.6]">
               You have{' '}
@@ -767,7 +780,7 @@ const Dashboard = () => {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="h-10 px-4 rounded-lg bg-[hsl(217_91%_50%)] text-white font-medium text-[13.5px] inline-flex items-center gap-2 hover:bg-[hsl(217_91%_45%)] whitespace-nowrap"
+            className="h-10 px-4 rounded-lg bg-primary text-white font-medium text-[13.5px] inline-flex items-center gap-2 hover:bg-[hsl(217_91%_45%)] whitespace-nowrap"
           >
             <Plus className="h-4 w-4" /> New event
           </button>
@@ -778,18 +791,19 @@ const Dashboard = () => {
           <InfoCallout
             className="mb-9"
             icon={<Rocket className="h-4 w-4" />}
-            title={`${calloutEvent.name} is ready to go live.`}
+            title={`${calloutEvent.name} has a route and markers.`}
           >
-            Your route is mapped, all {calloutEvent.poi_count} markers are placed, and the public
-            page passes our checklist.{' '}
+            {/* isReadyToPublish only checks for a route and a marker, so
+                don't claim anything more (date, start, aid stations). */}
+            Give it a final look, then{' '}
             <button
               type="button"
               onClick={() => navigate(`/editor?id=${calloutEvent.id}`)}
-              className="text-[hsl(217_91%_45%)] border-b border-[hsl(217_91%_50%/0.3)] hover:border-[hsl(217_91%_45%)]"
+              className="text-[hsl(217_91%_45%)] border-b border-primary/[0.3] hover:border-[hsl(217_91%_45%)]"
             >
-              Review &amp; publish
-            </button>{' '}
-            when you're ready — it's free until you upgrade.
+              review &amp; publish
+            </button>
+            . Publishing is free.
           </InfoCallout>
         )}
         {calloutEvent && calloutKind === 'approaching-limit' && (
@@ -802,9 +816,9 @@ const Dashboard = () => {
             <button
               type="button"
               onClick={() => navigate('/billing')}
-              className="text-[hsl(217_91%_45%)] border-b border-[hsl(217_91%_50%/0.3)] hover:border-[hsl(217_91%_45%)]"
+              className="text-[hsl(217_91%_45%)] border-b border-primary/[0.3] hover:border-[hsl(217_91%_45%)]"
             >
-              Unlock for $49
+              Unlock Pro — $49
             </button>{' '}
             to add unlimited water stations, parking, and more.
           </InfoCallout>
@@ -840,7 +854,7 @@ const Dashboard = () => {
                 </span>
               }
               icon={Eye}
-              accent="text-[hsl(217_91%_50%)]"
+              accent="text-primary"
             />
             <StatBlock
               label="Subscribers"
@@ -881,12 +895,13 @@ const Dashboard = () => {
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="h-10 px-4 rounded-lg bg-[hsl(217_91%_50%)] text-white font-medium text-[13.5px] inline-flex items-center gap-2 hover:bg-[hsl(217_91%_45%)]"
+                className="h-10 px-4 rounded-lg bg-primary text-white font-medium text-[13.5px] inline-flex items-center gap-2 hover:bg-[hsl(217_91%_45%)]"
               >
                 <Plus className="h-4 w-4" /> Create event
               </button>
+              {/* Hereday's own sample map (see lib/sampleEvent.ts). */}
               <a
-                href="/event/crystal-lake-5k-demo"
+                href={SAMPLE_EVENT_PATH}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
@@ -917,7 +932,7 @@ const Dashboard = () => {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search events…"
-                    className="h-8 w-full sm:w-[220px] pl-8 pr-3 rounded-lg text-[12.5px] focus-visible:ring-[hsl(217_91%_50%/0.15)] focus-visible:ring-offset-0"
+                    className="h-8 w-full sm:w-[220px] pl-8 pr-3 rounded-lg text-[12.5px] focus-visible:ring-primary/[0.15] focus-visible:ring-offset-0"
                   />
                 </div>
                 <div className="inline-flex items-center rounded-lg border border-border bg-white p-[2px] text-[12px]">
@@ -1042,8 +1057,8 @@ const Dashboard = () => {
               getting-started guide
             </a>{' '}
             or email{' '}
-            <a href="mailto:support@hereday.io" className="text-[hsl(217_91%_45%)] hover:underline">
-              support@hereday.io
+            <a href="mailto:hello@hereday.io" className="text-[hsl(217_91%_45%)] hover:underline">
+              hello@hereday.io
             </a>
             .
           </p>
