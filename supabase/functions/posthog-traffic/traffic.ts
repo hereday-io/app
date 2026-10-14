@@ -38,12 +38,16 @@ export function trafficQueries(days: number): Record<TrafficQueryName, string> {
   const since = `timestamp >= now() - INTERVAL ${days} DAY`;
   return {
     // One pass over both windows: `current` splits this window from the
-    // one before it, for the deltas.
+    // one before it, for the deltas. `first_seen` says where the data
+    // actually starts: PostHog only went live in production on
+    // 2026-10-14, and a window reaching back before that would divide a
+    // full window of signups by a few hours of visitors.
     totals: `
       SELECT timestamp >= now() - INTERVAL ${days} DAY AS current,
              count() AS pageviews,
              count(DISTINCT person_id) AS visitors,
-             count(DISTINCT $session_id) AS sessions
+             count(DISTINCT $session_id) AS sessions,
+             min(timestamp) AS first_seen
         FROM events
        WHERE ${BASE_FILTER} AND timestamp >= now() - INTERVAL ${days * 2} DAY
        GROUP BY current`,
@@ -90,6 +94,8 @@ export interface TrafficTotals {
 export interface TrafficData {
   totals: TrafficTotals;
   prev_totals: TrafficTotals;
+  /** Earliest pageview across both windows (ISO), or null if none. */
+  first_seen: string | null;
   by_day: Array<{ day: string; pageviews: number; visitors: number }>;
   top_pages: Array<{ path: string; pageviews: number; visitors: number }>;
   top_referrers: Array<{ domain: string; sessions: number; visitors: number }>;
@@ -108,7 +114,12 @@ const ZERO: TrafficTotals = { pageviews: 0, visitors: 0, sessions: 0 };
 export function shapeTraffic(results: Record<TrafficQueryName, Row[]>): TrafficData {
   let totals = ZERO;
   let prev_totals = ZERO;
-  for (const [current, pageviews, visitors, sessions] of results.totals) {
+  let first_seen: string | null = null;
+  for (const [current, pageviews, visitors, sessions, firstSeen] of results.totals) {
+    const seen = firstSeen == null ? NaN : new Date(String(firstSeen)).getTime();
+    if (Number.isFinite(seen) && (first_seen === null || seen < new Date(first_seen).getTime())) {
+      first_seen = new Date(seen).toISOString();
+    }
     const t = { pageviews: num(pageviews), visitors: num(visitors), sessions: num(sessions) };
     // ClickHouse booleans come back as true/false or 1/0 depending on
     // the client; either way only the truthiness matters.
@@ -119,6 +130,7 @@ export function shapeTraffic(results: Record<TrafficQueryName, Row[]>): TrafficD
   return {
     totals,
     prev_totals,
+    first_seen,
     by_day: results.by_day.map(([day, pageviews, visitors]) => ({
       day: String(day).slice(0, 10),
       pageviews: num(pageviews),

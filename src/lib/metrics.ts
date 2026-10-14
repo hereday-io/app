@@ -12,6 +12,37 @@ export function pctChange(current: number, previous: number): number | null {
   return ((current - previous) / previous) * 100;
 }
 
+const DAY_MS = 86_400_000;
+
+/**
+ * How much of a rolling N-day window, and the window before it, a data
+ * source actually covers, given its earliest row. A source that started
+ * mid-window would otherwise chart as nothing-then-traffic and inflate
+ * any ratio against a full-window number (signups ÷ visitors).
+ */
+export function windowCoverage(
+  firstSeen: string | null | undefined,
+  days: number,
+  now: Date = new Date(),
+): { partial: boolean; prevPartial: boolean; startDay: string | null; coveredDays: number } {
+  const start = firstSeen ? Date.parse(firstSeen) : NaN;
+  if (!Number.isFinite(start)) {
+    return { partial: false, prevPartial: false, startDay: null, coveredDays: days + 1 };
+  }
+  const windowStart = now.getTime() - days * DAY_MS;
+  const partial = start > windowStart;
+  // A day of slack: a quiet first morning in the prior window is not a
+  // gap in tracking.
+  const prevPartial = start > windowStart - days * DAY_MS + DAY_MS;
+  const startDay = new Date(start).toISOString().slice(0, 10);
+  const today = new Date(now);
+  today.setUTCHours(0, 0, 0, 0);
+  const coveredDays = partial
+    ? Math.round((today.getTime() - Date.parse(startDay + 'T00:00:00Z')) / DAY_MS) + 1
+    : days + 1;
+  return { partial, prevPartial, startDay: partial ? startDay : null, coveredDays };
+}
+
 export function formatDay(day: string): string {
   return new Date(day + 'T00:00:00Z').toLocaleDateString('en-US', {
     month: 'short',

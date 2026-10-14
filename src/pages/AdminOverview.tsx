@@ -354,7 +354,11 @@ const AdminOverviewInner = () => {
             </div>
 
             {/* ── Site traffic (PostHog) ─────────────────────────── */}
-            <TrafficPanel days={days} signups={data.users.new_in_window} />
+            <TrafficPanel
+              days={days}
+              signups={data.users.new_in_window}
+              signupsByDay={data.users.new_by_day}
+            />
 
             {/* ── Public pages (top of funnel) ───────────────────── */}
             <SectionCard
