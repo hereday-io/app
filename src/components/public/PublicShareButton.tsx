@@ -16,7 +16,7 @@ interface PublicShareButtonProps {
  * desktop browsers that don't implement it.
  *
  * Intentionally a standalone component rather than a button baked into
- * RunnerView/SpectatorView so the two views stay visually and
+ * PublicEventView so the Run and Watch modes stay visually and
  * behaviorally identical without duplicating the share state machine.
  */
 const PublicShareButton = ({ eventId, eventName, source }: PublicShareButtonProps) => {

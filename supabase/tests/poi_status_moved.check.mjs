@@ -1,4 +1,4 @@
-// A Moved status needs a location (20261014150000): poi_statuses and
+// A Moved status needs a location (20261014160000): poi_statuses and
 // poi_status_history reject state='moved' without both moved_to
 // coordinates, from the owner's direct writes (the Ops Center override
 // path) as well as service-role writes. Other states are unaffected.
@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDb, testKit, REPO_ROOT } from './pglite.mjs';
 
-const MIGRATION = '20261014150000_poi_status_moved_needs_location.sql';
+const MIGRATION = '20261014160000_poi_status_moved_needs_location.sql';
 const migrationSql = readFileSync(join(REPO_ROOT, 'supabase', 'migrations', MIGRATION), 'utf8');
 
 const { db, results } = await createDb(REPO_ROOT, { stopBefore: MIGRATION });
