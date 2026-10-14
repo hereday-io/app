@@ -115,11 +115,16 @@ const TrafficPanel = ({ days, signups }: TrafficPanelProps) => {
 
   if (totals.pageviews === 0 && prev.pageviews === 0) {
     return (
-      <SectionCard title="Site traffic" hint={`Last ${days} days, hereday.io only.`} action={link}>
+      <SectionCard
+        title="Site traffic"
+        hint={`Last ${days} days, hereday.io only, admins and sales reps left out.`}
+        action={link}
+      >
         <EmptyRow>
-          PostHog has no pageviews from hereday.io in this window. If that persists, the site isn't
-          sending: check that <code className="text-[11.5px]">VITE_POSTHOG_KEY</code> is set for
-          Production in Vercel and that a deploy has run since.
+          PostHog has no visitor pageviews from hereday.io in this window; your own visits and the
+          reps' don't count. If that persists, the site may not be sending: check that{' '}
+          <code className="text-[11.5px]">VITE_POSTHOG_KEY</code> is set for Production in Vercel
+          and that a deploy has run since.
         </EmptyRow>
       </SectionCard>
     );
@@ -130,7 +135,7 @@ const TrafficPanel = ({ days, signups }: TrafficPanelProps) => {
   return (
     <SectionCard
       title="Site traffic"
-      hint={`Every pageview on hereday.io in the last ${days} days, signed in or not, excluding /admin. Ad-blockers stop some visitors reaching PostHog, so counts run low.`}
+      hint={`Every pageview on hereday.io in the last ${days} days, signed in or not, excluding /admin and anyone with an admin or sales account. Ad-blockers stop some visitors reaching PostHog, so counts run low.`}
       action={link}
     >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">

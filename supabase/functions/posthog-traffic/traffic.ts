@@ -20,11 +20,30 @@ export function clampDays(value: unknown): number {
   return Math.min(n, 365);
 }
 
-const BASE_FILTER = [
+const SITE_FILTER = [
   `event = '$pageview'`,
   `properties.$host IN (${SITE_HOSTS.map((h) => `'${h}'`).join(", ")})`,
   `NOT startsWith(coalesce(properties.$pathname, ''), '${EXCLUDED_PATH_PREFIX}')`,
 ].join(" AND ");
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Our own people: admins and sales reps, by Supabase user id. The app
+ * calls posthog.identify(userId) on sign-in, so the user id is one of
+ * the person's distinct_ids, and dropping the whole person also drops
+ * the anonymous pageviews they made on that browser before signing in.
+ *
+ * The ids are spliced into the HogQL, so anything that isn't a UUID is
+ * dropped rather than quoted. Returns "" when there's no one to exclude,
+ * since `IN ()` is a syntax error.
+ */
+export function internalUsersFilter(userIds: readonly string[]): string {
+  const ids = [...new Set(userIds.filter((id) => UUID.test(id)).map((id) => id.toLowerCase()))];
+  if (ids.length === 0) return "";
+  const list = ids.map((id) => `'${id}'`).join(", ");
+  return `person_id NOT IN (SELECT person_id FROM person_distinct_ids WHERE distinct_id IN (${list}))`;
+}
 
 export type TrafficQueryName = "totals" | "by_day" | "top_pages" | "top_referrers";
 
@@ -34,7 +53,12 @@ export type TrafficQueryName = "totals" | "by_day" | "top_pages" | "top_referrer
  * Day buckets are forced to UTC to match the rest of the dashboard;
  * PostHog would otherwise bucket in the project's timezone.
  */
-export function trafficQueries(days: number): Record<TrafficQueryName, string> {
+export function trafficQueries(
+  days: number,
+  internalUserIds: readonly string[] = [],
+): Record<TrafficQueryName, string> {
+  const internal = internalUsersFilter(internalUserIds);
+  const BASE_FILTER = internal ? `${SITE_FILTER} AND ${internal}` : SITE_FILTER;
   const since = `timestamp >= now() - INTERVAL ${days} DAY`;
   return {
     // One pass over both windows: `current` splits this window from the

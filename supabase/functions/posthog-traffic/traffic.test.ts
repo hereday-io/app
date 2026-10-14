@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { clampDays, errorHint, shapeTraffic, trafficQueries } from './traffic';
+import { clampDays, errorHint, internalUsersFilter, shapeTraffic, trafficQueries } from './traffic';
 
 describe('clampDays', () => {
   it('defaults junk to 30 and caps at a year', () => {
@@ -39,6 +39,42 @@ describe('trafficQueries', () => {
 
   it('drops our own hosts from referrers', () => {
     expect(q.top_referrers).toMatch(/NOT IN \('hereday\.io', 'www\.hereday\.io'\)/);
+  });
+
+  it('adds no person filter when there are no staff accounts', () => {
+    for (const sql of Object.values(q)) expect(sql).not.toContain('person_distinct_ids');
+  });
+
+  it('leaves staff out of every query', () => {
+    const id = '605e52b3-8b9f-49e1-b4d5-8dc92829e555';
+    for (const sql of Object.values(trafficQueries(30, [id]))) {
+      expect(sql).toContain(
+        `person_id NOT IN (SELECT person_id FROM person_distinct_ids WHERE distinct_id IN ('${id}'))`,
+      );
+    }
+  });
+});
+
+describe('internalUsersFilter', () => {
+  const a = '605e52b3-8b9f-49e1-b4d5-8dc92829e555';
+  const b = '9c3e6812-e084-4629-94ae-03b38e03e772';
+
+  it('is empty with no ids, since IN () would not parse', () => {
+    expect(internalUsersFilter([])).toBe('');
+  });
+
+  it('lists every id once, lowercased', () => {
+    expect(internalUsersFilter([a, b, a.toUpperCase()])).toBe(
+      `person_id NOT IN (SELECT person_id FROM person_distinct_ids WHERE distinct_id IN ('${a}', '${b}'))`,
+    );
+  });
+
+  it('drops anything that is not a UUID instead of quoting it', () => {
+    const out = internalUsersFilter([a, "x') OR 1=1 --", `${b}'`, '', 'null']);
+    expect(out).toContain(`'${a}'`);
+    expect(out).not.toContain(b);
+    expect(out).not.toContain('OR 1=1');
+    expect(internalUsersFilter(["') OR 1=1 --"])).toBe('');
   });
 });
 
