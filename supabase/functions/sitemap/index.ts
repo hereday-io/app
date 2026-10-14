@@ -1,3 +1,19 @@
+// SUPERSEDED — no longer serves https://hereday.io/sitemap.xml.
+//
+// The sitemap is now the static file public/sitemap.xml, served by
+// Vercel as application/xml. The Supabase gateway rewrites GET responses
+// from this function to `Content-Type: text/plain` and adds
+// `Content-Security-Policy: default-src 'none'; sandbox`, whatever we
+// set here (HEAD responses keep application/xml, which hid it). The
+// vercel.json rewrite to this function was removed for that reason.
+//
+// Still deployed only so nothing that cached the function URL breaks;
+// safe to delete (`supabase functions delete sitemap`, plus the
+// [functions.sitemap] block in supabase/config.toml). If you change the
+// URL list, edit public/sitemap.xml — this copy is not served.
+//
+// Original notes follow.
+//
 // Sitemap for the public marketing pages.
 //
 // Emits an XML sitemap listing only the pre-login marketing surface —
