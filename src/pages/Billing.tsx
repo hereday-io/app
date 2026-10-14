@@ -26,6 +26,7 @@ import StripeWordmark from '@/components/StripeWordmark';
 import { EventChip } from '@/components/ui/event-chip';
 import { InfoCallout } from '@/components/ui/info-callout';
 import { logEvent } from '@/lib/analytics';
+import { reportError } from '@/lib/posthog';
 import { isPro as isEventPro } from '@/lib/eventStatus';
 import { unwrap } from '@/lib/unwrap';
 
@@ -189,6 +190,7 @@ const Billing = () => {
         .order('updated_at', { ascending: false }));
       setEvents(data as BillingEvent[]);
     } catch (err) {
+      reportError(err, { area: 'billing', action: 'load_events' });
       setEventsError(err instanceof Error ? err.message : 'Network error');
     }
   }, [user]);
@@ -203,6 +205,7 @@ const Billing = () => {
         .eq('user_id', user.id)
         .maybeSingle());
     } catch (err) {
+      reportError(err, { area: 'billing', action: 'load_profile' });
       // Without this the promo panel would claim there's no active code.
       toast({
         title: "Couldn't load your promo codes",
@@ -230,8 +233,10 @@ const Billing = () => {
       const { data, error } = await supabase.functions.invoke('list-charges');
       if (error) throw error;
       setCharges((data?.charges ?? []) as ChargeRow[]);
-    } catch {
-      // Stripe not yet configured — fail quietly with empty list.
+    } catch (err) {
+      // The page still works without purchase history, so the customer
+      // sees an empty list; the report is what makes it noticed.
+      reportError(err, { area: 'billing', action: 'list_charges' });
       setCharges([]);
     }
   }, [user]);
@@ -243,7 +248,8 @@ const Billing = () => {
       const { data, error } = await supabase.functions.invoke('get-payment-method');
       if (error) throw error;
       setPaymentMethod((data?.paymentMethod ?? null) as PaymentMethod | null);
-    } catch {
+    } catch (err) {
+      reportError(err, { area: 'billing', action: 'get_payment_method' });
       setPaymentMethod(null);
     } finally {
       setPaymentMethodLoading(false);
@@ -292,7 +298,8 @@ const Billing = () => {
       });
       if (error || !data?.url) throw error ?? new Error('No receipt URL');
       window.open(data.url, '_blank', 'noopener,noreferrer');
-    } catch {
+    } catch (err) {
+      reportError(err, { area: 'billing', action: 'get_receipt', charge_id: chargeId });
       toast({
         title: 'Receipt not available',
         description: "We couldn't fetch this receipt. Email legal@hereday.io if you need it.",
@@ -327,7 +334,8 @@ const Billing = () => {
       });
       if (error || !data?.url) throw error ?? new Error('No portal URL');
       window.open(data.url, '_blank', 'noopener,noreferrer');
-    } catch {
+    } catch (err) {
+      reportError(err, { area: 'billing', action: 'open_billing_portal' });
       toast({
         title: 'Billing portal unavailable',
         description: 'Stripe portal is offline. Try again in a moment.',
@@ -343,7 +351,8 @@ const Billing = () => {
       if (error) throw error;
       setPaymentMethod(null);
       toast({ title: 'Card removed' });
-    } catch {
+    } catch (err) {
+      reportError(err, { area: 'billing', action: 'detach_payment_method' });
       toast({
         title: "Couldn't remove card",
         description: 'Please try again.',
@@ -371,7 +380,10 @@ const Billing = () => {
       });
       setPromoInput('');
       toast({ title: 'Promo code applied' });
-    } catch {
+    } catch (err) {
+      // An unknown code comes back as { valid: false } above; landing
+      // here means the request itself failed.
+      reportError(err, { area: 'billing', action: 'apply_promo' });
       setPromoError("That code isn't valid or has expired.");
     } finally {
       setPromoApplying(false);
@@ -383,7 +395,8 @@ const Billing = () => {
       const { error } = await supabase.functions.invoke('remove-promo');
       if (error) throw error;
       setActivePromo(null);
-    } catch {
+    } catch (err) {
+      reportError(err, { area: 'billing', action: 'remove_promo' });
       toast({
         title: "Couldn't remove code",
         description: 'Please try again.',

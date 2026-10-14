@@ -18,8 +18,9 @@
 // time.
 
 import { authenticate, corsHeaders, getServiceClient, getStripe, json } from "../_shared/billing.ts";
+import { handler } from "../_shared/http.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(handler("apply-promo", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
   }
@@ -111,4 +112,4 @@ Deno.serve(async (req) => {
     percent_off: percentOff,
     expires_at: expiresAt,
   }, 200, req);
-});
+}));
