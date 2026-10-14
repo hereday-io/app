@@ -8,10 +8,14 @@
 // (both are erased at runtime). The Stripe client and the service-role
 // Supabase client are passed in, so handlers.test.ts drives these
 // functions with fakes and fixture events. If you add a runtime import
-// here, the tests stop loading — inject it instead.
+// from a URL or npm: specifier here, the tests stop loading — inject it
+// instead. Relative imports of Deno-free modules are fine:
+// ../_shared/report.ts only touches Deno when called, and does nothing
+// without it.
 
 import type Stripe from "npm:stripe@17.3.1";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { reportError } from "../_shared/report.ts";
 
 /** The Stripe calls the handlers make. A real Stripe client satisfies it. */
 export interface StripeApi {
@@ -66,6 +70,15 @@ export async function handleCheckoutCompleted(
   const eventId = meta.hereday_event_id;
   if (!eventId) {
     console.warn("[stripe-webhook] checkout.session.completed without hereday_event_id", session.id);
+    // Acknowledged, so Stripe won't retry: if this session was paid, the
+    // money arrived with no event to unlock and only this report says so.
+    reportError("stripe-webhook", new Error("checkout session without hereday_event_id"), {
+      severity: "critical",
+      stage: "missing_event_id",
+      stripe_session_id: session.id,
+      payment_status: session.payment_status,
+      userId: meta.hereday_user_id ?? null,
+    });
     return;
   }
 
@@ -113,6 +126,15 @@ export async function handleCheckoutCompleted(
     // Permanent: the event is gone. Retrying for three days won't bring
     // it back, so let the delivery complete.
     console.error("[stripe-webhook] event not found", eventId);
+    // Paid with nothing to unlock, and acknowledged: a refund or a manual
+    // grant is the only fix, so this must reach a person.
+    reportError("stripe-webhook", new Error("paid checkout for an event that no longer exists"), {
+      severity: "critical",
+      stage: "event_not_found",
+      hereday_event_id: eventId,
+      stripe_session_id: session.id,
+      userId: meta.hereday_user_id ?? null,
+    });
     return;
   }
 
@@ -192,6 +214,13 @@ export async function handleCheckoutCompleted(
       // Non-fatal — the charge still exists, we just won't have a
       // pretty event name in the receipts list until backfilled.
       console.error("[stripe-webhook] charge metadata stamp failed", err);
+      reportError("stripe-webhook", err, {
+        severity: "warning",
+        stage: "charge_metadata",
+        hereday_event_id: eventId,
+        stripe_charge_id: chargeId,
+        userId: meta.hereday_user_id ?? null,
+      });
     }
   }
 }
@@ -205,6 +234,14 @@ export function handleAsyncPaymentFailed(session: Stripe.Checkout.Session): void
   console.warn(
     `[stripe-webhook] async payment failed for session ${session.id} (event ${meta.hereday_event_id ?? "unknown"})`,
   );
+  // Not our error, but a customer who thinks they paid is about to ask.
+  reportError("stripe-webhook", new Error("async payment failed"), {
+    severity: "warning",
+    stage: "async_payment_failed",
+    hereday_event_id: meta.hereday_event_id ?? null,
+    stripe_session_id: session.id,
+    userId: meta.hereday_user_id ?? null,
+  });
 }
 
 export async function handleChargeRefunded(
@@ -360,8 +397,44 @@ async function logRevenueEvent(
       event_id: args.eventId,
       properties,
     });
-    if (error) console.error(`[stripe-webhook] ${args.eventType} log failed`, error);
+    if (error) {
+      console.error(`[stripe-webhook] ${args.eventType} log failed`, error);
+      reportRevenueLogFailure(error, args);
+    }
   } catch (err) {
     console.error(`[stripe-webhook] ${args.eventType} log threw`, err);
+    reportRevenueLogFailure(err, args);
   }
+}
+
+// Pro was granted or revoked; only the revenue row is missing, which
+// under-counts sales in product_events until someone backfills it.
+function reportRevenueLogFailure(
+  err: unknown,
+  args: { eventType: string; userId: string | null; eventId: string },
+): void {
+  reportError("stripe-webhook", err, {
+    severity: "warning",
+    stage: "revenue_log",
+    revenue_event_type: args.eventType,
+    hereday_event_id: args.eventId,
+    userId: args.userId,
+  });
+}
+
+/**
+ * What a delivery was about, for index.ts's error reports. Read-only:
+ * checkout sessions and charges both carry the hereday_* metadata that
+ * create-checkout and the charge stamp write.
+ */
+export function deliveryContext(event: Stripe.Event) {
+  const object = event.data.object as { id?: string; metadata?: Record<string, string> | null };
+  const meta = object.metadata ?? {};
+  return {
+    stripe_event_id: event.id,
+    stripe_event_type: event.type,
+    stripe_object_id: object.id ?? null,
+    hereday_event_id: meta.hereday_event_id ?? null,
+    userId: meta.hereday_user_id ?? null,
+  };
 }

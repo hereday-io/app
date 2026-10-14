@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { reportError } from '@/lib/posthog';
 import { errorToast } from '@/lib/userFacingError';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import CitySearch from '@/components/editor/CitySearch';
@@ -64,10 +65,9 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
       return;
     }
 
-    // If the user selected Pro, attempt to redirect to Stripe checkout.
-    // When PAYMENTS_LIVE is false in UpgradeModal, this path creates the
-    // event and navigates to the editor — the upgrade will be available
-    // from the editor's UpgradeModal once Stripe is configured.
+    // If the user selected Pro, redirect to Stripe checkout. If checkout
+    // can't be opened the event still exists, so fall through to the
+    // editor, where the upgrade button retries it.
     if (wantsPro && data.id) {
       try {
         const { data: checkout, error: checkoutErr } = await supabase.functions.invoke('create-checkout', {
@@ -78,10 +78,18 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
           window.location.href = checkout.url;
           return;
         }
-      } catch {
-        // Stripe not live yet — fall through to normal flow
+        reportError(checkoutErr ?? new Error('create-checkout returned no url'), {
+          area: 'billing', action: 'create_checkout', hereday_event_id: data.id, trigger: 'create_dialog',
+        });
+      } catch (err) {
+        reportError(err, {
+          area: 'billing', action: 'create_checkout', hereday_event_id: data.id, trigger: 'create_dialog',
+        });
       }
-      toast({ title: 'Event created', description: 'Pro upgrade will be available once payments go live.' });
+      toast({
+        title: 'Event created',
+        description: "Checkout didn't open and you haven't been charged. Upgrade from the editor to try again.",
+      });
     } else {
       toast({ title: 'Event created' });
     }

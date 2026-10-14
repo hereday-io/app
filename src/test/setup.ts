@@ -22,7 +22,8 @@ if (!("IntersectionObserver" in globalThis)) {
   };
 }
 
-Object.defineProperty(window, "matchMedia", {
+// Absent in files that opt into the node environment.
+if (typeof window !== "undefined") Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({
     matches: false,

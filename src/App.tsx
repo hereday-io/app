@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
+import AppErrorBoundary from "@/components/AppErrorBoundary";
 
 // ─── Eager: the pre-login marketing surface ──────────────────────────
 // These are the routes we prerender to static HTML at build time, so
@@ -56,43 +57,45 @@ const RouteFallback = () => null;
 // StaticRouter. Keeping the router out of App is what lets one tree
 // serve both.
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Suspense fallback={<RouteFallback />}>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/events/:id" element={<EventOpsCenter />} />
-            <Route path="/editor" element={<RouteEditor />} />
-            <Route path="/scout/:token" element={<ScoutPage />} />
-            <Route path="/v/:token" element={<VolunteerStatusPage />} />
-            <Route path="/event/:slug" element={<EventPublic />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/refund" element={<Refund />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/admin" element={<AdminOverview />} />
-            <Route path="/admin/comps" element={<AdminComps />} />
-            <Route path="/admin/transfers" element={<AdminTransfers />} />
-            <Route path="/admin/crm" element={<AdminCrm />} />
-            <Route path="/admin/crm/:slug" element={<AdminCrm />} />
-            <Route path="/getting-started" element={<GettingStarted />} />
-            <Route path="/faq" element={<Faq />} />
-            <Route path="/pro" element={<ProGuide />} />
-            <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <AppErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/events/:id" element={<EventOpsCenter />} />
+              <Route path="/editor" element={<RouteEditor />} />
+              <Route path="/scout/:token" element={<ScoutPage />} />
+              <Route path="/v/:token" element={<VolunteerStatusPage />} />
+              <Route path="/event/:slug" element={<EventPublic />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/refund" element={<Refund />} />
+              <Route path="/billing" element={<Billing />} />
+              <Route path="/admin" element={<AdminOverview />} />
+              <Route path="/admin/comps" element={<AdminComps />} />
+              <Route path="/admin/transfers" element={<AdminTransfers />} />
+              <Route path="/admin/crm" element={<AdminCrm />} />
+              <Route path="/admin/crm/:slug" element={<AdminCrm />} />
+              <Route path="/getting-started" element={<GettingStarted />} />
+              <Route path="/faq" element={<Faq />} />
+              <Route path="/pro" element={<ProGuide />} />
+              <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </AppErrorBoundary>
 );
 
 export default App;

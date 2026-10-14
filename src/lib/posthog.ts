@@ -28,6 +28,11 @@ export function initPostHog(): void {
     // consistent and cookieless. Costs us nothing: identity still
     // survives across sessions on the same browser.
     persistence: 'localStorage',
+    // Uncaught errors and unhandled promise rejections go to PostHog
+    // Error Tracking as `$exception` events. Errors React catches in an
+    // error boundary never reach window.onerror in production, so
+    // AppErrorBoundary reports those itself through reportError().
+    capture_exceptions: true,
   });
 }
 

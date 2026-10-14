@@ -6,6 +6,8 @@
 // import is ~1MB of cold start for a function that never calls it.
 // billing.ts re-exports these, so existing importers didn't move.
 
+import { reportError } from "./report.ts";
+
 // Allowlist of origins that may invoke our endpoints. Anything else
 // gets the canonical production origin in the ACAO header — browsers will
 // reject the response, blocking third-party sites from issuing XHR with
@@ -72,8 +74,9 @@ export function publicJson(body: unknown, status = 200): Response {
 
 /**
  * Wrap a Deno.serve handler so an unexpected throw (a Stripe or network
- * error, say) is logged under the function's name and still reaches the
- * browser as a CORS-readable 500 instead of the runtime's bare error.
+ * error, say) is logged and reported under the function's name (see
+ * report.ts) and still reaches the browser as a CORS-readable 500
+ * instead of the runtime's bare error.
  */
 export function handler(
   name: string,
@@ -85,6 +88,8 @@ export function handler(
     } catch (err) {
       const url = new URL(req.url);
       console.error(`[${name}] unhandled error`, { method: req.method, path: url.pathname }, err);
+      // Not awaited: reporting must not hold up the 500.
+      reportError(name, err, { stage: "unhandled", method: req.method, path: url.pathname });
       return json({ error: "Internal error" }, 500, req);
     }
   };

@@ -21,13 +21,15 @@
 // flipping events.paid_at.
 
 import { authenticate, clearActivePromo, corsHeaders, ensureStripeCustomer, getStripe, getServiceClient, json } from "../_shared/billing.ts";
+import { handler } from "../_shared/http.ts";
+import { reportError } from "../_shared/report.ts";
 
 const PRICE_ID = Deno.env.get("STRIPE_PRICE_ID"); // $49 one-time price
 
 const isInvalidRequest = (err: unknown) =>
   (err as { type?: string }).type === "StripeInvalidRequestError";
 
-Deno.serve(async (req) => {
+Deno.serve(handler("create-checkout", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
   }
@@ -58,10 +60,26 @@ Deno.serve(async (req) => {
     .select("id, user_id, name")
     .eq("id", body.eventId)
     .maybeSingle();
+  if (eventErr) {
+    // Answered as a 404 like a missing event, but this one is our fault.
+    console.error("[create-checkout] event lookup failed", eventErr);
+    reportError("create-checkout", eventErr, {
+      severity: "error",
+      stage: "event_lookup",
+      hereday_event_id: body.eventId,
+      userId: auth.userId,
+    });
+  }
   if (eventErr || !event) return json({ error: "Event not found" }, 404, req);
   if (event.user_id !== auth.userId) return json({ error: "Not your event" }, 403, req);
 
   if (!PRICE_ID) {
+    // Nobody can buy Pro until this is fixed.
+    reportError("create-checkout", new Error("STRIPE_PRICE_ID not configured"), {
+      severity: "critical",
+      stage: "config",
+      userId: auth.userId,
+    });
     return json({ error: "STRIPE_PRICE_ID not configured" }, 500, req);
   }
 
@@ -116,4 +134,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ url: session.url, sessionId: session.id }, 200, req);
-});
+}));

@@ -54,7 +54,8 @@ import Stripe from "npm:stripe@17.3.1";
 import { getStripe } from "../_shared/billing.ts";
 import { getServiceClient } from "../_shared/db.ts";
 import { publicCors } from "../_shared/http.ts";
-import { dispatchEvent } from "./handlers.ts";
+import { reportError } from "../_shared/report.ts";
+import { deliveryContext, dispatchEvent } from "./handlers.ts";
 
 // How long an unfinished ledger claim is respected before another
 // delivery may take it over. Above the edge-function wall clock (150s
@@ -75,6 +76,10 @@ Deno.serve(async (req) => {
   const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   if (!secret) {
     console.error("[stripe-webhook] STRIPE_WEBHOOK_SECRET not configured");
+    reportError("stripe-webhook", new Error("STRIPE_WEBHOOK_SECRET not configured"), {
+      severity: "critical",
+      stage: "config",
+    });
     return new Response("Server misconfigured", { status: 500, headers: publicCors });
   }
 
@@ -93,6 +98,9 @@ Deno.serve(async (req) => {
     event = await stripe.webhooks.constructEventAsync(rawBody, signature, secret);
   } catch (err) {
     console.error("[stripe-webhook] signature verification failed", err);
+    // Usually a stray request, but a wrong or rotated secret fails every
+    // real delivery the same way, so it's reported rather than dropped.
+    reportError("stripe-webhook", err, { severity: "error", stage: "signature" });
     return new Response("Invalid signature", { status: 400, headers: publicCors });
   }
 
@@ -117,6 +125,7 @@ Deno.serve(async (req) => {
   if (replayErr) {
     if ((replayErr as { code?: string }).code !== "23505") {
       console.error("[stripe-webhook] replay-ledger insert failed", replayErr);
+      reportError("stripe-webhook", replayErr, { severity: "critical", stage: "ledger_claim", ...deliveryContext(event) });
       return new Response("Ledger error", { status: 500, headers: publicCors });
     }
 
@@ -136,6 +145,7 @@ Deno.serve(async (req) => {
       .select("event_id");
     if (reclaimErr) {
       console.error("[stripe-webhook] replay-ledger reclaim failed", reclaimErr);
+      reportError("stripe-webhook", reclaimErr, { severity: "critical", stage: "ledger_reclaim", ...deliveryContext(event) });
       return new Response("Ledger error", { status: 500, headers: publicCors });
     }
     if (!reclaimed?.length) {
@@ -152,6 +162,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (lookupErr) {
         console.error("[stripe-webhook] replay-ledger lookup failed", lookupErr);
+        reportError("stripe-webhook", lookupErr, { severity: "critical", stage: "ledger_lookup", ...deliveryContext(event) });
         return new Response("Ledger error", { status: 500, headers: publicCors });
       }
       if (!existing?.completed_at) {
@@ -173,6 +184,7 @@ Deno.serve(async (req) => {
     // Claim stays outstanding on purpose. Retries inside STALE_CLAIM_MS
     // get a 409; the first one after it reclaims and runs the handler.
     console.error(`[stripe-webhook] handler failed for ${event.type}`, err);
+    reportError("stripe-webhook", err, { severity: "critical", stage: "handler", ...deliveryContext(event) });
     return new Response("Handler failed", { status: 500, headers: publicCors });
   }
 
@@ -189,6 +201,7 @@ Deno.serve(async (req) => {
     // changed paid_at), so acknowledge anyway — a 500 here would make
     // Stripe retry work we have completed.
     console.error("[stripe-webhook] ledger completion stamp failed", completeErr);
+    reportError("stripe-webhook", completeErr, { severity: "warning", stage: "ledger_complete", ...deliveryContext(event) });
   }
 
   return new Response(JSON.stringify({ received: true }), {

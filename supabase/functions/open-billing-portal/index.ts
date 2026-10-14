@@ -5,8 +5,9 @@
 // Body: { returnUrl } — where the portal should bounce the user back to.
 
 import { authenticate, corsHeaders, ensureStripeCustomer, getStripe, json } from "../_shared/billing.ts";
+import { handler } from "../_shared/http.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(handler("open-billing-portal", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
   }
@@ -41,4 +42,4 @@ Deno.serve(async (req) => {
   });
 
   return json({ url: session.url }, 200, req);
-});
+}));

@@ -15,6 +15,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatchEvent, type ServiceClient, type StripeApi } from "./handlers.ts";
 import { FakeDb, type Row } from "./fakeDb.ts";
 
+// The acknowledged-but-owed cases must reach a person; assert they are
+// reported. (Under Node the real reporter is a no-op anyway.)
+const reportError = vi.hoisted(() => vi.fn());
+vi.mock("../_shared/report.ts", () => ({ reportError }));
+
 const EVENT_ID = "8f6c1f0e-3b52-4d7e-9a3c-2f7d5e1a9b01";
 const USER_ID = "2c9a7e41-6d0b-4f3a-8e15-b7c4d9a0e6f2";
 const OTHER_USER_ID = "5e1d3b8a-0c47-4a92-b6f1-93e2c8d7a405";
@@ -27,6 +32,7 @@ let stripe: ReturnType<typeof fakeStripe>;
 let evtSeq = 0;
 
 beforeEach(() => {
+  reportError.mockReset();
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -232,6 +238,8 @@ describe("checkout.session.completed (paid)", () => {
     await deliver(completed(session({ metadata: {} })));
     expect(db.queries).toEqual([]);
     expect(stripe.paymentIntents.retrieve).not.toHaveBeenCalled();
+    expect(reportError).toHaveBeenCalledWith("stripe-webhook", expect.any(Error),
+      expect.objectContaining({ severity: "critical", stage: "missing_event_id" }));
   });
 
   it("acknowledges a session whose event no longer exists", async () => {
@@ -239,6 +247,8 @@ describe("checkout.session.completed (paid)", () => {
     await expect(deliver(completed())).resolves.toBeUndefined();
     expect(writes()).toEqual([]);
     expect(stripe.charges.update).not.toHaveBeenCalled();
+    expect(reportError).toHaveBeenCalledWith("stripe-webhook", expect.any(Error),
+      expect.objectContaining({ severity: "critical", stage: "event_not_found", hereday_event_id: EVENT_ID }));
   });
 });
 
