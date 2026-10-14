@@ -191,7 +191,7 @@ const LayersPanel = ({
               onClick={() => setPoisOpen((v) => !v)}
               className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              <span>Points of Interest ({manualPois.length})</span>
+              <span>Markers ({manualPois.length})</span>
               {poisOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </button>
 
