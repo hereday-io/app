@@ -7,7 +7,11 @@
 //   audiences: ('subscribers' | 'volunteers')[]
 // }
 //
-// Returns: { sent: { subscribers: number, volunteers: number }, totalRecipients }
+// Returns: { sent: { subscribers, volunteers }, totalRecipients,
+//            intendedRecipients, partial } (SendSummary in delivery.ts).
+//   totalRecipients is how many people it reached. partial is true when
+//   a Resend batch failed after an earlier one went out. If nobody was
+//   reached it's a 502 instead.
 //
 // Guardrails:
 //   - Auth: must be the event's owner (via _shared/billing authenticate).
@@ -15,11 +19,14 @@
 //   - Rate limit: 1 send per event per 24h total (query email_sends).
 //   - Unsubscribed recipients filtered out.
 //   - Resend Batch API for delivery, up to 100 per chunk.
-//   - Audit row written to email_sends.
+//   - Audit row written to email_sends whenever anyone was reached,
+//     a partial send included (the row is also the 24h lock).
 
 import { authenticate, corsHeaders, getServiceClient, json } from "../_shared/billing.ts";
 import { renderOrganizerEmailHtml, renderOrganizerEmailText } from "../_shared/emailTemplate.ts";
+import { reportError } from "../_shared/report.ts";
 import { signUnsubscribeToken } from "../_shared/unsubscribeToken.ts";
+import { deliverInChunks, summarizeDelivery } from "./delivery.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM_ADDRESS = Deno.env.get("EMAIL_FROM_ADDRESS") ?? "Hereday <noreply@hereday.io>";
@@ -180,10 +187,7 @@ Deno.serve(async (req) => {
   }
 
   // Send in chunks via Resend Batch API. One HTTP call per chunk.
-  let resendBatchId: string | null = null;
-  let successful = 0;
-  for (let i = 0; i < rendered.length; i += BATCH_CHUNK_SIZE) {
-    const chunk = rendered.slice(i, i + BATCH_CHUNK_SIZE);
+  const delivery = await deliverInChunks(rendered, BATCH_CHUNK_SIZE, async (chunk) => {
     const payload = chunk.map((r) => ({
       from: FROM_ADDRESS,
       to: [r.to],
@@ -207,25 +211,47 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify(payload),
     });
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error("[send-event-update] Resend batch failed", resp.status, errText);
-      if (successful === 0) {
-        return json({ error: "Email provider rejected the send", detail: errText }, 502, req);
-      }
-      // Partial success — record what we sent and return a warning.
-      break;
-    }
+    if (!resp.ok) return { ok: false, status: resp.status, detail: await resp.text() };
 
     const result = await resp.json().catch(() => ({}));
-    if (!resendBatchId && Array.isArray(result?.data) && result.data[0]?.id) {
-      resendBatchId = result.data[0].id as string;
-    }
-    successful += chunk.length;
+    const id = Array.isArray(result?.data) && result.data[0]?.id ? result.data[0].id as string : null;
+    return { ok: true, id };
+  });
+
+  if (delivery.failure) {
+    console.error("[send-event-update] Resend batch failed", delivery.failure.status, delivery.failure.detail);
+  }
+  if (delivery.sent === 0) {
+    // Nobody got it: no audit row, so no 24h lock, and the organizer can
+    // try again.
+    return json({ error: "Email provider rejected the send", detail: delivery.failure?.detail }, 502, req);
   }
 
-  // Audit log
+  const summary = summarizeDelivery(deduped, delivery);
+  if (summary.partial) {
+    // The organizer is told to contact support, so support needs to know
+    // who's missing. Addresses go to the function log only, never to
+    // PostHog.
+    const unsent = deduped.slice(delivery.sent).map((r) => `${r.audience}:${r.email}`);
+    console.error("[send-event-update] partial send", {
+      eventId, sent: summary.totalRecipients, intended: summary.intendedRecipients, unsent,
+    });
+    reportError("send-event-update", new Error("partial send: some recipients didn't get the update"), {
+      severity: "error",
+      stage: "resend_batch",
+      userId: auth.userId,
+      hereday_event_id: eventId,
+      sent: summary.totalRecipients,
+      intended: summary.intendedRecipients,
+      resend_status: delivery.failure?.status ?? null,
+      resend_detail: delivery.failure?.detail.slice(0, 500) ?? null,
+    });
+  }
+
+  // Audit log. This row is also the 24h lock, and a partial send takes it
+  // too: there's no per-recipient record, so a retry would re-send to
+  // everyone, including the people who already got it. The organizer is
+  // told to contact support instead.
   const bodyPreview = markdown.slice(0, 200);
   const { error: auditErr } = await service
     .from("email_sends")
@@ -235,19 +261,21 @@ Deno.serve(async (req) => {
       subject,
       body_preview: bodyPreview,
       audiences,
-      recipient_count: successful,
-      resend_batch_id: resendBatchId,
+      recipient_count: delivery.sent,
+      resend_batch_id: delivery.firstId,
     });
   if (auditErr) {
     console.error("[send-event-update] audit insert failed", auditErr);
-    // Don't fail the request — the send already happened.
+    // Don't fail the request — the send already happened. But without the
+    // row there's no 24h lock and no history entry, so say so.
+    reportError("send-event-update", auditErr, {
+      severity: "error",
+      stage: "audit_insert",
+      userId: auth.userId,
+      hereday_event_id: eventId,
+      sent: delivery.sent,
+    });
   }
 
-  // Per-audience counts for the UI
-  const sent = {
-    subscribers: deduped.slice(0, successful).filter((r) => r.audience === "s").length,
-    volunteers: deduped.slice(0, successful).filter((r) => r.audience === "v").length,
-  };
-
-  return json({ sent, totalRecipients: successful }, 200, req);
+  return json(summary, 200, req);
 });
