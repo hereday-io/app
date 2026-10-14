@@ -152,7 +152,7 @@ const UpgradeModal = ({ open, onClose, trigger = 'manual', eventId, onBeforeRedi
             </Button>
             {checkoutFailed && (
               <p role="alert" className="text-xs text-destructive text-center mt-2">
-                Couldn't open checkout. You haven't been charged. Try again, or email support@hereday.io.
+                Couldn't open checkout. You haven't been charged. Try again, or email hello@hereday.io.
               </p>
             )}
             <p className="text-xs text-muted-foreground text-center mt-2">

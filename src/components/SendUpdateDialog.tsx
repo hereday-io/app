@@ -187,7 +187,7 @@ const SendUpdateDialog = ({ open, onOpenChange, eventId, eventName }: SendUpdate
         title: 'Your update only partly went out',
         description:
           `Sent to ${total} of ${intended} people. The other ${missing === 1 ? 'one' : missing} didn't go out. ` +
-          'Contact support at support@hereday.io before trying again.',
+          'Contact support at hello@hereday.io before trying again.',
         variant: 'destructive',
         // Stays up until dismissed: the dialog closes, and this is the only
         // place the organizer learns that some people got nothing.
