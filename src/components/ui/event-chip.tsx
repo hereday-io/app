@@ -5,7 +5,7 @@ export type EventChipKind = 'live' | 'draft' | 'pro' | 'free' | 'past';
 const KIND_STYLES: Record<EventChipKind, string> = {
   live: 'bg-[hsl(152_60%_42%)] text-white',
   draft: 'bg-[hsl(210_15%_93%)] text-[hsl(215_20%_45%)]',
-  pro: 'bg-[hsl(217_91%_50%/0.1)] text-[hsl(217_91%_40%)] border border-[hsl(217_91%_50%/0.2)]',
+  pro: 'bg-primary/[0.1] text-[hsl(217_91%_40%)] border border-primary/[0.2]',
   free: 'bg-[hsl(45_93%_94%)] text-[hsl(32_65%_35%)]',
   past: 'bg-[hsl(210_15%_93%)] text-[hsl(215_20%_45%)]',
 };

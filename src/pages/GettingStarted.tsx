@@ -65,10 +65,10 @@ const GettingStarted = () => {
 
           <Step number={3} title="Draw your route">
             <p>
-              Click the map to place waypoints. Hereday snaps them to real roads automatically
+              Click the map to place points. Hereday snaps them to real roads automatically
               using turn-by-turn routing. Keep clicking to extend the course, then either{' '}
               <strong>double-click</strong> or hit the <strong>Finish route</strong> button
-              (appears after 3 waypoints) to close it out.
+              (appears after 3 points) to close it out.
             </p>
             <p className="mt-2">
               Running a multi-course event (5K / 10K / half)? Add another route from the

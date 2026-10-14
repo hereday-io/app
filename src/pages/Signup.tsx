@@ -205,7 +205,7 @@ const Signup = () => {
         <button
           type="submit"
           disabled={loading || !passwordAcceptable}
-          className="w-full h-11 rounded-lg bg-[hsl(217_91%_50%)] text-white font-medium text-[14px] inline-flex items-center justify-center gap-2 hover:bg-[hsl(217_91%_45%)] shadow-[0_1px_2px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full h-11 rounded-lg bg-primary text-white font-medium text-[14px] inline-flex items-center justify-center gap-2 hover:bg-[hsl(217_91%_45%)] shadow-[0_1px_2px_rgba(0,0,0,0.05)] disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? 'Creating account…' : (
             <>

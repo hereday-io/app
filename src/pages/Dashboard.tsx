@@ -158,7 +158,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
   const isPublished = event.status === 'published';
   const isDraft = event.status === 'draft';
   const isPro = isEventPro(event);
-  const barColor = isPro ? 'bg-[hsl(217_91%_50%)]' : isLive ? 'bg-[hsl(152_60%_42%)]' : 'bg-border';
+  const barColor = isPro ? 'bg-primary' : isLive ? 'bg-[hsl(152_60%_42%)]' : 'bg-border';
   const showLimitWarning = !isPro && event.poi_count >= 22;
 
   return (
@@ -252,7 +252,7 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); actions.onTogglePublish(); }}
-            className="h-8 px-3 rounded-lg bg-[hsl(217_91%_50%)] text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 hover:bg-[hsl(217_91%_45%)] whitespace-nowrap"
+            className="h-8 px-3 rounded-lg bg-primary text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 hover:bg-[hsl(217_91%_45%)] whitespace-nowrap"
           >
             <Rocket className="h-3 w-3" />
             Publish
@@ -655,7 +655,7 @@ const Dashboard = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[hsl(210_20%_98%)]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading…</div>
       </div>
     );
@@ -669,7 +669,7 @@ const Dashboard = () => {
   })();
 
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
+    <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-md">
         <div className="mx-auto max-w-[1180px] flex items-center justify-between py-[10px] px-6">
           <button
@@ -703,7 +703,7 @@ const Dashboard = () => {
                 <button
                   type="button"
                   aria-label="Open user menu"
-                  className="h-[30px] w-[30px] rounded-full bg-[hsl(217_91%_50%)] text-white font-display font-semibold text-[12px] flex items-center justify-center tracking-[0.02em] hover:bg-[hsl(217_91%_45%)]"
+                  className="h-[30px] w-[30px] rounded-full bg-primary text-white font-display font-semibold text-[12px] flex items-center justify-center tracking-[0.02em] hover:bg-[hsl(217_91%_45%)]"
                 >
                   {userInitials}
                 </button>
@@ -779,7 +779,7 @@ const Dashboard = () => {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="h-10 px-4 rounded-lg bg-[hsl(217_91%_50%)] text-white font-medium text-[13.5px] inline-flex items-center gap-2 hover:bg-[hsl(217_91%_45%)] whitespace-nowrap"
+            className="h-10 px-4 rounded-lg bg-primary text-white font-medium text-[13.5px] inline-flex items-center gap-2 hover:bg-[hsl(217_91%_45%)] whitespace-nowrap"
           >
             <Plus className="h-4 w-4" /> New event
           </button>
@@ -798,7 +798,7 @@ const Dashboard = () => {
             <button
               type="button"
               onClick={() => navigate(`/editor?id=${calloutEvent.id}`)}
-              className="text-[hsl(217_91%_45%)] border-b border-[hsl(217_91%_50%/0.3)] hover:border-[hsl(217_91%_45%)]"
+              className="text-[hsl(217_91%_45%)] border-b border-primary/[0.3] hover:border-[hsl(217_91%_45%)]"
             >
               review &amp; publish
             </button>
@@ -815,7 +815,7 @@ const Dashboard = () => {
             <button
               type="button"
               onClick={() => navigate('/billing')}
-              className="text-[hsl(217_91%_45%)] border-b border-[hsl(217_91%_50%/0.3)] hover:border-[hsl(217_91%_45%)]"
+              className="text-[hsl(217_91%_45%)] border-b border-primary/[0.3] hover:border-[hsl(217_91%_45%)]"
             >
               Unlock Pro — $49
             </button>{' '}
@@ -853,7 +853,7 @@ const Dashboard = () => {
                 </span>
               }
               icon={Eye}
-              accent="text-[hsl(217_91%_50%)]"
+              accent="text-primary"
             />
             <StatBlock
               label="Subscribers"
@@ -894,7 +894,7 @@ const Dashboard = () => {
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="h-10 px-4 rounded-lg bg-[hsl(217_91%_50%)] text-white font-medium text-[13.5px] inline-flex items-center gap-2 hover:bg-[hsl(217_91%_45%)]"
+                className="h-10 px-4 rounded-lg bg-primary text-white font-medium text-[13.5px] inline-flex items-center gap-2 hover:bg-[hsl(217_91%_45%)]"
               >
                 <Plus className="h-4 w-4" /> Create event
               </button>
@@ -924,7 +924,7 @@ const Dashboard = () => {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search events…"
-                    className="h-8 w-full sm:w-[220px] pl-8 pr-3 rounded-lg text-[12.5px] focus-visible:ring-[hsl(217_91%_50%/0.15)] focus-visible:ring-offset-0"
+                    className="h-8 w-full sm:w-[220px] pl-8 pr-3 rounded-lg text-[12.5px] focus-visible:ring-primary/[0.15] focus-visible:ring-offset-0"
                   />
                 </div>
                 <div className="inline-flex items-center rounded-lg border border-border bg-white p-[2px] text-[12px]">

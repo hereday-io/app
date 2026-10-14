@@ -10,9 +10,12 @@ interface SearchResult {
 interface LocationSearchProps {
   token: string;
   onSelect: (center: [number, number], name: string) => void;
+  /** Bump to open the search box from outside (e.g. the editor's
+   *  "Find where your race starts" hint). */
+  openSignal?: number;
 }
 
-const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
+const LocationSearch = ({ token, onSelect, openSignal = 0 }: LocationSearchProps) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -21,6 +24,10 @@ const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (openSignal > 0) setExpanded(true);
+  }, [openSignal]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -138,6 +145,7 @@ const LocationSearch = ({ token, onSelect }: LocationSearchProps) => {
           onClick={() => setExpanded(true)}
           className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Search location"
+          aria-label="Search location"
         >
           <Search className="h-4 w-4" />
         </button>

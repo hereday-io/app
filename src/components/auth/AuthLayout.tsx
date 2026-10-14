@@ -24,11 +24,11 @@ interface AuthLayoutProps {
  * both use it so moving between them doesn't feel like a different product.
  */
 const AuthLayout = ({ headerAction, children }: AuthLayoutProps) => (
-  <div className="min-h-screen grid lg:grid-cols-[1.05fr_1fr] bg-[hsl(210_20%_98%)]">
+  <div className="min-h-screen grid lg:grid-cols-[1.05fr_1fr] bg-background">
     {/* ── Left — brand splash ───────────────────────────────────── */}
     <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-[hsl(217_91%_18%)] via-[hsl(217_80%_26%)] to-[hsl(217_65%_40%)] text-white relative overflow-hidden">
       <div className="absolute -top-32 -right-32 w-[460px] h-[460px] rounded-full bg-gradient-to-br from-[hsl(25_95%_58%/0.4)] to-transparent blur-3xl" />
-      <div className="absolute -bottom-40 -left-20 w-[380px] h-[380px] rounded-full bg-[hsl(217_91%_50%/0.4)] blur-3xl" />
+      <div className="absolute -bottom-40 -left-20 w-[380px] h-[380px] rounded-full bg-primary/[0.4] blur-3xl" />
 
       <Link to="/" className="relative flex items-center gap-3">
         <img src="/browserlogo.png" alt="" className="h-11 w-11 rounded-xl" />
