@@ -96,7 +96,7 @@ describe('useCheckoutReturn', () => {
 
     await advance(CHECKOUT_POLL_INTERVAL_MS * 2);
     expect(screen.getByText('Your payment went through')).toBeInTheDocument();
-    expect(screen.getByText(/support@hereday\.io/)).toBeInTheDocument();
+    expect(screen.getByText(/hello@hereday\.io/)).toBeInTheDocument();
     expect(screen.queryByText('Pro is activating…')).not.toBeInTheDocument();
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError).toHaveBeenCalledWith(new Error('paid return but not Pro'), {
