@@ -358,7 +358,7 @@ function RaceDayChecklistDocument(props: DocProps) {
             <Text>hereday.io</Text>
           ) : (
             <Text>
-              <Text style={styles.footerFree}>Made with Hereday</Text> — upgrade to Pro to remove this footer · hereday.io
+              <Text style={styles.footerFree}>Made with Hereday</Text> — unlock Pro to remove this footer · hereday.io
             </Text>
           )}
         </Text>

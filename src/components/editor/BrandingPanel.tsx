@@ -11,6 +11,8 @@ interface BrandingPanelProps {
   onLogoChange: (url: string | null) => void;
   onStyleChange: (style: BrandingStyle) => void;
   isPaid: boolean;
+  /** Opens the Pro checkout for this event. */
+  onUnlockPro: () => void;
   eventId: string;
   userId: string;
 }
@@ -21,7 +23,7 @@ const STYLE_OPTIONS: { value: BrandingStyle; label: string; description: string 
   { value: 'both', label: 'Both', description: 'Corner logo + top banner bar' },
 ];
 
-const BrandingPanel = ({ logoUrl, brandingStyle, onLogoChange, onStyleChange, isPaid, eventId, userId }: BrandingPanelProps) => {
+const BrandingPanel = ({ logoUrl, brandingStyle, onLogoChange, onStyleChange, isPaid, onUnlockPro, eventId, userId }: BrandingPanelProps) => {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -61,10 +63,10 @@ const BrandingPanel = ({ logoUrl, brandingStyle, onLogoChange, onStyleChange, is
           <div>
             <p className="text-sm font-medium text-foreground">Custom Branding</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Add your event logo to the public map. Upgrade to a paid plan to unlock this feature.
+              Add your event logo and a branded banner to the public map. Pro applies to this one event.
             </p>
-            <Button size="sm" variant="outline" className="mt-2 h-7 text-xs gap-1" disabled>
-              <Crown className="h-3 w-3 text-amber-500" /> Upgrade to unlock
+            <Button size="sm" variant="outline" className="mt-2 h-7 text-xs gap-1" onClick={onUnlockPro}>
+              <Crown className="h-3 w-3 text-amber-500" /> Unlock Pro — $49
             </Button>
           </div>
         </div>

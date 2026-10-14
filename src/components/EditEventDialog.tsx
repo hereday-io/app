@@ -397,7 +397,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
                   className="shrink-0 text-xs border-primary text-primary hover:bg-primary/10"
                   onClick={() => window.open('/#pricing', '_blank')}
                 >
-                  Upgrade to Pro
+                  Unlock Pro
                 </Button>
               </div>
             )}

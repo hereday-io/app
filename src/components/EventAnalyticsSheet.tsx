@@ -143,7 +143,7 @@ const EventAnalyticsSheet = ({ open, onOpenChange, eventId, eventName, isPro }: 
                   ) : (
                     <>
                       <div className="text-sm font-medium text-muted-foreground mt-1">Pro feature</div>
-                      <p className="text-[10px] text-muted-foreground mt-1">Upgrade to see tracking stats</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Unlock Pro to see tracking stats</p>
                     </>
                   )}
                 </CardContent>

@@ -118,7 +118,7 @@ const ProGuide = () => {
               takes about five minutes.
             </li>
             <li>
-              Open the event and choose <strong>Unlock for $49</strong>. Pro applies to that one
+              Open the event in the editor and choose <strong>Unlock Pro</strong>. Pro applies to that one
               event; your other events stay free until you decide otherwise.
             </li>
             <li>

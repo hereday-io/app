@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass, Radio } from 'lucide-react';
+import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass, Radio, Crown } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
 import ShareQrCode from '@/components/editor/ShareQrCode';
 import { logEvent } from '@/lib/analytics';
@@ -40,6 +40,8 @@ interface EditorTopBarProps {
   onHelp?: () => void;
   onScoutLink?: () => void;
   onPublish?: () => void;
+  /** Set for Free events only; renders the "Unlock Pro" button. */
+  onUnlockPro?: () => void;
   onFinishRoute?: () => void;
   canFinishRoute?: boolean;
   sidebarOpen?: boolean;
@@ -75,6 +77,7 @@ const EditorTopBar = ({
   onHelp,
   onScoutLink,
   onPublish,
+  onUnlockPro,
   onFinishRoute,
   canFinishRoute,
   sidebarOpen,
@@ -268,6 +271,20 @@ const EditorTopBar = ({
               {pendingScoutedCount === 1 ? '1 scouted' : `${pendingScoutedCount} scouted`}
             </span>
             <span className="text-[10px] opacity-70 hidden md:inline">Review →</span>
+          </Button>
+        )}
+        {/* Free events only: the one always-visible way to buy Pro, so the
+            Pro guide's "choose Unlock Pro" points at something real. */}
+        {onUnlockPro && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onUnlockPro}
+            className="h-8 gap-1.5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+            title="Unlock Pro for this event — $49"
+          >
+            <Crown className="h-3.5 w-3.5" />
+            <span className={labelClass}>Unlock Pro</span>
           </Button>
         )}
         {/* Autosave status chip — doubles as a manual-save trigger.
