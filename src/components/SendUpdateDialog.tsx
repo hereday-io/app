@@ -35,6 +35,13 @@ interface SendHistoryRow {
   sent_at: string;
 }
 
+/** send-event-update's 200 body (SendSummary in its delivery.ts). */
+interface SendResult {
+  totalRecipients?: number;
+  intendedRecipients?: number;
+  partial?: boolean;
+}
+
 const SUBJECT_MAX = 200;
 
 const SendUpdateDialog = ({ open, onOpenChange, eventId, eventName }: SendUpdateDialogProps) => {
@@ -136,16 +143,28 @@ const SendUpdateDialog = ({ open, onOpenChange, eventId, eventName }: SendUpdate
     if (toVolunteers) audiences.push('volunteers');
     logEvent('email_update_sent', eventId, { audiences, recipient_count: totalRecipients });
 
-    let data: { totalRecipients?: number };
+    let data: SendResult;
     try {
-      data = await invokeFunction<{ totalRecipients?: number }>('send-event-update', {
+      data = await invokeFunction<SendResult>('send-event-update', {
         eventId, subject: subject.trim(), body, audiences,
       });
     } catch (err) {
       setSending(false);
-      // send-event-update only errors before the first batch goes out
-      // (a partial send returns 200), so nobody received this one.
       const { kind } = userFacingError(err, { action: 'send this update', logLabel: 'SendUpdateDialog send' });
+      if (kind === 'network') {
+        // The request may have reached the function before the connection
+        // dropped, so we can't say nobody got it. A send that went out is
+        // in the history and holds the 24h lock, both shown on reopen.
+        toast({
+          title: "We couldn't confirm your update went out",
+          description: 'The connection dropped. Close this and reopen Send update: if it went out, it shows in Send history.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      // Otherwise send-event-update answered with an error, which it only
+      // does when nobody was reached (a partial send is a 200 with
+      // partial: true).
       toast({
         title: "Your update wasn't sent",
         description:
@@ -161,10 +180,25 @@ const SendUpdateDialog = ({ open, onOpenChange, eventId, eventName }: SendUpdate
     setSending(false);
 
     const total = data?.totalRecipients ?? 0;
-    toast({
-      title: 'Update sent',
-      description: `Sent to ${total} ${total === 1 ? 'person' : 'people'}.`,
-    });
+    if (data?.partial) {
+      const intended = data.intendedRecipients ?? total;
+      const missing = intended - total;
+      toast({
+        title: 'Your update only partly went out',
+        description:
+          `Sent to ${total} of ${intended} people. The other ${missing === 1 ? 'one' : missing} didn't go out. ` +
+          'Contact support at support@hereday.io before trying again.',
+        variant: 'destructive',
+        // Stays up until dismissed: the dialog closes, and this is the only
+        // place the organizer learns that some people got nothing.
+        duration: Infinity,
+      });
+    } else {
+      toast({
+        title: 'Update sent',
+        description: `Sent to ${total} ${total === 1 ? 'person' : 'people'}.`,
+      });
+    }
     onOpenChange(false);
   }, [eventId, toSubscribers, toVolunteers, subject, body, totalRecipients, toast, onOpenChange]);
 
