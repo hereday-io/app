@@ -47,7 +47,8 @@ const MobileEditorGate = ({ onBack, editorUrl, userEmail }: MobileEditorGateProp
           className="gap-2"
         >
           {emailSent ? <Check className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-          {emailSent ? 'Check your email' : 'Email me this link'}
+          {/* mailto only opens a draft — the user still has to hit Send */}
+          {emailSent ? 'Draft opened — tap Send' : 'Email me this link'}
         </Button>
       )}
       <p className="text-xs text-muted-foreground">
