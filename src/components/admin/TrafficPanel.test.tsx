@@ -47,7 +47,8 @@ describe('TrafficPanel', () => {
       top_referrers: [],
     });
     render(<TrafficPanel days={30} signups={0} signupsByDay={[]} />);
-    expect(screen.getByText(/the site isn't\s+sending/)).toBeInTheDocument();
+    expect(screen.getByText(/the site may not be\s+sending/)).toBeInTheDocument();
+    expect(screen.getByText(/admins and sales reps left out/)).toBeInTheDocument();
   });
 
   it('renders totals, the signup rate, pages and referrers', () => {

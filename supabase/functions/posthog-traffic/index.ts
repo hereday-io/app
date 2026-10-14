@@ -3,7 +3,8 @@
 // Admin-only. Returns visitors / pageviews / sessions for the window and
 // the window before it, a daily series, and the top pages and referrers.
 // Supabase `product_events` only sees signed-in actions and a couple of
-// page types; this is the anonymous top of the funnel.
+// page types; this is the anonymous top of the funnel. Admins and sales
+// reps (profiles.is_admin / is_sales) are left out of every number.
 //
 // Body: { days?: number }
 //
@@ -18,6 +19,7 @@
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { requireAdmin } from "../_shared/adminAuth.ts";
+import { getServiceClient } from "../_shared/db.ts";
 import {
   clampDays,
   errorHint,
@@ -93,8 +95,27 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Admins and reps browse the site all day; on a small site they'd be
+  // most of the traffic. Fail rather than quietly count them.
+  const { data: staff, error: staffErr } = await getServiceClient()
+    .from("profiles")
+    .select("user_id")
+    .or("is_admin.eq.true,is_sales.eq.true");
+  if (staffErr) {
+    console.error("[posthog-traffic] staff lookup failed:", staffErr);
+    return json(
+      {
+        configured: true,
+        error: "Couldn't load the admin and sales accounts to leave out of the counts.",
+        hint: "Check the posthog-traffic function logs in Supabase.",
+      },
+      500,
+      req,
+    );
+  }
+
   const days = clampDays(body.days);
-  const queries = trafficQueries(days);
+  const queries = trafficQueries(days, (staff ?? []).map((p) => String(p.user_id)));
   const names = Object.keys(queries) as TrafficQueryName[];
 
   try {

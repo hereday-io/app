@@ -128,11 +128,16 @@ const TrafficPanel = ({ days, signups, signupsByDay }: TrafficPanelProps) => {
 
   if (totals.pageviews === 0 && prev.pageviews === 0) {
     return (
-      <SectionCard title="Site traffic" hint={`Last ${days} days, hereday.io only.`} action={link}>
+      <SectionCard
+        title="Site traffic"
+        hint={`Last ${days} days, hereday.io only, admins and sales reps left out.`}
+        action={link}
+      >
         <EmptyRow>
-          PostHog has no pageviews from hereday.io in this window. If that persists, the site isn't
-          sending: check that <code className="text-[11.5px]">VITE_POSTHOG_KEY</code> is set for
-          Production in Vercel and that a deploy has run since.
+          PostHog has no visitor pageviews from hereday.io in this window; your own visits and the
+          reps' don't count. If that persists, the site may not be sending: check that{' '}
+          <code className="text-[11.5px]">VITE_POSTHOG_KEY</code> is set for Production in Vercel
+          and that a deploy has run since.
         </EmptyRow>
       </SectionCard>
     );
@@ -153,7 +158,7 @@ const TrafficPanel = ({ days, signups, signupsByDay }: TrafficPanelProps) => {
   return (
     <SectionCard
       title="Site traffic"
-      hint={`Every pageview on hereday.io in the last ${days} days, signed in or not, excluding /admin. ${
+      hint={`Every pageview on hereday.io in the last ${days} days, signed in or not, excluding /admin and anyone with an admin or sales account. ${
         since
           ? `PostHog data starts ${since}, so this covers ${coverage.coveredDays} day${coverage.coveredDays === 1 ? '' : 's'} and the signup rate counts signups from then on. `
           : ''
