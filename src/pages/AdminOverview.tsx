@@ -32,53 +32,16 @@ import {
 import AdminRouteGuard from '@/components/admin/AdminRouteGuard';
 import AdminHeader from '@/components/admin/AdminHeader';
 import SearchConsolePanel from '@/components/admin/SearchConsolePanel';
+import TrafficPanel from '@/components/admin/TrafficPanel';
 import { Delta, EmptyRow, SectionCard, StatCard } from '@/components/admin/AdminStats';
-import { nf } from '@/lib/metrics';
-import { useAdminOverview, type DayCount } from '@/hooks/useAdminOverview';
+import { buildSeries, nf } from '@/lib/metrics';
+import { useAdminOverview } from '@/hooks/useAdminOverview';
 
 // Stripe holds the real amounts (promos, refunds), so anything derived
 // from a paid-event count is a list-price estimate and says so.
 const LIST_PRICE_USD = 49;
 
 const RANGES = [7, 30, 90] as const;
-
-function formatDay(day: string): string {
-  return new Date(day + 'T00:00:00Z').toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  });
-}
-
-/**
- * The RPC only returns days that had rows. Rendering those straight
- * into a chart silently compresses quiet stretches, so rebuild a
- * continuous UTC axis across the whole window and fill gaps with 0.
- */
-function buildSeries(
-  days: number,
-  series: Record<string, DayCount[]>,
-): Array<Record<string, string | number>> {
-  const keys = Object.keys(series);
-  const lookup: Record<string, Map<string, number>> = {};
-  for (const k of keys) {
-    lookup[k] = new Map(series[k].map((d) => [d.day, d.count]));
-  }
-
-  const out: Array<Record<string, string | number>> = [];
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-
-  for (let i = days; i >= 0; i--) {
-    const d = new Date(today);
-    d.setUTCDate(d.getUTCDate() - i);
-    const iso = d.toISOString().slice(0, 10);
-    const row: Record<string, string | number> = { day: formatDay(iso) };
-    for (const k of keys) row[k] = lookup[k].get(iso) ?? 0;
-    out.push(row);
-  }
-  return out;
-}
 
 const trafficChartConfig: ChartConfig = {
   signups: { label: 'Signups', color: 'hsl(var(--primary))' },
@@ -389,6 +352,9 @@ const AdminOverviewInner = () => {
                 </div>
               </div>
             </div>
+
+            {/* ── Site traffic (PostHog) ─────────────────────────── */}
+            <TrafficPanel days={days} signups={data.users.new_in_window} />
 
             {/* ── Public pages (top of funnel) ───────────────────── */}
             <SectionCard
