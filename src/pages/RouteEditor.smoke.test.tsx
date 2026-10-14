@@ -152,6 +152,28 @@ describe('RouteEditor mounts', () => {
     expect(thrown, thrown instanceof Error ? thrown.message : String(thrown)).toBeNull();
   });
 
+  it('offers to email the editor link on a phone', async () => {
+    // The gate's "Email me this link" button only renders when it is
+    // handed the URL — a phone visitor otherwise hits a dead end.
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      ...original(query),
+      matches: query === '(pointer: coarse)',
+    })) as typeof window.matchMedia;
+    try {
+      const { default: RouteEditor } = await import('./RouteEditor');
+      render(
+        <MemoryRouter initialEntries={['/editor?event=evt-1']}>
+          <RouteEditor />
+        </MemoryRouter>
+      );
+      expect(screen.getByText('Open this on a computer')).toBeTruthy();
+      expect(screen.getByRole('button', { name: /email me this link/i })).toBeTruthy();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
   it('renders something to the document', async () => {
     const { default: RouteEditor } = await import('./RouteEditor');
     const { container } = render(
