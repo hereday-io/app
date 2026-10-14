@@ -47,6 +47,8 @@ interface RouteBuilderToolbarProps {
   poiSnapToRoute: boolean;
   setPoiSnapToRoute: (v: boolean) => void;
   isPaid: boolean;
+  /** Opens the Pro checkout for this event (Branding panel lock). */
+  onUnlockPro: () => void;
   finishedRouteIds: Set<string>;
   onResumeRoute: (id: string) => void;
   // Branding
@@ -94,7 +96,7 @@ const RouteBuilderToolbar = ({
   pois, setPois,
   selectedBasemap, setSelectedBasemap,
   poiSnapToRoute, setPoiSnapToRoute,
-  isPaid,
+  isPaid, onUnlockPro,
   finishedRouteIds, onResumeRoute,
   logoUrl, brandingStyle, onLogoChange, onBrandingStyleChange,
   eventId, userId,
@@ -349,6 +351,7 @@ const RouteBuilderToolbar = ({
             onLogoChange={onLogoChange}
             onStyleChange={onBrandingStyleChange}
             isPaid={isPaid}
+            onUnlockPro={onUnlockPro}
             eventId={eventId}
             userId={userId}
           />

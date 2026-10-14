@@ -32,7 +32,8 @@ import { type ScoutedPoiRecord } from '@/components/editor/ScoutReviewPanel';
 import EditorTour from '@/components/editor/EditorTour';
 import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverlay';
 import PoiEditPopover from '@/components/editor/PoiEditPopover';
-import UpgradeModal from '@/components/UpgradeModal';
+import UpgradeModal, { type UpgradeTrigger } from '@/components/UpgradeModal';
+import EventLiveModal from '@/components/editor/EventLiveModal';
 import { PAYWALL_LIMITS, usePaywall } from '@/hooks/usePaywall';
 import { useCheckoutReturn } from '@/hooks/useCheckoutReturn';
 import { errorToast } from '@/lib/userFacingError';
@@ -130,7 +131,8 @@ const RouteEditor = () => {
   const [eventIsPro, setEventIsPro] = useState(false);
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
-  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | 'sponsors' | null>(null);
+  const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<UpgradeTrigger | null>(null);
+  const [liveModalOpen, setLiveModalOpen] = useState(false);
 
   // ── Vertex editing ──────────────────────────────────────────────────────
   // Drag a handle to move a point, click the line to insert one, Alt-click a
@@ -1646,36 +1648,17 @@ const RouteEditor = () => {
           poi_count: cleanPois.length,
           branding_style: brandingStyle,
         });
-        // Post-publish CTA routes to the Ops Center — that's where
-        // organizers run race day. For Pro events it takes them
-        // straight in; for Free events the Ops Center renders its
-        // waitlist-gated preview so they see what they'd get.
-        toast({
-          title: 'Event is live',
-          description: 'Share the link or head to the ops center for race-day tools.',
-          action: (
-            <ToastAction
-              altText="Open ops center"
-              onClick={() => navigate(`/dashboard/events/${eventId}`)}
-            >
-              Ops Center →
-            </ToastAction>
-          ),
-        });
-        // Soft Pro upsell at the publish moment — only for free events.
-        // A slight delay lets the toast land first so the modal feels
-        // like a follow-up, not a block. Republishing a pro event
-        // skips this entirely.
-        if (!eventIsPro) {
-          setTimeout(() => setUpgradeModalTrigger('publish'), 600);
-        }
+        // The live screen leads with sharing (link, QR, preview). Pro
+        // events also get the Ops Center; Free events get one quiet
+        // unlock line inside it instead of a second modal.
+        setLiveModalOpen(true);
       } else {
         logEvent('event_unpublished', eventId);
         toast({ title: 'Event unpublished' });
       }
     }
     setIsPublishing(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, eventIsPro, materializePoiImages]);
+  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, materializePoiImages]);
 
   const handleResumeRoute = useCallback((id: string) => {
     setFinishedRouteIds((prev) => {
@@ -2083,6 +2066,21 @@ const RouteEditor = () => {
         eventId={eventId}
         onBeforeRedirect={() => handleSave({ silent: true })}
       />
+      {eventSlug && (
+        <EventLiveModal
+          open={liveModalOpen}
+          onClose={() => setLiveModalOpen(false)}
+          publicUrl={`${window.location.origin}/event/${eventSlug}`}
+          eventName={eventName}
+          eventId={eventId}
+          isPro={eventIsPro}
+          onOpenOpsCenter={() => navigate(`/dashboard/events/${eventId}`)}
+          onUnlockPro={() => {
+            setLiveModalOpen(false);
+            setUpgradeModalTrigger('manual');
+          }}
+        />
+      )}
       {eventId && user && (
         <ScoutLinkDialog
           open={scoutLinkDialogOpen}
@@ -2127,6 +2125,8 @@ const RouteEditor = () => {
         onHelp={() => setTourActive(true)}
         onScoutLink={() => setScoutLinkDialogOpen(true)}
         onPublish={handlePublish}
+        // Only once the event has loaded, so a Pro event never flashes it.
+        onUnlockPro={eventSlug && !eventIsPro ? () => setUpgradeModalTrigger('manual') : undefined}
         isPublishing={isPublishing}
         isPublished={eventStatus === 'published'}
         canPublish={canPublish}
@@ -2177,6 +2177,7 @@ const RouteEditor = () => {
               poiSnapToRoute={poiSnapToRoute}
               setPoiSnapToRoute={setPoiSnapToRoute}
               isPaid={isPaid}
+              onUnlockPro={() => { logEvent('paywall_hit', eventId, { trigger: 'branding' }); setUpgradeModalTrigger('branding'); }}
               finishedRouteIds={finishedRouteIds}
               onResumeRoute={handleResumeRoute}
               logoUrl={logoUrl}

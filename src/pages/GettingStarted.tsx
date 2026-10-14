@@ -125,7 +125,7 @@ const GettingStarted = () => {
         <div className="mt-14 pt-8 border-t border-border">
           <h2 className="text-xl font-display font-semibold text-foreground mb-4">What's next?</h2>
           <div className="space-y-4 text-foreground/90">
-            <NextItem title="Upgrade to Pro" tag="$49 / event">
+            <NextItem title="Unlock Pro" tag="$49 / event">
               Run race day from the Event Ops Center with live volunteer status, unlock unlimited
               routes and markers, remove the "Made with Hereday" footer, and add your own logo and
               sponsors.{' '}

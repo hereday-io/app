@@ -778,18 +778,19 @@ const Dashboard = () => {
           <InfoCallout
             className="mb-9"
             icon={<Rocket className="h-4 w-4" />}
-            title={`${calloutEvent.name} is ready to go live.`}
+            title={`${calloutEvent.name} has a route and markers.`}
           >
-            Your route is mapped, all {calloutEvent.poi_count} markers are placed, and the public
-            page passes our checklist.{' '}
+            {/* isReadyToPublish only checks for a route and a marker, so
+                don't claim anything more (date, start, aid stations). */}
+            Give it a final look, then{' '}
             <button
               type="button"
               onClick={() => navigate(`/editor?id=${calloutEvent.id}`)}
               className="text-[hsl(217_91%_45%)] border-b border-[hsl(217_91%_50%/0.3)] hover:border-[hsl(217_91%_45%)]"
             >
-              Review &amp; publish
-            </button>{' '}
-            when you're ready — it's free until you upgrade.
+              review &amp; publish
+            </button>
+            . Publishing is free.
           </InfoCallout>
         )}
         {calloutEvent && calloutKind === 'approaching-limit' && (
@@ -804,7 +805,7 @@ const Dashboard = () => {
               onClick={() => navigate('/billing')}
               className="text-[hsl(217_91%_45%)] border-b border-[hsl(217_91%_50%/0.3)] hover:border-[hsl(217_91%_45%)]"
             >
-              Unlock for $49
+              Unlock Pro — $49
             </button>{' '}
             to add unlimited water stations, parking, and more.
           </InfoCallout>

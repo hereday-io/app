@@ -399,7 +399,7 @@ const LockedPreviewState = ({
           {PAYMENTS_LIVE ? (
             <Button onClick={onUpgrade} className="gap-2 mt-2">
               <Crown className="h-4 w-4" />
-              Unlock for $49
+              Unlock Pro — $49
             </Button>
           ) : (
             <div className="max-w-sm mx-auto w-full pt-1">
@@ -416,7 +416,7 @@ const LockedPreviewState = ({
     <UpgradeModal
       open={upgradeModalOpen}
       onClose={onCloseUpgrade}
-      trigger="publish"
+      trigger="ops"
       eventId={event.id}
     />
   </>
