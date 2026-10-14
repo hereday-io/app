@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
-import { MousePointerClick, Globe, X } from 'lucide-react';
+import { MousePointerClick, Globe, Search, X } from 'lucide-react';
 
 interface EditorCoachMarkProps {
   /** Unique key per user so the hint dismisses permanently. */
   userId: string;
-  /** Dismiss the draw hint once the user has placed their first waypoint. */
+  /** Dismiss the draw hint once the user has placed their first point. */
   hasRouteWaypoints: boolean;
   /** Show publish hint once a route is finished and event isn't published. */
   hasFinishedRoute?: boolean;
   /** Already published — suppress the publish hint. */
   isPublished?: boolean;
+  /** Map is still at country zoom, so ask for the start location first. */
+  zoomedOut?: boolean;
+  /** Opens the location search. */
+  onFindStart?: () => void;
 }
 
 /**
@@ -22,7 +26,7 @@ interface EditorCoachMarkProps {
  *   — shown after route finishes (if not published), dismisses on publish
  *     or X click, never shown again.
  */
-const EditorCoachMark = ({ userId, hasRouteWaypoints, hasFinishedRoute, isPublished }: EditorCoachMarkProps) => {
+const EditorCoachMark = ({ userId, hasRouteWaypoints, hasFinishedRoute, isPublished, zoomedOut = false, onFindStart }: EditorCoachMarkProps) => {
   const drawKey = `editor-coachmark-seen-${userId}`;
   const publishKey = `editor-coachmark-publish-seen-${userId}`;
 
@@ -52,17 +56,29 @@ const EditorCoachMark = ({ userId, hasRouteWaypoints, hasFinishedRoute, isPublis
     }
   }, [isPublished, publishVisible, publishKey]);
 
-  // Phase 1: draw hint
+  // Phase 1: draw hint. While the map is still at country zoom (no city,
+  // no saved position), clicking would drop a point miles from the course,
+  // so the hint asks for the start location first.
   if (drawVisible) {
     return (
       <div className="absolute left-1/2 -translate-x-1/2 top-4 z-30 pointer-events-auto animate-in fade-in slide-in-from-top-2 duration-500">
         <div className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card/90 backdrop-blur-xl border border-border shadow-lg max-w-[90vw]">
           <div className="shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-            <MousePointerClick className="h-3.5 w-3.5" />
+            {zoomedOut ? <Search className="h-3.5 w-3.5" /> : <MousePointerClick className="h-3.5 w-3.5" />}
           </div>
-          <p className="text-sm text-foreground font-medium whitespace-nowrap">
-            Click on the map to place your first waypoint
-          </p>
+          {zoomedOut && onFindStart ? (
+            <button
+              type="button"
+              onClick={onFindStart}
+              className="text-sm text-foreground font-medium whitespace-nowrap hover:text-primary"
+            >
+              First, <span className="text-primary underline underline-offset-2">find where your race starts</span>
+            </button>
+          ) : (
+            <p className="text-sm text-foreground font-medium whitespace-nowrap">
+              Click on the map to place your first point
+            </p>
+          )}
           <button
             onClick={() => {
               window.localStorage.setItem(drawKey, '1');

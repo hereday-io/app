@@ -40,6 +40,8 @@ interface EditorTopBarProps {
   onUndo: () => void;
   onClearRoute: () => void;
   onLocationSelect: (center: [number, number], name: string) => void;
+  /** Bump to open the location search (see LocationSearch). */
+  searchOpenSignal?: number;
   onHelp?: () => void;
   onScoutLink?: () => void;
   /** Publish a draft (with the slug confirmed in the publish step) or
@@ -80,6 +82,7 @@ const EditorTopBar = ({
   onUndo,
   onClearRoute,
   onLocationSelect,
+  searchOpenSignal,
   onHelp,
   onScoutLink,
   onPublish,
@@ -224,7 +227,7 @@ const EditorTopBar = ({
           </span>
         )}
         {mapboxToken && (
-          <LocationSearch token={mapboxToken} onSelect={onLocationSelect} />
+          <LocationSearch token={mapboxToken} onSelect={onLocationSelect} openSignal={searchOpenSignal} />
         )}
         {/* Icons collapse back to icon-only on narrow viewports; on ≥lg
              screens the text labels surface power features (Tour, Scout)

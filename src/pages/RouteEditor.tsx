@@ -84,7 +84,7 @@ const RouteEditor = () => {
   const [eventName, setEventName] = useState('Untitled Event');
   const [eventDate, setEventDate] = useState('');
   const [city, setCity] = useState('');
-  const [routes, setRoutes] = useState<EventRoute[]>([makeRoute('5K Route', ROUTE_COLORS[0])]);
+  const [routes, setRoutes] = useState<EventRoute[]>([makeRoute('Route 1', ROUTE_COLORS[0])]);
   const [activeRouteId, setActiveRouteId] = useState('');
   const [pois, setPois] = useState<RoutePoi[]>([]);
   const [pendingPoiType, setPendingPoiType] = useState<PoiType | null>(null);
@@ -135,6 +135,10 @@ const RouteEditor = () => {
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
   const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<UpgradeTrigger | null>(null);
   const [liveModalOpen, setLiveModalOpen] = useState(false);
+  // True while the map is still at country zoom; drives the
+  // "find where your race starts" hint. searchOpenSignal opens the search.
+  const [mapZoomedOut, setMapZoomedOut] = useState(false);
+  const [searchOpenSignal, setSearchOpenSignal] = useState(0);
 
   // ── Vertex editing ──────────────────────────────────────────────────────
   // Drag a handle to move a point, click the line to insert one, Alt-click a
@@ -353,7 +357,7 @@ const RouteEditor = () => {
         const rawRoutes = data.routes as unknown;
         const loadedRoutes = Array.isArray(rawRoutes) && (rawRoutes as EventRoute[]).length > 0
           ? (rawRoutes as EventRoute[])
-          : [makeRoute('5K Route', ROUTE_COLORS[0])];
+          : [makeRoute('Route 1', ROUTE_COLORS[0])];
         setRoutes(loadedRoutes);
         setActiveRouteId(loadedRoutes[0]?.id ?? '');
         // Mark routes with existing waypoints as finished
@@ -467,7 +471,13 @@ const RouteEditor = () => {
       zoom: initialZoom,
     });
 
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    // Compass only: zoom buttons already sit by the bottom sheet, and two
+    // sets of +/- on one map read as two different controls.
+    map.addControl(new mapboxgl.NavigationControl({ showZoom: false }), 'top-right');
+    // Country-level zoom means there's no start location yet (see
+    // EditorCoachMark). jumpTo/fitBounds/flyTo all end in zoomend.
+    setMapZoomedOut(initialZoom < 9);
+    map.on('zoomend', () => setMapZoomedOut(map.getZoom() < 9));
     mapRef.current = map;
     map.once('load', () => setMapReady(true));
 
@@ -1789,7 +1799,7 @@ const RouteEditor = () => {
 
     const remaining = routes.filter((r) => r.id !== id);
     // Deleting the last route leaves an empty one to draw into.
-    const placeholder = remaining.length > 0 ? null : makeRoute('5K Route', ROUTE_COLORS[0]);
+    const placeholder = remaining.length > 0 ? null : makeRoute('Route 1', ROUTE_COLORS[0]);
     const next = placeholder ? [placeholder] : remaining;
     setRoutes(next);
     if (wasActive) setActiveRouteId(next[0].id);
@@ -2135,7 +2145,19 @@ const RouteEditor = () => {
         onClearRoute={clearActiveRoute}
         onLocationSelect={(center) => {
           mapRef.current?.flyTo({ center, zoom: 14, duration: 1500 });
+          // Fill an empty City from the searched spot. The result's own
+          // name may be a park or street, so ask for the town (types=place).
+          if (!city.trim() && mapboxToken) {
+            fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${center[0]},${center[1]}.json?types=place&limit=1&access_token=${mapboxToken}`)
+              .then((r) => r.json())
+              .then((geo: { features?: { text?: string }[] }) => {
+                const town = geo?.features?.[0]?.text;
+                if (town) setCity((prev) => (prev.trim() ? prev : town));
+              })
+              .catch(() => { /* City stays empty; the organizer can type it. */ });
+          }
         }}
+        searchOpenSignal={searchOpenSignal}
         onHelp={() => setTourActive(true)}
         onScoutLink={() => setScoutLinkDialogOpen(true)}
         onPublish={handlePublish}
@@ -2218,6 +2240,8 @@ const RouteEditor = () => {
               hasRouteWaypoints={routes.some((r) => r.waypoints.length > 0)}
               hasFinishedRoute={finishedRouteIds.size > 0}
               isPublished={eventStatus === 'published'}
+              zoomedOut={mapZoomedOut}
+              onFindStart={() => setSearchOpenSignal((n) => n + 1)}
             />
           )}
 

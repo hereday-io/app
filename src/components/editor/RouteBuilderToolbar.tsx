@@ -273,7 +273,7 @@ const RouteBuilderToolbar = ({
         </Section>
 
         {/* ── Places ────────────────────────────────────────────────────── */}
-        <Section title="Places" defaultOpen={!!pendingPoiType} data-tour="poi-section">
+        <Section title="Markers" defaultOpen data-tour="poi-section">
 
           {/* Snap to route toggle */}
           <div className="px-3 pb-2">
