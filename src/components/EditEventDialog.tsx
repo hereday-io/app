@@ -22,6 +22,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { errorToast } from '@/lib/userFacingError';
+import { normalizeSlug, isUniqueViolation } from '@/lib/slug';
 import { normalizeRegistrationUrl } from '@/lib/eventDetails';
 
 // A type alias rather than an interface: aliases get an implicit index
@@ -50,17 +51,6 @@ interface EventData {
   slug?: string | null;
 }
 
-/** Normalize a user-typed slug candidate. Kept generous — we only
- *  strip characters that would break a URL, we don't touch case or
- *  length. Supabase's unique index handles collisions. */
-const normalizeSlug = (raw: string): string =>
-  raw
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/(^-|-$)/g, '');
 
 interface EditEventDialogProps {
   open: boolean;
@@ -189,7 +179,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       // 23505 on slug means another event already owns this URL. Surface
       // it as something the user can actually fix instead of a raw
       // constraint error.
-      const isSlugCollision = slugChanged && (error as { code?: string }).code === '23505';
+      const isSlugCollision = slugChanged && isUniqueViolation(error);
       toast(
         isSlugCollision
           ? { title: 'That URL is already taken', description: 'Try a different URL.', variant: 'destructive' }

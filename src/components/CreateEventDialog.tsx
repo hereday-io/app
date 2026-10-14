@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { errorToast } from '@/lib/userFacingError';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import CitySearch from '@/components/editor/CitySearch';
+import { normalizeSlug, isUniqueViolation, withRandomTail } from '@/lib/slug';
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -37,23 +38,20 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
     if (!name.trim()) return;
     setSaving(true);
 
-    // crypto.randomUUID() gives 122 bits of entropy → effectively zero collision
-    // risk vs. the prior Math.random()-derived 5-char suffix (~26 bits) which
-    // could collide on near-simultaneous creates and surface a confusing
-    // unique-violation toast. Slice to 8 hex chars for a friendly URL.
-    const slugSuffix = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-      ? crypto.randomUUID().replace(/-/g, '').slice(0, 8)
-      : Math.random().toString(36).slice(2, 10);
-    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + slugSuffix;
-
-    const { data, error } = await supabase.from('events').insert({
+    // The plain name: the events_unique_slug trigger adds -2, -3… if the
+    // URL is taken. One retry with a random tail covers a create racing
+    // another for the same name.
+    const slug = normalizeSlug(name);
+    const insert = (s: string) => supabase.from('events').insert({
       user_id: userId,
       name: name.trim(),
       city: city.trim() || null,
       event_date: date || null,
       start_time: startTime || null,
-      slug,
+      slug: s,
     }).select('id').single();
+    let { data, error } = await insert(slug);
+    if (isUniqueViolation(error)) ({ data, error } = await insert(withRandomTail(slug)));
 
     if (error || !data) {
       toast(errorToast(error, { action: 'create your event', logLabel: 'CreateEventDialog insert' }));
