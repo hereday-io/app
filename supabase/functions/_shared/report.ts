@@ -69,6 +69,10 @@ export function buildErrorEvent(
       environment: projectRef(env.supabaseUrl),
       // Server-side events must not create or update person profiles.
       $process_person_profile: false,
+      // The request comes from Supabase's servers, not the customer, so
+      // a GeoIP lookup would stamp every error with the data center's
+      // location.
+      $geoip_disable: true,
     },
   };
 }
