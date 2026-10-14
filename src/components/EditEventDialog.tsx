@@ -23,12 +23,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { errorToast } from '@/lib/userFacingError';
 
-export interface EmergencyContacts {
+// A type alias rather than an interface: aliases get an implicit index
+// signature, which keeps this assignable to the jsonb column's `Json`.
+export type EmergencyContacts = {
   raceDirectorPhone?: string;
   medicalLeadName?: string;
   medicalLeadPhone?: string;
   nearestHospital?: string;
-}
+};
 
 interface EventData {
   id: string;

@@ -19,6 +19,7 @@ import {
   countsFor, waypointOffsets,
 } from '@/lib/routeEdit';
 import { logEvent } from '@/lib/analytics';
+import { isPro } from '@/lib/eventStatus';
 import EditorTopBar from '@/components/editor/EditorTopBar';
 import RouteBuilderToolbar from '@/components/editor/RouteBuilderToolbar';
 import MapBottomSheet from '@/components/map/MapBottomSheet';
@@ -125,7 +126,7 @@ const RouteEditor = () => {
   const [highlightedPoiType, setHighlightedPoiType] = useState<PoiType | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [brandingStyle, setBrandingStyle] = useState<'none' | 'corner' | 'banner' | 'both'>('none');
-  const [eventPlan, setEventPlan] = useState<'free' | 'pro'>('free');
+  const [eventIsPro, setEventIsPro] = useState(false);
   const [trackingStart, setTrackingStart] = useState<string | null>(null);
   const [trackingEnd, setTrackingEnd] = useState<string | null>(null);
   const [upgradeModalTrigger, setUpgradeModalTrigger] = useState<'routes' | 'pois' | 'branding' | 'publish' | 'sponsors' | null>(null);
@@ -269,7 +270,7 @@ const RouteEditor = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgraded') === 'true') {
       upgradeHandledRef.current = true;
-      setEventPlan('pro');
+      setEventIsPro(true);
       toast({ title: 'Upgrade complete!', description: 'This event is now on the Pro plan.' });
       params.delete('upgraded');
       const clean = `${window.location.pathname}?${params.toString()}`;
@@ -375,7 +376,7 @@ const RouteEditor = () => {
         setEventSlug(data.slug ?? null);
         setLogoUrl(data.logo_url ?? null);
         setBrandingStyle((data.branding_style as 'none' | 'corner' | 'banner' | 'both') ?? 'none');
-        setEventPlan(data.plan === 'pro' ? 'pro' : 'free');
+        setEventIsPro(isPro(data));
         setTrackingStart(data.tracking_start ?? null);
         setTrackingEnd(data.tracking_end ?? null);
         setStatusText('Event loaded.');
@@ -1140,7 +1141,7 @@ const RouteEditor = () => {
           root.render(
             <PoiEditPopover
               poi={poi}
-              isPro={eventPlan === 'pro'}
+              isPro={eventIsPro}
               sponsorOverflow={sponsorOverflow}
               onUpgradeClick={() => { popup.remove(); setUpgradeModalTrigger('sponsors'); }}
               onGenerateStatusLink={() => setStatusTokenDialogOpen(true)}
@@ -1629,7 +1630,7 @@ const RouteEditor = () => {
         tracking_end: trackingEnd,
       })
       .eq('id', eventId)
-      .select('id');
+      .select('id, slug');
 
     if (error) {
       toast(errorToast(error, {
@@ -1646,11 +1647,10 @@ const RouteEditor = () => {
       });
     } else {
       setEventStatus(newStatus);
-      // Fetch the slug if we don't have it yet
-      if (newStatus === 'published' && !eventSlug) {
-        const { data: updated } = await supabase.from('events').select('slug').eq('id', eventId).single();
-        if (updated?.slug) setEventSlug(updated.slug);
-      }
+      // The update returns the slug, so a first publish can show the
+      // share link without a second round trip that could fail on its own.
+      const publishedSlug = publishedRows?.[0]?.slug;
+      if (publishedSlug && publishedSlug !== eventSlug) setEventSlug(publishedSlug);
       if (newStatus === 'published') {
         logEvent('event_published', eventId, {
           route_count: routes.length,
@@ -1677,7 +1677,7 @@ const RouteEditor = () => {
         // A slight delay lets the toast land first so the modal feels
         // like a follow-up, not a block. Republishing a pro event
         // skips this entirely.
-        if (eventPlan === 'free') {
+        if (!eventIsPro) {
           setTimeout(() => setUpgradeModalTrigger('publish'), 600);
         }
       } else {
@@ -1686,7 +1686,7 @@ const RouteEditor = () => {
       }
     }
     setIsPublishing(false);
-  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, eventPlan, materializePoiImages]);
+  }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, eventIsPro, materializePoiImages]);
 
   const handleResumeRoute = useCallback((id: string) => {
     setFinishedRouteIds((prev) => {
@@ -1700,7 +1700,7 @@ const RouteEditor = () => {
     setStatusText('Route re-opened for editing.');
   }, []);
 
-  const isPaid = eventPlan === 'pro';
+  const isPaid = eventIsPro;
   const { canAddRoute, canAddPoi } = usePaywall({ isPaid });
 
   const addRoute = () => {
@@ -2186,14 +2186,11 @@ const RouteEditor = () => {
               onResumeRoute={handleResumeRoute}
               logoUrl={logoUrl}
               brandingStyle={brandingStyle}
-              onLogoChange={(url) => {
-                setLogoUrl(url);
-                if (eventId) supabase.from('events').update({ logo_url: url }).eq('id', eventId);
-              }}
-              onBrandingStyleChange={(style) => {
-                setBrandingStyle(style);
-                if (eventId) supabase.from('events').update({ branding_style: style }).eq('id', eventId);
-              }}
+              // logo_url / branding_style are part of handleSave's payload, so
+              // the autosave effect persists them (with its error chip and
+              // retries) — no separate fire-and-forget write.
+              onLogoChange={setLogoUrl}
+              onBrandingStyleChange={setBrandingStyle}
               eventId={eventId || ''}
               userId={user?.id || ''}
             />

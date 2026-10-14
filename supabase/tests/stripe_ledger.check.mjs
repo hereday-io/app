@@ -16,12 +16,8 @@ import { createDb, testKit, REPO_ROOT } from './pglite.mjs';
 const MIGRATION = '20260727120000_stripe_webhook_ledger_two_phase.sql';
 const STALE_CLAIM_MS = 10 * 60 * 1000; // keep in step with the webhook
 
-const { db, results } = await createDb();
-const failed = results.filter((r) => !r.ok && r.f >= MIGRATION);
-if (failed.length) {
-  for (const r of failed) console.log('MIGRATION FAIL', r.f, r.err);
-  process.exit(1);
-}
+// createDb throws if any migration fails to replay.
+const { db } = await createDb();
 const { ok, as, asPostgres, expectError, mkUser, done } = testKit(db);
 
 const asService = async () => {
@@ -64,7 +60,7 @@ const deliver = async (id, now = new Date()) => {
 console.log('\nMigration on a ledger that already has rows');
 {
   const { db: old, results: before } = await createDb(REPO_ROOT, { stopBefore: MIGRATION });
-  ok(before.every((r) => r.ok || r.f < '20260501'), 'earlier migrations apply');
+  ok(before.every((r) => r.ok), 'earlier migrations apply');
   await old.query(
     `INSERT INTO public.stripe_webhook_events (event_id, event_type, processed_at)
      VALUES ('evt_old', 'checkout.session.completed', now() - interval '30 days')`);

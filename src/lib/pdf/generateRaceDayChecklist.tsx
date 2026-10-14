@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import type { EventRoute, PoiType, RoutePoi } from '@/types/mapEditor';
 import type { EmergencyContacts } from '@/components/EditEventDialog';
 import { totalRouteMiles, mileMarkerForPoi, metersToMiles } from './routeDistance';
+import { isPro as isEventPro } from '@/lib/eventStatus';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -215,7 +216,7 @@ interface DocProps extends ChecklistInput {
 
 function RaceDayChecklistDocument(props: DocProps) {
   const { event, organizer, logoDataUrl, qrDataUrl, publicUrl, totalMiles, routeCount, groupedPois, poiMileMarkers } = props;
-  const isPro = !!event.paid_at;
+  const isPro = isEventPro(event);
   const formattedDate = formatEventDate(event.event_date);
   const formattedTime = formatStartTime(event.start_time);
   const ec = (event.emergency_contacts ?? {}) as EmergencyContacts;

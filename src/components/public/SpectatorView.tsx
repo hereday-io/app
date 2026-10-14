@@ -33,7 +33,8 @@ interface SpectatorViewProps {
     pois: RoutePoi[];
     logo_url?: string | null;
     branding_style?: string;
-    plan?: 'free' | 'pro';
+    /** isPro() as computed server-side by public_events (see EventPublic). */
+    is_pro: boolean;
     tracking_start?: string | null;
     tracking_end?: string | null;
   };
@@ -44,7 +45,7 @@ interface SpectatorViewProps {
 const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const isPro = event.plan === 'pro';
+  const isPro = event.is_pro;
   const trackingWindowOpen = LIVE_TRACKING_ENABLED && isPro
     && !!event.tracking_start && !!event.tracking_end
     && new Date() <= new Date(event.tracking_end);
@@ -292,7 +293,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
     });
 
     // Soft-wall selection mirrors RunnerView — see src/lib/sponsors.ts.
-    const isPro = event.plan === 'pro';
+    const isPro = event.is_pro;
     const brandedSponsorIds = selectBrandedSponsorIds(event.pois, isPro);
 
     const buildSinglePoiMarker = (poi: RoutePoi) => {
@@ -459,7 +460,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
     // poiStatuses intentionally excluded — the status-update effect
     // below mutates dots in place. Rebuilding markers would flicker.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event.id, event.plan, event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
+  }, [event.id, event.is_pro, event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
 
   // Reactively sync status dots with the realtime subscription — same
   // pattern as RunnerView. Keeps marker instances stable.
@@ -562,7 +563,7 @@ const SpectatorView = ({ event, onBack, onSwitchToRunner }: SpectatorViewProps) 
           eventDate={event.event_date}
           weatherCoord={weatherCoord}
           eventName={event.name}
-          badge={event.plan !== 'pro' ? <MadeWithHeredayBadge /> : undefined}
+          badge={!event.is_pro ? <MadeWithHeredayBadge /> : undefined}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           viewMode="spectator"

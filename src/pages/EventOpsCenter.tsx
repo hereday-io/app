@@ -35,7 +35,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useEventAnalytics } from '@/hooks/useEventAnalytics';
 import { usePoiStatuses } from '@/hooks/usePoiStatuses';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { poiTone } from '@/lib/pois';
+import { isPro as isEventPro } from '@/lib/eventStatus';
+import { unwrap } from '@/lib/unwrap';
 import { STATUS_DOT_COLORS } from '@/lib/mapMarkers';
 import { logEvent } from '@/lib/analytics';
 import { errorToast, userFacingError } from '@/lib/userFacingError';
@@ -175,9 +178,13 @@ const EventOpsCenter = () => {
       .select('display_name')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (data?.display_name) setDisplayName(data.display_name);
-      });
+      .then(unwrap)
+      .then(
+        (data) => { if (data?.display_name) setDisplayName(data.display_name); },
+        // Only feeds the checklist PDF's organizer name (shown as '—', with
+        // the email line still present), so log rather than interrupt ops.
+        (err) => console.error('[OpsCenter] display name load failed', err),
+      );
   }, [user]);
 
   useEffect(() => {
@@ -231,7 +238,7 @@ const EventOpsCenter = () => {
 
   // ── Gating ─────────────────────────────────────────────────────────
   const isPublished = event?.status === 'published';
-  const isPro = !!event?.paid_at;
+  const isPro = !!event && isEventPro(event);
 
   if (authLoading || loading) {
     return (
@@ -792,6 +799,7 @@ const VolunteerRosterPanel = ({
 }) => {
   const { toast } = useToast();
   const [history, setHistory] = useState<Array<{ updated_by_name: string | null; created_at: string }>>([]);
+  const [historyError, setHistoryError] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addingOpen, setAddingOpen] = useState(false);
@@ -812,14 +820,22 @@ const VolunteerRosterPanel = ({
   // Pull the most recent history rows once per panel mount + every 60s.
   // We could share with StatusHistoryPanel, but two cheap queries/min is
   // trivial at this scale and keeps the components independent.
+  // On failure keep the last good rows: replacing them with [] would flip
+  // every volunteer to "Silent" mid-race over a network blip.
   const fetchHistory = useCallback(async () => {
-    const { data } = await supabase
-      .from('poi_status_history')
-      .select('updated_by_name, created_at')
-      .eq('event_id', event.id)
-      .order('created_at', { ascending: false })
-      .limit(200);
-    setHistory((data ?? []) as Array<{ updated_by_name: string | null; created_at: string }>);
+    try {
+      const data = unwrap(await supabase
+        .from('poi_status_history')
+        .select('updated_by_name, created_at')
+        .eq('event_id', event.id)
+        .order('created_at', { ascending: false })
+        .limit(200));
+      setHistory(data ?? []);
+      setHistoryError(false);
+    } catch (err) {
+      console.error('[OpsCenter] volunteer activity fetch failed', err);
+      setHistoryError(true);
+    }
   }, [event.id]);
 
   useEffect(() => {
@@ -864,7 +880,7 @@ const VolunteerRosterPanel = ({
     setMutating(true);
     const { error } = await supabase
       .from('events')
-      .update({ volunteer_roster: next as unknown as object } as never)
+      .update({ volunteer_roster: next as unknown as Json })
       .eq('id', event.id);
     setMutating(false);
     if (error) {
@@ -976,6 +992,12 @@ const VolunteerRosterPanel = ({
         Register crew ahead of race day. Activity is matched against volunteer name — share links like{' '}
         <code className="text-[11px] font-mono bg-muted px-1 rounded">/v/TOKEN?name=Kevin</code> so names auto-match.
       </p>
+
+      {historyError && (
+        <p role="alert" className="mx-5 mt-2 rounded-md bg-destructive/10 px-3 py-2 text-[11.5px] text-destructive">
+          Couldn't refresh volunteer activity. Statuses below may be out of date; retrying every minute.
+        </p>
+      )}
 
       {addingOpen && (
         <VolunteerFormRow
@@ -1765,10 +1787,10 @@ const ScoutedPoisPanel = ({
     const { error } = await supabase
       .from('events')
       .update({
-        pois: nextPois as unknown as Parameters<typeof supabase.from>[0] extends never ? never : object,
-        scouted_pois: nextScouted as unknown as object,
+        pois: nextPois as unknown as Json,
+        scouted_pois: nextScouted as unknown as Json,
         poi_count: nextPois.length,
-      } as never)
+      })
       .eq('id', event.id);
     if (error) throw error;
   };

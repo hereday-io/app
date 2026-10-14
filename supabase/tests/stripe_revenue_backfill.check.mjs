@@ -7,12 +7,8 @@
 import { createDb, testKit } from './pglite.mjs';
 import { collectCharges, normaliseCharge, renderBackfill, stripeClient } from '../../scripts/stripe-revenue-backfill.mjs';
 
-const { db, results } = await createDb();
-const failed = results.filter((r) => !r.ok && r.f >= '20260611');
-if (failed.length) {
-  for (const r of failed) console.log('MIGRATION FAIL', r.f, r.err);
-  process.exit(1);
-}
+// createDb throws if any migration fails to replay.
+const { db } = await createDb();
 const { ok, mkUser, done } = testKit(db);
 const same = (a, b) => JSON.stringify(sortKeys(a)) === JSON.stringify(sortKeys(b));
 const sortKeys = (o) => Object.fromEntries(Object.entries(o ?? {}).sort(([a], [b]) => a.localeCompare(b)));

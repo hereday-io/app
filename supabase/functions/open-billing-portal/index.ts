@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+    return json({ error: "Method not allowed" }, 405, req);
   }
 
   const auth = await authenticate(req);
@@ -40,5 +40,5 @@ Deno.serve(async (req) => {
     return_url: returnUrl,
   });
 
-  return json({ url: session.url });
+  return json({ url: session.url }, 200, req);
 });

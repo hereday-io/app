@@ -45,10 +45,10 @@ const CitySearch = ({ value, onChange, token, placeholder = 'San Francisco' }: C
         const res = await fetch(
           `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val)}.json?access_token=${token}&types=place,locality,neighborhood,address&limit=5`
         );
-        const data = await res.json();
-        const items: CityResult[] = (data.features || []).map((f: any) => ({
+        const data: { features?: CityResult[] } = await res.json();
+        const items: CityResult[] = (data.features || []).map((f) => ({
           place_name: f.place_name,
-          center: f.center as [number, number],
+          center: f.center,
         }));
         setResults(items);
         setOpen(items.length > 0);

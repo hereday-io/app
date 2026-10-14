@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Radio, Crown, Check } from 'lucide-react';
 import { LIVE_TRACKING_ENABLED } from '@/lib/featureFlags';
 import { Button } from '@/components/ui/button';
@@ -22,26 +22,18 @@ interface CreateEventDialogProps {
   onOpenChange: (open: boolean) => void;
   userId: string;
   onCreated: (eventId: string, cityCenter: [number, number] | null) => void;
-  isPro?: boolean;
 }
 
-const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: CreateEventDialogProps) => {
+const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEventDialogProps) => {
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [cityCenter, setCityCenter] = useState<[number, number] | null>(null);
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
-  const [trackingStart, setTrackingStart] = useState('');
-  const [trackingEnd, setTrackingEnd] = useState('');
   const [saving, setSaving] = useState(false);
   const [wantsPro, setWantsPro] = useState(false);
   const { toast } = useToast();
   const { token: mapboxToken } = useMapboxToken();
-
-  const suggestTrackingWindow = useMemo(() => {
-    if (!date || trackingStart || trackingEnd) return null;
-    return { start: `${date}T05:00`, end: `${date}T23:00` };
-  }, [date, trackingStart, trackingEnd]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,10 +56,6 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
       event_date: date || null,
       start_time: startTime || null,
       slug,
-      ...(trackingStart && trackingEnd ? {
-        tracking_start: new Date(trackingStart).toISOString(),
-        tracking_end: new Date(trackingEnd).toISOString(),
-      } : {}),
     }).select('id').single();
 
     if (error || !data) {
@@ -104,8 +92,6 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
     setCityCenter(null);
     setDate('');
     setStartTime('');
-    setTrackingStart('');
-    setTrackingEnd('');
     setWantsPro(false);
     onOpenChange(false);
     onCreated(data.id, center);
@@ -185,9 +171,10 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
               />
             </div>
           </div>
-          {/* Pro section — live-tracking config when the feature is on,
-              otherwise a plain Pro upsell. The create-time upgrade opt-in
-              lives here, so it stays put when tracking is paused. */}
+          {/* Pro section — the create-time upgrade opt-in. Pro is per event
+              (paid_at), and an event that doesn't exist yet hasn't been
+              paid for, so the tracking-window fields live in the Edit
+              dialog once the event is Pro. */}
           <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               {LIVE_TRACKING_ENABLED ? (
@@ -196,53 +183,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated, isPro }: Cre
                 <><Crown className="h-3.5 w-3.5 text-primary" /> Go Pro</>
               )}
             </div>
-            {isPro ? (
-              LIVE_TRACKING_ENABLED ? (
-                <>
-                  <p className="text-xs text-muted-foreground leading-snug">
-                    Runners can only share their GPS location within this window.
-                  </p>
-                  {suggestTrackingWindow && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTrackingStart(suggestTrackingWindow.start);
-                        setTrackingEnd(suggestTrackingWindow.end);
-                      }}
-                      className="text-xs text-primary font-medium hover:underline"
-                    >
-                      Auto-fill: event day 5 AM – 11 PM
-                    </button>
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="create-tracking-start" className="text-xs">Opens</Label>
-                      <Input
-                        id="create-tracking-start"
-                        type="datetime-local"
-                        value={trackingStart}
-                        onChange={(e) => setTrackingStart(e.target.value)}
-                        className="text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="create-tracking-end" className="text-xs">Closes</Label>
-                      <Input
-                        id="create-tracking-end"
-                        type="datetime-local"
-                        value={trackingEnd}
-                        onChange={(e) => setTrackingEnd(e.target.value)}
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground leading-snug">
-                  This event has Pro — unlimited routes & markers and custom branding are unlocked.
-                </p>
-              )
-            ) : wantsPro ? (
+            {wantsPro ? (
               <>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">

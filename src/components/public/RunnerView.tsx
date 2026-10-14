@@ -33,7 +33,8 @@ interface RunnerViewProps {
     pois: RoutePoi[];
     logo_url?: string | null;
     branding_style?: string;
-    plan?: 'free' | 'pro';
+    /** isPro() as computed server-side by public_events (see EventPublic). */
+    is_pro: boolean;
     tracking_start?: string | null;
     tracking_end?: string | null;
   };
@@ -322,7 +323,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
     // Soft-wall selection: Free events cap branded sponsor slots; extras
     // fall back to the generic ⭐. Organizer sees all branded in the
     // editor — this filter is the public-map enforcement point.
-    const isPro = event.plan === 'pro';
+    const isPro = event.is_pro;
     const brandedSponsorIds = selectBrandedSponsorIds(event.pois, isPro);
 
     const buildSinglePoiMarker = (poi: RoutePoi) => {
@@ -499,7 +500,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
     // markers on every volunteer status tick; the separate effect
     // below mutates status dots in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event.id, event.plan, event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
+  }, [event.id, event.is_pro, event.pois, event.routes, hiddenRouteIds, highlightedPoiType]);
 
   // Drive the status dots imperatively whenever the subscription
   // reports new data. Rebuilding markers on every status change would
@@ -578,7 +579,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
       />
 
       {/* Live tracking — Pro only. Gated off while web-only (see featureFlags). */}
-      {LIVE_TRACKING_ENABLED && event.plan === 'pro' && (
+      {LIVE_TRACKING_ENABLED && event.is_pro && (
         <TrackMeButton
           eventId={event.id}
           trackingStart={event.tracking_start ?? null}
@@ -602,7 +603,7 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
           eventDate={event.event_date}
           weatherCoord={weatherCoord}
           eventName={event.name}
-          badge={event.plan !== 'pro' ? <MadeWithHeredayBadge /> : undefined}
+          badge={!event.is_pro ? <MadeWithHeredayBadge /> : undefined}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           viewMode="runner"

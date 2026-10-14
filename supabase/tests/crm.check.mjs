@@ -7,12 +7,8 @@
 import { createDb, testKit } from './pglite.mjs';
 import { toImportRow } from '../../scripts/lib/discovery.mjs';
 
-const { db, results } = await createDb();
-const crmFails = results.filter((r) => !r.ok && r.f >= '20261012');
-if (crmFails.length) {
-  for (const r of crmFails) console.log('MIGRATION FAIL', r.f, r.err);
-  process.exit(1);
-}
+// createDb throws if any migration fails to replay.
+const { db } = await createDb();
 
 const { ok, as, asPostgres, rpc, expectError, mkUser, done } = testKit(db);
 

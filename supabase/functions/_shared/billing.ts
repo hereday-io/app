@@ -2,23 +2,18 @@
 // that talks to Stripe goes through these — the auth dance, the
 // Stripe client, and the CORS headers are identical across them.
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import Stripe from "npm:stripe@17.3.1";
 
 // The origin allowlist and the JSON/CORS helpers now live in http.ts so
 // non-Stripe functions can use them without importing this module (and
 // the Stripe SDK with it). Re-exported here: every existing
 // `import { corsHeaders, json } from "../_shared/billing.ts"` still works.
-// (Imported as well as re-exported — the helpers below call json().)
+// (Imported as well as re-exported — the helpers below call json(, 200, req).)
+// getServiceClient lives in db.ts for the same reason.
 import { corsHeaders, json } from "./http.ts";
-export { corsHeaders, json };
-
-export function getServiceClient(): SupabaseClient {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-}
+import { getServiceClient } from "./db.ts";
+export { corsHeaders, getServiceClient, json };
 
 export function getStripe(): Stripe {
   const key = Deno.env.get("STRIPE_SECRET_KEY");
@@ -33,7 +28,7 @@ export async function authenticate(req: Request): Promise<
 > {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return { ok: false, response: json({ error: "Missing Authorization header" }, 401) };
+    return { ok: false, response: json({ error: "Missing Authorization header" }, 401, req) };
   }
   const anon = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -42,7 +37,7 @@ export async function authenticate(req: Request): Promise<
   );
   const { data: userData, error: userErr } = await anon.auth.getUser();
   if (userErr || !userData.user) {
-    return { ok: false, response: json({ error: "Invalid session" }, 401) };
+    return { ok: false, response: json({ error: "Invalid session" }, 401, req) };
   }
   const service = getServiceClient();
   const { data: profile, error: profileErr } = await service
@@ -52,7 +47,7 @@ export async function authenticate(req: Request): Promise<
     .maybeSingle();
   if (profileErr) {
     console.error("[billing] profile lookup failed", profileErr);
-    return { ok: false, response: json({ error: "Profile lookup failed" }, 500) };
+    return { ok: false, response: json({ error: "Profile lookup failed" }, 500, req) };
   }
   return {
     ok: true,

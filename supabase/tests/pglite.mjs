@@ -7,7 +7,8 @@
 // (auth schema, roles, default grants) and patches columns prod has that
 // the migration files never created.
 //
-//   node supabase/tests/pglite.mjs   → lists each migration as ok / FAIL
+//   node supabase/tests/pglite.mjs   → lists each migration; exits 1 if
+//                                      any fails outside ALLOWED_FAILURES
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -82,6 +83,30 @@ CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 `;
 
+// Harness-only SQL run just before a migration that prod applied but a
+// clean replay can't, keyed by version prefix. The migration files are
+// what prod ran and stay untouched.
+//
+// public_events: these three redefine the view with CREATE OR REPLACE
+// and insert columns ahead of owner_is_paid. Postgres only lets
+// CREATE OR REPLACE VIEW append columns, so on a clean base each one
+// fails ("cannot change name of view column owner_is_paid to
+// tracking_start") and its whole file rolls back. Dropping the view
+// first lets them land as written; nothing depends on the view yet and
+// each re-grants SELECT itself.
+const DROP_PUBLIC_EVENTS = 'DROP VIEW IF EXISTS public.public_events;';
+export const PRE_PATCHES = {
+  '20260406130000': DROP_PUBLIC_EVENTS, // tracking_time_window
+  '20260409120000': DROP_PUBLIC_EVENTS, // event_ended_flag
+  '20260411120000': DROP_PUBLIC_EVENTS, // event_billing_columns
+};
+
+// Migrations allowed to FAIL on a clean replay, by version prefix, each
+// with a comment saying why. Anything else that fails makes createDb
+// throw, so no check runs on a half-built schema. Keep this empty: fix
+// the replay with a PRE_PATCHES entry instead.
+export const ALLOWED_FAILURES = new Set([]);
+
 export async function createDb(repoRoot = REPO_ROOT, { stopBefore } = {}) {
   const db = new PGlite();
   await db.exec(SUPABASE_PRELUDE);
@@ -90,14 +115,21 @@ export async function createDb(repoRoot = REPO_ROOT, { stopBefore } = {}) {
   const results = [];
   for (const f of files) {
     if (stopBefore && f >= stopBefore) break;
-    if (f.startsWith('20260406120000')) await db.exec(DRIFT_PATCH);
+    const version = f.split('_')[0];
+    if (version === '20260406120000') await db.exec(DRIFT_PATCH);
+    if (PRE_PATCHES[version]) await db.exec(PRE_PATCHES[version]);
     const sql = readFileSync(join(dir, f), 'utf8');
     try {
       await db.exec(sql);
       results.push({ f, ok: true });
     } catch (e) {
-      results.push({ f, ok: false, err: e.message });
+      results.push({ f, ok: false, err: e.message, allowed: ALLOWED_FAILURES.has(version) });
     }
+  }
+  const unexpected = results.filter((r) => !r.ok && !r.allowed);
+  if (unexpected.length) {
+    const list = unexpected.map((r) => `  ${r.f}: ${r.err}`).join('\n');
+    throw new Error(`Migration replay failed:\n${list}`);
   }
   return { db, results };
 }
@@ -155,6 +187,11 @@ ${pass} passed, ${fail} failed`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { results } = await createDb();
-  for (const r of results) console.log(r.ok ? 'ok  ' : 'FAIL', r.f, r.err ?? '');
+  try {
+    const { results } = await createDb();
+    for (const r of results) console.log(r.ok ? 'ok  ' : 'FAIL (allowed)', r.f, r.err ?? '');
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
 }

@@ -42,12 +42,12 @@ const CompRevokeDialog = ({
     setSubmitting(true);
 
     const { error } = await supabase
-      .from('comp_grants' as never)
+      .from('comp_grants')
       .update({
         revoked_at: new Date().toISOString(),
         revoked_by: user.id,
         revoke_reason: trimmed,
-      } as never)
+      })
       .eq('id', grantId);
 
     setSubmitting(false);
