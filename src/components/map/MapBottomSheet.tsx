@@ -32,6 +32,9 @@ function wmoIcon(code: number): React.ComponentType<{ className?: string }> {
   return Cloud;
 }
 
+/** The slice of recharts' mouse-move state the hover handler reads. */
+type ChartHoverState = { activePayload?: { payload?: { coord?: Coord } }[] };
+
 interface MapBottomSheetProps {
   routes: EventRoute[];
   pois: RoutePoi[];
@@ -154,7 +157,7 @@ const MapBottomSheet = ({
   }));
   const stats = profile.length > 0 ? elevationStats(profile) : null;
 
-  const handleMouseMove = useCallback((state: any) => {
+  const handleMouseMove = useCallback((state: ChartHoverState) => {
     if (state?.activePayload?.[0]?.payload?.coord && onHoverPoint) {
       onHoverPoint(state.activePayload[0].payload.coord);
     }

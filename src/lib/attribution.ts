@@ -85,10 +85,12 @@ export function getFirstTouch(): FirstTouch | null {
  * so event rows stay compact; an empty object means "no data captured",
  * a `{ referrer: ... }`-less object with a landing page means "direct".
  */
-export function attributionProperties(): Record<string, unknown> {
+export function attributionProperties(): Record<string, string> {
   const touch = getFirstTouch();
   if (!touch) return {};
-  const entries = Object.entries(touch).filter(([key, value]) => value !== null && key !== 'captured_at');
+  const entries = Object.entries(touch).filter(
+    (entry): entry is [string, string] => entry[1] !== null && entry[0] !== 'captured_at',
+  );
   return Object.fromEntries(entries);
 }
 

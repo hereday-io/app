@@ -25,6 +25,8 @@ import StripeWordmark from '@/components/StripeWordmark';
 import { EventChip } from '@/components/ui/event-chip';
 import { InfoCallout } from '@/components/ui/info-callout';
 import { logEvent } from '@/lib/analytics';
+import { isPro as isEventPro } from '@/lib/eventStatus';
+import { unwrap } from '@/lib/unwrap';
 
 // ────────────────────────────────────────────────────────────────────
 // Types
@@ -141,6 +143,7 @@ const Billing = () => {
   const navigate = useNavigate();
 
   const [events, setEvents] = useState<BillingEvent[] | null>(null);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const [charges, setCharges] = useState<ChargeRow[] | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [paymentMethodLoading, setPaymentMethodLoading] = useState(true);
@@ -175,22 +178,38 @@ const Billing = () => {
   // ── Data fetches ──────────────────────────────────────────────────
   const fetchEvents = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('events')
-      .select('id, name, city, event_date, status, route_count, poi_count, paid_at, stripe_session_id')
-      .eq('user_id', user.id)
-      .order('paid_at', { ascending: false, nullsFirst: false })
-      .order('updated_at', { ascending: false });
-    setEvents((data ?? []) as BillingEvent[]);
+    setEventsError(null);
+    try {
+      const data = unwrap(await supabase
+        .from('events')
+        .select('id, name, city, event_date, status, route_count, poi_count, paid_at, stripe_session_id')
+        .eq('user_id', user.id)
+        .order('paid_at', { ascending: false, nullsFirst: false })
+        .order('updated_at', { ascending: false }));
+      setEvents(data as BillingEvent[]);
+    } catch (err) {
+      setEventsError(err instanceof Error ? err.message : 'Network error');
+    }
   }, [user]);
 
   const fetchProfile = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('display_name, active_promo_code, active_promo_percent_off, active_promo_expires_at')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    let data;
+    try {
+      data = unwrap(await supabase
+        .from('profiles')
+        .select('display_name, active_promo_code, active_promo_percent_off, active_promo_expires_at')
+        .eq('user_id', user.id)
+        .maybeSingle());
+    } catch (err) {
+      // Without this the promo panel would claim there's no active code.
+      toast({
+        title: "Couldn't load your promo codes",
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!data) return;
     if (data.display_name) setDisplayName(data.display_name);
     if (data.active_promo_code) {
@@ -202,7 +221,7 @@ const Billing = () => {
     } else {
       setActivePromo(null);
     }
-  }, [user]);
+  }, [user, toast]);
 
   const fetchCharges = useCallback(async () => {
     if (!user) return;
@@ -239,7 +258,7 @@ const Billing = () => {
   }, [user, fetchEvents, fetchProfile, fetchCharges, fetchPaymentMethod]);
 
   // ── Derived values ────────────────────────────────────────────────
-  const paidEvents = events?.filter((e) => !!e.paid_at) ?? [];
+  const paidEvents = events?.filter(isEventPro) ?? [];
   const unlockedCount = paidEvents.length;
   const refundedCount = charges?.filter((c) => c.refunded).length ?? 0;
   const lifetimeSpend = charges
@@ -446,6 +465,8 @@ const Billing = () => {
           <div>
             <EventsPanel
               events={events}
+              error={eventsError}
+              onRetry={fetchEvents}
               charges={charges}
               onUnlock={(e) => setUnlockEvent(e)}
               onReceipt={handleEventReceipt}
@@ -724,17 +745,21 @@ const SidePanelHeading = ({ children }: { children: React.ReactNode }) => (
 // ────────────────────────────────────────────────────────────────────
 const EventsPanel = ({
   events,
+  error,
+  onRetry,
   charges,
   onUnlock,
   onReceipt,
 }: {
   events: BillingEvent[] | null;
+  error: string | null;
+  onRetry: () => void;
   charges: ChargeRow[] | null;
   onUnlock: (e: BillingEvent) => void;
   onReceipt: (e: BillingEvent) => void;
 }) => {
   const count = events?.length ?? 0;
-  const unlockedCount = events?.filter((e) => !!e.paid_at).length ?? 0;
+  const unlockedCount = events?.filter(isEventPro).length ?? 0;
   return (
     <Card
       className="rounded-[14px] overflow-hidden p-0"
@@ -749,7 +774,13 @@ const EventsPanel = ({
         </span>
       </div>
 
-      {events === null ? (
+      {error ? (
+        <div role="alert" className="px-5 py-10 text-center text-sm">
+          <p className="font-medium text-foreground m-0 mb-1">Couldn't load your events</p>
+          <p className="text-muted-foreground m-0 mb-4">{error}</p>
+          <Button variant="outline" size="sm" onClick={onRetry}>Try again</Button>
+        </div>
+      ) : events === null ? (
         <div className="divide-y divide-border">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="flex items-center px-5 py-4">
@@ -789,7 +820,7 @@ const EventRow = ({
   onUnlock: () => void;
   onReceipt: () => void;
 }) => {
-  const isPro = !!event.paid_at;
+  const isPro = isEventPro(event);
   const isLive = event.status === 'published';
   const isDraft = !isLive;
 

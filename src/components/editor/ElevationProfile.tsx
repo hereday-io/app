@@ -4,6 +4,9 @@ import { Mountain, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import type { Coord, EventRoute } from '@/types/mapEditor';
 import { getElevationProfile, elevationStats, type ElevationPoint } from '@/lib/elevation';
 
+/** The slice of recharts' mouse-move state the hover handler reads. */
+type ChartHoverState = { activePayload?: { payload?: { coord?: Coord } }[] };
+
 interface ElevationProfileProps {
   route: EventRoute | undefined;
   mapboxToken: string;
@@ -53,7 +56,7 @@ const ElevationProfile = ({ route, mapboxToken, routeColor, onHoverPoint, contai
     }
   }, [expanded, visible, fetchProfile, coordsKey]);
 
-  const handleMouseMove = useCallback((state: any) => {
+  const handleMouseMove = useCallback((state: ChartHoverState) => {
     if (state?.activePayload?.[0]?.payload?.coord && onHoverPoint) {
       onHoverPoint(state.activePayload[0].payload.coord);
     }

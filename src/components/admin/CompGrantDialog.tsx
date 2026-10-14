@@ -42,14 +42,12 @@ const CompGrantDialog = ({
     setSubmitting(true);
 
     const { error } = await supabase
-      // comp_grants table is added in migration 20260504120000_comp_grants.sql.
-      // Cast the table name through `from(... as never)` until generated types catch up.
-      .from('comp_grants' as never)
+      .from('comp_grants')
       .insert({
         user_id: targetUserId,
         granted_by: user.id,
         grant_reason: trimmed,
-      } as never);
+      });
 
     setSubmitting(false);
 
