@@ -1049,8 +1049,8 @@ const Dashboard = () => {
               getting-started guide
             </a>{' '}
             or email{' '}
-            <a href="mailto:support@hereday.io" className="text-[hsl(217_91%_45%)] hover:underline">
-              support@hereday.io
+            <a href="mailto:hello@hereday.io" className="text-[hsl(217_91%_45%)] hover:underline">
+              hello@hereday.io
             </a>
             .
           </p>

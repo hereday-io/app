@@ -44,7 +44,7 @@ export default class AppErrorBoundary extends Component<{ children: ReactNode },
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Still stuck? Email <a className="underline" href="mailto:support@hereday.io">support@hereday.io</a>.
+            Still stuck? Email <a className="underline" href="mailto:hello@hereday.io">hello@hereday.io</a>.
           </p>
         </div>
       </div>

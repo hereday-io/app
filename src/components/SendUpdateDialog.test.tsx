@@ -70,7 +70,7 @@ describe('SendUpdateDialog send result', () => {
     });
     const { shown } = await send();
     expect(shown.description).toBe(
-      "Sent to 100 of 142 people. The other 42 didn't go out. Contact support at support@hereday.io before trying again.",
+      "Sent to 100 of 142 people. The other 42 didn't go out. Contact support at hello@hereday.io before trying again.",
     );
     expect(shown.variant).toBe('destructive');
     expect(shown.duration).toBe(Infinity);
