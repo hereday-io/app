@@ -29,6 +29,8 @@ interface RunnerViewProps {
     name: string;
     city: string | null;
     event_date: string | null;
+    start_time?: string | null;
+    registration_url?: string | null;
     routes: EventRoute[];
     pois: RoutePoi[];
     logo_url?: string | null;
@@ -603,6 +605,9 @@ const RunnerView = ({ event, onBack, onSwitchToSpectator }: RunnerViewProps) => 
           eventDate={event.event_date}
           weatherCoord={weatherCoord}
           eventName={event.name}
+          eventStartTime={event.start_time}
+          eventLocation={event.city}
+          registrationUrl={event.registration_url}
           badge={!event.is_pro ? <MadeWithHeredayBadge /> : undefined}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}

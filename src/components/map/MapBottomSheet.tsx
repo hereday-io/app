@@ -3,13 +3,16 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import {
   Mountain, CircleDot, Cloud, Sun, CloudSun, CloudRain, CloudDrizzle,
   CloudSnow, CloudLightning, Eye, EyeOff, Loader2, ChevronDown, ChevronUp,
-  Plus, Minus,
+  Plus, Minus, Calendar, MapPin, ExternalLink,
 } from 'lucide-react';
 import type { EventRoute, RoutePoi, PoiType, Coord } from '@/types/mapEditor';
 import { totalDistanceMiles } from '@/lib/geo';
 import { poiTone, poisByCategory, POI_CATEGORIES, POI_CATEGORY_ORDER } from '@/lib/pois';
 import { fetchEventWeather, daysUntilEvent, type WeatherResult } from '@/lib/weather';
-import { getElevationProfile, elevationStats, type ElevationPoint } from '@/lib/elevation';
+import {
+  getElevationProfile, elevationStats, climbSummary, isFlat, elevationDomain, type ElevationPoint,
+} from '@/lib/elevation';
+import { formatEventDay, formatStartTime, safeRegistrationHref } from '@/lib/eventDetails';
 
 type Tab = 'elevation' | 'legend' | 'weather';
 
@@ -49,6 +52,12 @@ interface MapBottomSheetProps {
   eventDate: string | null;
   weatherCoord: [number, number] | null;
   eventName?: string;
+  /** Postgres TIME ("08:00:00"); shown next to the date in the header. */
+  eventStartTime?: string | null;
+  /** Where the race starts — the event's city/address field. */
+  eventLocation?: string | null;
+  /** Organizer's sign-up page; renders a "Register" button when set. */
+  registrationUrl?: string | null;
   badge?: React.ReactNode;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -65,7 +74,8 @@ const MapBottomSheet = ({
   routes, pois, hiddenRouteIds, onToggleRoute,
   highlightedPoiType, onHighlightPoiType,
   activeRoute, mapboxToken, routeColor, onHoverPoint,
-  eventDate, weatherCoord, eventName, badge, onZoomIn, onZoomOut, viewMode = 'runner',
+  eventDate, weatherCoord, eventName, eventStartTime, eventLocation, registrationUrl,
+  badge, onZoomIn, onZoomOut, viewMode = 'runner',
 }: MapBottomSheetProps) => {
   const hasRoute = !!(activeRoute && activeRoute.routeCoords.length >= 2);
 
@@ -156,6 +166,12 @@ const MapBottomSheet = ({
     coord: p.coord,
   }));
   const stats = profile.length > 0 ? elevationStats(profile) : null;
+  const yDomain = elevationDomain(chartData);
+
+  // ── When / where / register ───────────────────────────────────────
+  const when = [formatEventDay(eventDate), formatStartTime(eventStartTime)].filter(Boolean).join(' · ');
+  const where = eventLocation?.trim() || '';
+  const registerHref = safeRegistrationHref(registrationUrl);
 
   const handleMouseMove = useCallback((state: ChartHoverState) => {
     if (state?.activePayload?.[0]?.payload?.coord && onHoverPoint) {
@@ -202,32 +218,70 @@ const MapBottomSheet = ({
       </div>
       <div className="pointer-events-auto rounded-2xl bg-card/85 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] overflow-hidden max-h-[45vh] flex flex-col">
 
-        {/* ── Header: event name, route stats, collapse toggle ── */}
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors shrink-0"
-        >
-          <div className="min-w-0 flex-1">
-            <h2
-              className="text-sm font-semibold text-foreground truncate"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
-              {eventName || 'Event Details'}
-            </h2>
+        {/* ── Header: event name, when/where, route stats, Register ──
+            The whole header toggles the sheet via a stretched button
+            behind the text; Register sits above it so a tap on the link
+            opens registration instead of collapsing the sheet (a link
+            can't live inside a <button>). */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse event details' : 'Expand event details'}
+            className="absolute inset-0 w-full hover:bg-muted/30 transition-colors"
+          />
+          <div className="relative pointer-events-none px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <h2
+                className="text-sm font-semibold text-foreground truncate min-w-0 flex-1"
+                style={{ fontFamily: 'var(--font-display)' }}
+              >
+                {eventName || 'Event Details'}
+              </h2>
+              {registerHref && (
+                <a
+                  href={registerHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pointer-events-auto relative after:absolute after:-inset-2 after:content-[''] shrink-0 inline-flex items-center gap-1 h-7 px-3 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-sm hover:bg-primary/90 active:scale-95 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                >
+                  Register
+                  <ExternalLink className="w-3 h-3" aria-hidden />
+                </a>
+              )}
+              {expanded
+                ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
+                : <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
+              }
+            </div>
+            {(when || where) && (
+              <p className="flex items-center gap-x-1.5 text-xs text-foreground/80 mt-0.5 min-w-0">
+                {when && (
+                  <span className="inline-flex items-center gap-1 shrink-0">
+                    <Calendar className="w-3 h-3 text-muted-foreground" aria-hidden />
+                    {when}
+                  </span>
+                )}
+                {when && where && <span className="text-muted-foreground" aria-hidden>·</span>}
+                {where && (
+                  <span className="inline-flex items-center gap-1 min-w-0" title={where}>
+                    <MapPin className="w-3 h-3 text-muted-foreground shrink-0" aria-hidden />
+                    <span className="truncate">{where}</span>
+                  </span>
+                )}
+              </p>
+            )}
             {hasRoute && (
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 {activeRoute!.name}
                 {' · '}
                 {totalDistanceMiles(activeRoute!.routeCoords).toFixed(1)} mi
-                {stats ? ` · +${stats.gain} ft` : ''}
+                {stats ? ` · ${climbSummary(stats)}` : ''}
               </p>
             )}
           </div>
-          {expanded
-            ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-            : <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-          }
-        </button>
+        </div>
 
         {expanded && (
           <>
@@ -268,8 +322,14 @@ const MapBottomSheet = ({
                     <>
                       <div className="flex items-center gap-4 mb-2 text-xs flex-wrap">
                         <span className="font-semibold text-foreground">{activeRoute!.name}</span>
-                        <span className="text-green-600 dark:text-green-400">↑ {stats?.gain} ft gain</span>
-                        <span className="text-destructive">↓ {stats?.loss} ft loss</span>
+                        {stats && isFlat(stats) ? (
+                          <span className="text-muted-foreground">Flat course</span>
+                        ) : (
+                          <>
+                            <span className="text-green-600 dark:text-green-400">↑ {stats?.gain} ft gain</span>
+                            <span className="text-destructive">↓ {stats?.loss} ft loss</span>
+                          </>
+                        )}
                         <span className="text-muted-foreground">Min {stats?.min} ft</span>
                         <span className="text-muted-foreground">Max {stats?.max} ft</span>
                       </div>
@@ -295,7 +355,7 @@ const MapBottomSheet = ({
                               interval={9}
                               tickFormatter={(v) => `${v} mi`}
                             />
-                            <YAxis hide domain={['auto', 'auto']} />
+                            <YAxis hide domain={yDomain} />
                             <Tooltip
                               cursor={{ stroke: routeColor, strokeWidth: 1, strokeDasharray: '4 3', strokeOpacity: 0.6 }}
                               contentStyle={{

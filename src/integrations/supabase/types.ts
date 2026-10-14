@@ -591,6 +591,7 @@ export type Database = {
           plan: string
           poi_count: number
           pois: Json
+          registration_url: string | null
           route_count: number
           routes: Json
           scouted_pois: Json
@@ -621,6 +622,7 @@ export type Database = {
           plan?: string
           poi_count?: number
           pois?: Json
+          registration_url?: string | null
           route_count?: number
           routes?: Json
           scouted_pois?: Json
@@ -651,6 +653,7 @@ export type Database = {
           plan?: string
           poi_count?: number
           pois?: Json
+          registration_url?: string | null
           route_count?: number
           routes?: Json
           scouted_pois?: Json
@@ -1096,9 +1099,11 @@ export type Database = {
           owner_is_paid: boolean | null
           poi_count: number | null
           pois: Json | null
+          registration_url: string | null
           route_count: number | null
           routes: Json | null
           slug: string | null
+          start_time: string | null
           tracking_end: string | null
           tracking_start: string | null
           updated_at: string | null
@@ -1114,9 +1119,11 @@ export type Database = {
           owner_is_paid?: never
           poi_count?: number | null
           pois?: Json | null
+          registration_url?: string | null
           route_count?: number | null
           routes?: Json | null
           slug?: string | null
+          start_time?: string | null
           tracking_end?: string | null
           tracking_start?: string | null
           updated_at?: string | null
@@ -1132,9 +1139,11 @@ export type Database = {
           owner_is_paid?: never
           poi_count?: number | null
           pois?: Json | null
+          registration_url?: string | null
           route_count?: number | null
           routes?: Json | null
           slug?: string | null
+          start_time?: string | null
           tracking_end?: string | null
           tracking_start?: string | null
           updated_at?: string | null

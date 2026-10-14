@@ -16,6 +16,8 @@ interface PublicEvent {
   name: string;
   city: string | null;
   event_date: string | null;
+  start_time: string | null;
+  registration_url: string | null;
   routes: EventRoute[];
   pois: RoutePoi[];
   route_count: number;
@@ -152,6 +154,8 @@ const EventPublic = () => {
           name: data.name,
           city: data.city,
           event_date: data.event_date,
+          start_time: data.start_time ?? null,
+          registration_url: data.registration_url ?? null,
           routes: (data.routes as unknown as EventRoute[]) || [],
           pois: (data.pois as unknown as RoutePoi[]) || [],
           route_count: data.route_count ?? 0,

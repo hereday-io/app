@@ -44,42 +44,45 @@ export function useEventAnalytics(eventId: string | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback((showLoading: boolean) => {
+  const fetch = useCallback(async (showLoading: boolean) => {
     if (!eventId) return;
     if (showLoading) setLoading(true);
-    setError(null);
 
-    supabase
-      .rpc('get_event_analytics', { p_event_id: eventId })
-      .then(({ data: result, error: rpcError }) => {
-        if (rpcError) {
-          setError(rpcError.message);
-          setData(EMPTY);
-        } else {
-          const parsed = (typeof result === 'string' ? JSON.parse(result) : result) as Partial<EventAnalytics>;
-          // Defensive defaults — if the SQL function is stale (pre
-          // sponsor-aggregates migration) it won't return `sponsors`.
-          setData({ ...EMPTY, ...parsed, sponsors: parsed.sponsors ?? [] });
-        }
-        setLoading(false);
-      });
+    try {
+      const { data: result, error: rpcError } = await supabase.rpc('get_event_analytics', { p_event_id: eventId });
+      if (rpcError) throw rpcError;
+      const parsed = (typeof result === 'string' ? JSON.parse(result) : result) as Partial<EventAnalytics>;
+      // Defensive defaults — if the SQL function is stale (pre
+      // sponsor-aggregates migration) it won't return `sponsors`.
+      setData({ ...EMPTY, ...parsed, sponsors: parsed.sponsors ?? [] });
+      setError(null);
+    } catch (err) {
+      // Never render a failure as real zeros: that reads as "nobody has
+      // looked at your published event". Keep the last good numbers if a
+      // poll fails; with none, callers show the error state instead.
+      console.error('[useEventAnalytics]', err);
+      setError("Stats aren't loading right now");
+    } finally {
+      setLoading(false);
+    }
   }, [eventId]);
 
   // Initial fetch
   useEffect(() => {
-    if (!eventId) {
-      setData(null);
-      return;
-    }
-    fetch(true);
+    setData(null);
+    setError(null);
+    if (!eventId) return;
+    void fetch(true);
   }, [eventId, fetch]);
 
   // Poll every 30s while open
   useEffect(() => {
     if (!eventId) return;
-    const timer = setInterval(() => fetch(false), POLL_INTERVAL_MS);
+    const timer = setInterval(() => void fetch(false), POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [eventId, fetch]);
 
-  return { data, loading, error };
+  const retry = useCallback(() => void fetch(true), [fetch]);
+
+  return { data, loading, error, retry };
 }

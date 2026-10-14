@@ -81,7 +81,12 @@ export function buildErrorEvent(
  */
 export function reportError(fn: string, err: unknown, context: ErrorContext = {}): Promise<void> {
   try {
-    const key = Deno.env.get("POSTHOG_KEY");
+    // Read through globalThis: stripe-webhook/handlers.ts imports this
+    // module and also runs under Node in tests, where there's no Deno and
+    // nothing to report to.
+    const deno = (globalThis as { Deno?: { env: { get(key: string): string | undefined } } }).Deno;
+    if (!deno) return Promise.resolve();
+    const key = deno.env.get("POSTHOG_KEY");
     if (!key) {
       if (!warnedMissingKey) {
         warnedMissingKey = true;
@@ -89,8 +94,8 @@ export function reportError(fn: string, err: unknown, context: ErrorContext = {}
       }
       return Promise.resolve();
     }
-    const host = (Deno.env.get("POSTHOG_HOST") || DEFAULT_HOST).replace(/\/+$/, "");
-    const body = buildErrorEvent(fn, err, context, { key, supabaseUrl: Deno.env.get("SUPABASE_URL") });
+    const host = (deno.env.get("POSTHOG_HOST") || DEFAULT_HOST).replace(/\/+$/, "");
+    const body = buildErrorEvent(fn, err, context, { key, supabaseUrl: deno.env.get("SUPABASE_URL") });
     const send = fetch(`${host}/capture/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

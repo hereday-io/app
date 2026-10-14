@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useCheckoutReturn } from '@/hooks/useCheckoutReturn';
 import { useStaffRole } from '@/hooks/useStaffRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -262,6 +263,13 @@ const Billing = () => {
     fetchCharges();
     fetchPaymentMethod();
   }, [user, fetchEvents, fetchProfile, fetchCharges, fetchPaymentMethod]);
+
+  // Back from Stripe Checkout: refetch so the event moves into the Pro
+  // list and the new charge shows up.
+  useCheckoutReturn(() => {
+    void fetchEvents();
+    void fetchCharges();
+  });
 
   // ── Derived values ────────────────────────────────────────────────
   const paidEvents = events?.filter(isEventPro) ?? [];

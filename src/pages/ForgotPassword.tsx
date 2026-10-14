@@ -5,25 +5,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { userFacingError } from '@/lib/userFacingError';
 import { ArrowLeft } from 'lucide-react';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (resetError) {
+      setError(userFacingError(resetError, { action: 'send the reset link', flow: 'forgot', email }).description);
     } else {
       setSent(true);
     }
@@ -73,6 +74,11 @@ const ForgotPassword = () => {
                     required
                   />
                 </div>
+                {error && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {error}
+                  </p>
+                )}
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Sending…' : 'Send reset link'}
                 </Button>

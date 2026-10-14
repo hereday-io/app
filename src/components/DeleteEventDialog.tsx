@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { errorToast } from '@/lib/userFacingError';
 
 interface DeleteEventDialogProps {
   open: boolean;
@@ -29,10 +30,17 @@ const DeleteEventDialog = ({ open, onOpenChange, eventId, eventName, onDeleted }
     if (!eventId) return;
     setDeleting(true);
 
-    const { error } = await supabase.from('events').delete().eq('id', eventId);
+    const { data: rows, error } = await supabase.from('events').delete().eq('id', eventId).select('id');
 
     if (error) {
-      toast({ title: 'Failed to delete event', description: error.message, variant: 'destructive' });
+      toast(errorToast(error, { action: 'delete this event', logLabel: 'DeleteEventDialog delete' }));
+    } else if ((rows?.length ?? 0) === 0) {
+      // RLS matched no row — nothing was deleted, so don't say it was.
+      toast({
+        title: "Can't delete: you no longer have access to this event",
+        description: 'It may have been moved to another account. Reload to check.',
+        variant: 'destructive',
+      });
     } else {
       toast({ title: 'Event deleted' });
       onOpenChange(false);

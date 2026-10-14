@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Radio, Link as LinkIcon, Lock, Phone } from 'lucide-react';
+import { CalendarIcon, Radio, Link as LinkIcon, Lock, Phone, Ticket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LIVE_TRACKING_ENABLED } from '@/lib/featureFlags';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { errorToast } from '@/lib/userFacingError';
+import { normalizeRegistrationUrl } from '@/lib/eventDetails';
 
 // A type alias rather than an interface: aliases get an implicit index
 // signature, which keeps this assignable to the jsonb column's `Json`.
@@ -37,6 +39,7 @@ interface EventData {
   city: string | null;
   event_date: string | null;
   start_time?: string | null;
+  registration_url?: string | null;
   tracking_start?: string | null;
   tracking_end?: string | null;
   emergency_contacts?: EmergencyContacts | null;
@@ -84,6 +87,8 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
   const [date, setDate] = useState<Date>();
   const [slug, setSlug] = useState('');
   const [startTime, setStartTime] = useState('');
+  const [registrationUrl, setRegistrationUrl] = useState('');
+  const [registrationUrlError, setRegistrationUrlError] = useState('');
   const [trackingStart, setTrackingStart] = useState('');
   const [trackingEnd, setTrackingEnd] = useState('');
   // Emergency contacts — stored as a JSONB column on events
@@ -106,6 +111,8 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       setDate(event.event_date ? new Date(event.event_date + 'T00:00:00') : undefined);
       setSlug(event.slug ?? '');
       setStartTime(event.start_time ?? '');
+      setRegistrationUrl(event.registration_url ?? '');
+      setRegistrationUrlError('');
       setTrackingStart(toLocalDatetime(event.tracking_start));
       setTrackingEnd(toLocalDatetime(event.tracking_end));
       const ec = (event.emergency_contacts ?? {}) as EmergencyContacts;
@@ -140,6 +147,12 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       return;
     }
 
+    const registration = normalizeRegistrationUrl(registrationUrl);
+    if ('error' in registration) {
+      setRegistrationUrlError(registration.error);
+      return;
+    }
+
     setSaving(true);
 
     type UpdatePayload = {
@@ -147,6 +160,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       city: string | null;
       event_date: string | null;
       start_time: string | null;
+      registration_url: string | null;
       tracking_start: string | null;
       tracking_end: string | null;
       emergency_contacts: EmergencyContacts;
@@ -157,6 +171,7 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
       city: city.trim() || null,
       event_date: date ? format(date, 'yyyy-MM-dd') : null,
       start_time: startTime || null,
+      registration_url: registration.value,
       tracking_start: trackingStart ? new Date(trackingStart).toISOString() : null,
       tracking_end: trackingEnd ? new Date(trackingEnd).toISOString() : null,
       emergency_contacts: {
@@ -168,16 +183,23 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
     };
     if (slugChanged) payload.slug = normalizedSlug;
 
-    const { error } = await supabase.from('events').update(payload).eq('id', event.id);
+    const { data: rows, error } = await supabase.from('events').update(payload).eq('id', event.id).select('id');
 
     if (error) {
       // 23505 on slug means another event already owns this URL. Surface
       // it as something the user can actually fix instead of a raw
       // constraint error.
       const isSlugCollision = slugChanged && (error as { code?: string }).code === '23505';
+      toast(
+        isSlugCollision
+          ? { title: 'That URL is already taken', description: 'Try a different URL.', variant: 'destructive' }
+          : errorToast(error, { action: 'save your changes', logLabel: 'EditEventDialog update' }),
+      );
+    } else if ((rows?.length ?? 0) === 0) {
+      // RLS matched no row: this account no longer owns the event.
       toast({
-        title: isSlugCollision ? 'That URL is already taken' : 'Failed to update event',
-        description: isSlugCollision ? 'Try a different URL.' : error.message,
+        title: "Can't save: you no longer have access to this event",
+        description: 'It may have been moved to another account. Reload to check.',
         variant: 'destructive',
       });
     } else {
@@ -253,6 +275,35 @@ const EditEventDialog = ({ open, onOpenChange, event, onUpdated, isPro }: EditEv
               />
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-registration-url" className="flex items-center gap-1.5">
+              <Ticket className="h-3.5 w-3.5 text-muted-foreground" />
+              Registration link
+            </Label>
+            <Input
+              id="edit-registration-url"
+              type="text"
+              inputMode="url"
+              autoComplete="url"
+              placeholder="runsignup.com/your-race"
+              value={registrationUrl}
+              onChange={(e) => { setRegistrationUrl(e.target.value); setRegistrationUrlError(''); }}
+              onBlur={() => {
+                const r = normalizeRegistrationUrl(registrationUrl);
+                if ('error' in r) setRegistrationUrlError(r.error);
+                else setRegistrationUrl(r.value ?? '');
+              }}
+              aria-invalid={!!registrationUrlError}
+              aria-describedby="edit-registration-url-hint"
+            />
+            <p
+              id="edit-registration-url-hint"
+              className={cn('text-[11px] leading-snug', registrationUrlError ? 'text-destructive' : 'text-muted-foreground')}
+            >
+              {registrationUrlError || 'Optional. Adds a Register button to your public course map.'}
+            </p>
+          </div>
+
           {/* Public URL slug — only editable while draft. Once the event
               is published, this field becomes a read-only display so
               the organizer never accidentally breaks a live share link. */}

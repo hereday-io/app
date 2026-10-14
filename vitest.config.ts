@@ -8,9 +8,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    // Edge-function helpers that are plain TS (no Deno-only imports) are
-    // tested here too; Deno itself isn't installed in CI.
-    include: ["src/**/*.{test,spec}.{ts,tsx}", "supabase/functions/_shared/**/*.test.ts"],
+    // supabase/functions: edge-function modules kept free of Deno globals
+    // so they can be tested here (see stripe-webhook/handlers.ts).
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "supabase/functions/**/*.test.ts"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
