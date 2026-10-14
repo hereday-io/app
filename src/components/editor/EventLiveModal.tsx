@@ -45,7 +45,7 @@ const EventLiveModal = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md overflow-hidden p-0">
+      <DialogContent className="sm:max-w-md overflow-hidden p-0 gap-0">
         {/* Header */}
         <div className="px-6 pt-6 pb-5 text-center border-b border-border">
           <div className="h-14 w-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
