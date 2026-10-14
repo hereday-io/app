@@ -56,7 +56,7 @@ export const HOMEPAGE_FAQS: Faq[] = [
   },
   {
     q: 'What if my event is cancelled?',
-    a: "Full refund within 7 days if you haven't published yet. If your event is cancelled after publishing — weather, venue loss, force majeure — email hello@hereday.io and we'll review case by case. Pro is per-event, so a cancellation never affects your other events.",
+    a: "If it's rescheduled, just change the date: Pro stays with the event. Not running it again this year? Email hello@hereday.io within 30 days of paying and we'll move your Pro to another event, or refund you if that doesn't work for you. Haven't published yet? Full refund within 7 days of paying.",
   },
 ];
 

@@ -2,13 +2,13 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
 
-const LAST_UPDATED = 'April 13, 2026';
+const LAST_UPDATED = 'October 14, 2026';
 
 const Refund = () => {
   useSeoMeta({
     title: 'Refund Policy — Hereday',
     description:
-      'Hereday refund policy. Full refund within 7 days for unpublished events; cancellations after publishing reviewed case by case.',
+      'Hereday refund policy. Full refund within 7 days for unpublished events. Rescheduled? Pro stays with the event. Cancelled? Move Pro to another event or get a refund within 30 days.',
     canonicalPath: '/refund',
   });
 
@@ -46,8 +46,8 @@ const Refund = () => {
             <p>
               If you purchased Pro and haven't published the event yet, you can request a full
               refund within <strong>7 days</strong> of payment. Email{' '}
-              <a href="mailto:legal@hereday.io" className="text-primary hover:underline">
-                legal@hereday.io
+              <a href="mailto:hello@hereday.io" className="text-primary hover:underline">
+                hello@hereday.io
               </a>{' '}
               from the account you paid with, and we'll refund you to the original payment method.
             </p>
@@ -57,20 +57,23 @@ const Refund = () => {
             <p>
               Once you publish an event, Pro features have been delivered and made available to
               your participants and spectators — unlimited routes and POIs, branding, live
-              tracking, no Hereday footer on your public page. For that reason, we don't issue
-              refunds on published events.
+              volunteer status, no Hereday footer on your public page. For that reason, we don't
+              issue refunds on published events, except for cancelled events as described below.
             </p>
           </Section>
 
-          <Section title="Cancelled events (force majeure)">
+          <Section title="Cancelled or rescheduled events">
             <p>
-              If your event is cancelled due to weather, venue loss, or another circumstance
-              outside your reasonable control within 30 days of payment, email us at{' '}
-              <a href="mailto:legal@hereday.io" className="text-primary hover:underline">
-                legal@hereday.io
+              If weather, venue loss, or anything else outside your control cancels your event,
+              change the date and Pro stays with it — you don't need to contact us.
+            </p>
+            <p>
+              Not running it again this year? Email{' '}
+              <a href="mailto:hello@hereday.io" className="text-primary hover:underline">
+                hello@hereday.io
               </a>{' '}
-              with a brief description of what happened. We review these case by case and will
-              typically offer a refund or credit toward a future event at our discretion.
+              within <strong>30 days</strong> of payment and we'll move your Pro to another event,
+              or refund you if that doesn't work for you.
             </p>
           </Section>
 
@@ -101,8 +104,8 @@ const Refund = () => {
           <Section title="Contact">
             <p>
               For refund requests or questions, email{' '}
-              <a href="mailto:legal@hereday.io" className="text-primary hover:underline">
-                legal@hereday.io
+              <a href="mailto:hello@hereday.io" className="text-primary hover:underline">
+                hello@hereday.io
               </a>{' '}
               from the account you paid with. Including the event name in the subject line helps
               us resolve it faster.

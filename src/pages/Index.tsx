@@ -101,8 +101,8 @@ const plans = [
     name: 'Pro',
     price: '$49',
     priceSuffix: 'per event',
-    description: 'Pay when you publish — only for the events you actually run.',
-    cta: 'Try Pro — pay at publish',
+    description: 'One-time, per event. Upgrade any event whenever it needs more.',
+    cta: 'Start free, upgrade anytime',
     highlight: true,
     features: [
       'Everything in Free',
@@ -378,7 +378,7 @@ const Index = () => {
             className="flex flex-wrap justify-center items-center"
             style={{ marginTop: 18, gap: 14, fontSize: 13, color: 'var(--ed-muted)' }}
           >
-            {['No credit card', 'Live in 5 minutes', 'Refund if event cancels'].map((item) => (
+            {['No credit card', 'Live in 5 minutes', 'Date changes? Pro moves with it'].map((item) => (
               <span key={item} className="inline-flex items-center" style={{ gap: 6 }}>
                 <Check className="h-3.5 w-3.5" style={{ color: 'var(--ed-success)' }} />
                 {item}
@@ -756,7 +756,7 @@ const Index = () => {
                 lineHeight: 1.5,
               }}
             >
-              Start free. Upgrade only when you're ready to publish.
+              Start free and publish free. Upgrade any event to Pro when you need more.
             </p>
           </div>
           <div
@@ -896,7 +896,7 @@ const Index = () => {
               }}
             >
               <Check className="h-3 w-3" />
-              Refund if event cancels
+              Date changes? Pro moves with it
             </span>
             <span>No subscription, ever.</span>
             <span>

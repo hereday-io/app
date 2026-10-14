@@ -77,7 +77,7 @@ const PAGE_META: Record<string, PageMeta> = {
   refund: {
     title: 'Refund Policy — Hereday',
     description:
-      'Hereday refund policy. Full refund within 7 days for unpublished events; cancellations after publishing reviewed case by case.',
+      'Hereday refund policy. Full refund within 7 days for unpublished events. Rescheduled? Pro stays with the event. Cancelled? Move Pro to another event or get a refund within 30 days.',
   },
 };
 
