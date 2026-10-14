@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { errorToast } from '@/lib/userFacingError';
 
 interface SourceEvent {
   id: string;
@@ -66,7 +67,10 @@ const DuplicateEventDialog = ({ open, onOpenChange, event, userId, onCreated }: 
       .single();
 
     if (fetchError || !source) {
-      toast({ title: 'Could not read source event', variant: 'destructive' });
+      toast(errorToast(fetchError ?? new Error('source event not found'), {
+        action: `copy ${event.name}`,
+        logLabel: 'DuplicateEventDialog read source',
+      }));
       setSaving(false);
       return;
     }
@@ -94,7 +98,7 @@ const DuplicateEventDialog = ({ open, onOpenChange, event, userId, onCreated }: 
       .single();
 
     if (error || !data) {
-      toast({ title: 'Failed to duplicate event', description: error?.message, variant: 'destructive' });
+      toast(errorToast(error, { action: `copy ${event.name}`, logLabel: 'DuplicateEventDialog insert' }));
     } else {
       onOpenChange(false);
       onCreated(data.id);

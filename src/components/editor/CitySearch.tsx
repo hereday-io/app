@@ -108,6 +108,9 @@ const CitySearch = ({ value, onChange, token, placeholder = 'San Francisco' }: C
           {results.map((r, i) => (
             <button
               key={i}
+              // Lives inside CreateEventDialog's <form>: without this a
+              // suggestion click submits the form.
+              type="button"
               onClick={() => handleSelect(r)}
               className={`w-full text-left px-3 py-2 text-sm transition-colors border-b border-border last:border-0 truncate ${
                 i === activeIndex ? 'bg-muted text-foreground' : 'hover:bg-muted'

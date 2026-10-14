@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { errorToast } from '@/lib/userFacingError';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import CitySearch from '@/components/editor/CitySearch';
 
@@ -58,7 +59,7 @@ const CreateEventDialog = ({ open, onOpenChange, userId, onCreated }: CreateEven
     }).select('id').single();
 
     if (error || !data) {
-      toast({ title: 'Failed to create event', description: error?.message, variant: 'destructive' });
+      toast(errorToast(error, { action: 'create your event', logLabel: 'CreateEventDialog insert' }));
       setSaving(false);
       return;
     }

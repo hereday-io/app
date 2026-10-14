@@ -11,6 +11,7 @@ import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import { poiTone } from '@/lib/pois';
 import DropPinSheet from '@/components/scout/DropPinSheet';
 import { logEvent } from '@/lib/analytics';
+import { LINK_GONE, userFacingError, type FriendlyError } from '@/lib/userFacingError';
 
 /**
  * Mobile POI Scout — read + submit entry point.
@@ -40,7 +41,7 @@ const ScoutPage = () => {
   const routeLayersAddedRef = useRef(false);
 
   const [event, setEvent] = useState<ResolvedScoutEvent | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<FriendlyError | null>(null);
   const [dropSheetOpen, setDropSheetOpen] = useState(false);
   const [pendingCoord, setPendingCoord] = useState<[number, number] | null>(null);
   const [locating, setLocating] = useState(false);
@@ -61,7 +62,7 @@ const ScoutPage = () => {
   // ── 1. Resolve the token ───────────────────────────────────────────────
   useEffect(() => {
     if (!token) {
-      setLoadError('Missing scout token');
+      setLoadError(LINK_GONE);
       return;
     }
     let cancelled = false;
@@ -71,9 +72,9 @@ const ScoutPage = () => {
         setEvent(data);
         logEvent('scout_page_opened', data.eventId, { status: data.status });
       })
-      .catch((err: Error) => {
+      .catch((err: unknown) => {
         if (cancelled) return;
-        setLoadError(err.message || 'Failed to load event');
+        setLoadError(userFacingError(err, { action: 'open this scout page', logLabel: 'ScoutPage load' }));
       });
     return () => { cancelled = true; };
   }, [token]);
@@ -302,15 +303,19 @@ const ScoutPage = () => {
           <Compass className="h-7 w-7" />
         </div>
         <div className="space-y-1 max-w-sm">
-          <h1 className="text-xl font-display font-bold text-foreground">Scout link unavailable</h1>
-          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <h1 className="text-xl font-display font-bold text-foreground">{loadError.title}</h1>
+          <p className="text-sm text-muted-foreground">{loadError.description}</p>
         </div>
-        <button
-          onClick={() => navigate('/')}
-          className="mt-2 text-sm text-primary font-medium hover:underline"
-        >
-          Back to Hereday
-        </button>
+        {/* A dead link's only next step is the organizer — no button. A
+            network blip is worth retrying. */}
+        {loadError.kind !== 'link' && (
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 text-sm text-primary font-medium hover:underline"
+          >
+            Try again
+          </button>
+        )}
       </div>
     );
   }

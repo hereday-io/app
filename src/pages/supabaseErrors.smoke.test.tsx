@@ -48,9 +48,15 @@ vi.mock('@/integrations/supabase/client', () => {
 });
 
 // One stable object: pages key useCallback/useEffect on `user`, so a fresh
-// object per render would refetch in a loop.
+// object per render would refetch in a loop. Mutable so a test can make
+// the email unconfirmed.
+const authUser = vi.hoisted(() => ({
+  id: 'user-1',
+  email: 't@example.invalid',
+  email_confirmed_at: '2026-10-01T00:00:00Z' as string | null,
+}));
 vi.mock('@/hooks/useAuth', () => {
-  const auth = { user: { id: 'user-1', email: 't@example.invalid' }, loading: false, signOut: () => {} };
+  const auth = { user: authUser, loading: false, signOut: () => {} };
   return { useAuth: () => auth };
 });
 vi.mock('@/hooks/useStaffRole', () => ({ useStaffRole: () => ({ role: null, loading: false }) }));
@@ -71,15 +77,18 @@ const draftEvent = {
   poi_count: 1,
   created_at: '2026-10-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',
-  routes: [],
+  // One drawable route, so the dashboard's publish guard lets it through.
+  routes: [{ waypoints: [[-97.74, 30.27], [-97.73, 30.28]] }],
   paid_at: null,
 };
 
 const eventSelects = () => ops.filter((o) => o.table === 'events' && o.action === 'select').length;
+const eventUpdates = () => ops.filter((o) => o.table === 'events' && o.action === 'update').length;
 
 beforeEach(() => {
   ops.length = 0;
   toast.mockReset();
+  authUser.email_confirmed_at = '2026-10-01T00:00:00Z';
   respond = () => ({ data: [], error: null });
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -97,7 +106,9 @@ describe('Dashboard', () => {
         : { data: null, error: null };
     await renderDashboard();
     expect(await screen.findByText("Couldn't load your events")).toBeTruthy();
-    expect(screen.getByText(/connection reset/)).toBeTruthy();
+    // Friendly copy, never the raw PostgREST message.
+    expect(screen.getByText(/Check your connection and try again/)).toBeTruthy();
+    expect(screen.queryByText(/connection reset/)).toBeNull();
     expect(screen.queryByText('No events yet')).toBeNull();
   });
 
@@ -111,10 +122,33 @@ describe('Dashboard', () => {
     const [publish] = await screen.findAllByRole('button', { name: /^Publish$/ });
     fireEvent.click(publish);
     await waitFor(() => expect(toast).toHaveBeenCalled());
-    expect(toast.mock.calls[0][0]).toMatchObject({ title: "Couldn't publish event", variant: 'destructive' });
+    expect(toast.mock.calls[0][0]).toMatchObject({ title: "Couldn't publish", variant: 'destructive' });
+    expect(JSON.stringify(toast.mock.calls[0][0])).not.toMatch(/permission denied/);
     // No refetch, so nothing on screen claims the event went live.
     expect(eventSelects()).toBe(1);
     expect(screen.getAllByRole('button', { name: /^Publish$/ }).length).toBeGreaterThan(0);
+  });
+
+  it('blocks publishing until the email is confirmed, like the editor', async () => {
+    authUser.email_confirmed_at = null;
+    respond = ({ table }) => (table === 'events' ? { data: [draftEvent], error: null } : { data: null, error: null });
+    await renderDashboard();
+    const [publish] = await screen.findAllByRole('button', { name: /^Publish$/ });
+    fireEvent.click(publish);
+    await waitFor(() => expect(toast).toHaveBeenCalled());
+    expect(toast.mock.calls[0][0]).toMatchObject({ title: 'Verify your email to publish' });
+    expect(eventUpdates()).toBe(0);
+  });
+
+  it('blocks publishing an event with no drawn route, like the editor', async () => {
+    respond = ({ table }) =>
+      table === 'events' ? { data: [{ ...draftEvent, routes: [] }], error: null } : { data: null, error: null };
+    await renderDashboard();
+    const [publish] = await screen.findAllByRole('button', { name: /^Publish$/ });
+    fireEvent.click(publish);
+    await waitFor(() => expect(toast).toHaveBeenCalled());
+    expect(toast.mock.calls[0][0]).toMatchObject({ title: 'Draw a route first' });
+    expect(eventUpdates()).toBe(0);
   });
 
   it('treats an update that matched no row as a failure', async () => {
@@ -127,11 +161,14 @@ describe('Dashboard', () => {
     const [publish] = await screen.findAllByRole('button', { name: /^Publish$/ });
     fireEvent.click(publish);
     await waitFor(() => expect(toast).toHaveBeenCalled());
-    expect(toast.mock.calls[0][0]).toMatchObject({ title: "Couldn't publish event" });
+    expect(toast.mock.calls[0][0]).toMatchObject({
+      title: "Can't publish: you no longer have access to this event",
+      variant: 'destructive',
+    });
     expect(eventSelects()).toBe(1);
   });
 
-  it('refetches after a successful publish', async () => {
+  it('confirms and refetches after a successful publish', async () => {
     respond = ({ table, action }) => {
       if (table === 'events' && action === 'update') return { data: [{ id: 'evt-1' }], error: null };
       if (table === 'events') return { data: [draftEvent], error: null };
@@ -141,7 +178,29 @@ describe('Dashboard', () => {
     const [publish] = await screen.findAllByRole('button', { name: /^Publish$/ });
     fireEvent.click(publish);
     await waitFor(() => expect(eventSelects()).toBe(2));
-    expect(toast).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Test 5K is published' }));
+  });
+
+  it('labels a past published event "Unpublish" and asks before unpublishing', async () => {
+    // Past + published: not "live", but still published — the menu used to
+    // say "Publish" here and then unpublish it.
+    const pastPublished = { ...draftEvent, status: 'published', event_date: '2020-01-01' };
+    respond = ({ table, action }) => {
+      if (table === 'events' && action === 'update') return { data: [{ id: 'evt-1' }], error: null };
+      if (table === 'events') return { data: [pastPublished], error: null };
+      return { data: null, error: null };
+    };
+    await renderDashboard();
+    const [more] = await screen.findAllByRole('button', { name: 'More actions' });
+    fireEvent.keyDown(more, { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Unpublish/ }));
+    expect(await screen.findByText('Unpublish Test 5K?')).toBeTruthy();
+    expect(eventUpdates()).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Unpublish' }));
+    await waitFor(() => expect(eventUpdates()).toBe(1));
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Test 5K is unpublished' })),
+    );
   });
 });
 

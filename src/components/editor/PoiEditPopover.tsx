@@ -155,6 +155,28 @@ const PoiEditPopover = ({ poi, onSave, onDelete, onClose, isPro, sponsorOverflow
     onClose();
   };
 
+  // Everything else in the editor autosaves, so closing the card (X or
+  // Escape) keeps the edits instead of silently throwing them away. Only
+  // commit when something changed so a plain close doesn't dirty the event.
+  const hasChanges = () =>
+    title !== poi.title ||
+    description !== (poi.description || '') ||
+    webLink !== (poi.webLink || '') ||
+    imageCleared ||
+    !!newImageDataUrl ||
+    (isSponsor &&
+      (logoCleared ||
+        !!logoDataUrl ||
+        brandColor !== (poi.sponsor?.brandColor ?? '#2563eb') ||
+        ctaText !== (poi.sponsor?.ctaText ?? '') ||
+        ctaUrl !== (poi.sponsor?.ctaUrl ?? '') ||
+        promoCode !== (poi.sponsor?.promoCode ?? '')));
+
+  const handleDismiss = () => {
+    if (hasChanges()) handleSave();
+    else onClose();
+  };
+
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -166,13 +188,13 @@ const PoiEditPopover = ({ poi, onSave, onDelete, onClose, isPro, sponsorOverflow
     reader.readAsDataURL(file);
   };
 
-  // Keyboard handling: Escape closes, Ctrl/Cmd+Enter saves. We scope
-  // this to a root div keydown rather than window so outer editor
-  // shortcuts (R, T, etc.) still fire when the popover is closed.
+  // Keyboard handling: Escape closes (keeping edits), Ctrl/Cmd+Enter
+  // saves. We scope this to a root div keydown rather than window so
+  // outer editor shortcuts (R, T, etc.) still fire when the popover is closed.
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
-      onClose();
+      handleDismiss();
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -211,7 +233,8 @@ const PoiEditPopover = ({ poi, onSave, onDelete, onClose, isPro, sponsorOverflow
           />
         </div>
         <button
-          onClick={onClose}
+          type="button"
+          onClick={handleDismiss}
           aria-label="Close"
           className="text-muted-foreground hover:text-foreground shrink-0 -mt-3 -mr-1"
         >

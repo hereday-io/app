@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logEvent } from '@/lib/analytics';
+import { invokeFunction } from '@/lib/edgeFunctions';
+import { userFacingError } from '@/lib/userFacingError';
 import { markdownToHtml } from '@/lib/emailTemplate';
 import type { VolunteerEntry } from '@/types/mapEditor';
 
@@ -134,35 +136,34 @@ const SendUpdateDialog = ({ open, onOpenChange, eventId, eventName }: SendUpdate
     if (toVolunteers) audiences.push('volunteers');
     logEvent('email_update_sent', eventId, { audiences, recipient_count: totalRecipients });
 
-    const { data, error } = await supabase.functions.invoke('send-event-update', {
-      body: { eventId, subject: subject.trim(), body, audiences },
-    });
-    setSending(false);
-
-    if (error) {
-      // Try to tease out a structured error from the function response.
-      const ctx = (error as { context?: { body?: string | Record<string, unknown> } }).context;
-      let message = 'Send failed. Please try again.';
-      try {
-        if (typeof ctx?.body === 'string') {
-          const parsed = JSON.parse(ctx.body) as { error?: string; code?: string };
-          if (parsed.error) message = parsed.error;
-        } else if (ctx?.body && typeof ctx.body === 'object') {
-          const parsed = ctx.body as { error?: string };
-          if (parsed.error) message = parsed.error;
-        }
-      } catch {
-        // fall through to default
-      }
-      toast({ title: 'Could not send', description: message, variant: 'destructive' });
+    let data: { totalRecipients?: number };
+    try {
+      data = await invokeFunction<{ totalRecipients?: number }>('send-event-update', {
+        eventId, subject: subject.trim(), body, audiences,
+      });
+    } catch (err) {
+      setSending(false);
+      // send-event-update only errors before the first batch goes out
+      // (a partial send returns 200), so nobody received this one.
+      const { kind } = userFacingError(err, { action: 'send this update', logLabel: 'SendUpdateDialog send' });
+      toast({
+        title: "Your update wasn't sent",
+        description:
+          kind === 'rate_limit'
+            ? 'You can send one update per event every 24 hours. Nobody received this one.'
+            : kind === 'session'
+              ? "You've been signed out. Sign in again, then send it. Nobody received it."
+              : 'Nobody received it. Try again in a minute.',
+        variant: 'destructive',
+      });
       return;
     }
+    setSending(false);
 
-    const sent = (data as { sent?: { subscribers?: number; volunteers?: number }; totalRecipients?: number })?.sent ?? {};
-    const total = (data as { totalRecipients?: number })?.totalRecipients ?? 0;
+    const total = data?.totalRecipients ?? 0;
     toast({
       title: 'Update sent',
-      description: `Delivered to ${total} ${total === 1 ? 'recipient' : 'recipients'}.`,
+      description: `Sent to ${total} ${total === 1 ? 'person' : 'people'}.`,
     });
     onOpenChange(false);
   }, [eventId, toSubscribers, toVolunteers, subject, body, totalRecipients, toast, onOpenChange]);

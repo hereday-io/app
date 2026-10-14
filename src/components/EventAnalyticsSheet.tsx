@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Card, CardContent } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { useEventAnalytics } from '@/hooks/useEventAnalytics';
+import { Button } from '@/components/ui/button';
 
 interface EventAnalyticsSheetProps {
   open: boolean;
@@ -26,7 +27,7 @@ function formatDay(day: string): string {
 }
 
 const EventAnalyticsSheet = ({ open, onOpenChange, eventId, eventName, isPro }: EventAnalyticsSheetProps) => {
-  const { data, loading } = useEventAnalytics(open ? eventId : null);
+  const { data, loading, error, retry } = useEventAnalytics(open ? eventId : null);
 
   const hasViews = data && data.views_total > 0;
   const chartData = data?.views_by_day?.map(d => ({ day: formatDay(d.day), count: d.count })) ?? [];
@@ -44,6 +45,17 @@ const EventAnalyticsSheet = ({ open, onOpenChange, eventId, eventName, isPro }: 
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
             ))}
+          </div>
+        ) : !data && error ? (
+          <div className="text-center py-12">
+            <Eye className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm font-medium text-foreground">{error}</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-[240px] mx-auto">
+              Your public map isn't affected. Try again in a moment.
+            </p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={retry}>
+              Try again
+            </Button>
           </div>
         ) : !data || (!hasViews && data.subscribers_total === 0 && data.tracking_sessions === 0) ? (
           <div className="text-center py-12">

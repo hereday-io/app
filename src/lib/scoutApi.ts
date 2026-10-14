@@ -4,7 +4,7 @@
 // functions. Also holds the random-token generator used by ScoutLinkDialog
 // when an organizer asks for a new scout link.
 
-import { supabase } from '@/integrations/supabase/client';
+import { invokeFunction } from '@/lib/edgeFunctions';
 import type { PoiType } from '@/types/mapEditor';
 
 export interface ScoutedPoi {
@@ -40,15 +40,10 @@ export interface SubmitScoutedPoiInput {
 }
 
 // Resolves a scout token to the event it targets. Works on draft events
-// too — that's the whole point of scout mode. Throws on any failure with
-// a user-visible message; callers should surface it in a toast.
+// too — that's the whole point of scout mode. Throws an EdgeFunctionError
+// carrying the server's message; run it through userFacingError() for copy.
 export async function resolveScoutToken(token: string): Promise<ResolvedScoutEvent> {
-  const { data, error } = await supabase.functions.invoke('resolve-scout-token', {
-    body: { token },
-  });
-  if (error) throw new Error(error.message || 'Failed to resolve scout link');
-  if (data?.error) throw new Error(data.error);
-  return data as ResolvedScoutEvent;
+  return invokeFunction<ResolvedScoutEvent>('resolve-scout-token', { token });
 }
 
 // Submits a single POI against a scout token. The server assigns the id,
@@ -57,12 +52,8 @@ export async function resolveScoutToken(token: string): Promise<ResolvedScoutEve
 export async function submitScoutedPoi(
   input: SubmitScoutedPoiInput,
 ): Promise<ScoutedPoi> {
-  const { data, error } = await supabase.functions.invoke('submit-scouted-poi', {
-    body: input,
-  });
-  if (error) throw new Error(error.message || 'Failed to submit POI');
-  if (data?.error) throw new Error(data.error);
-  return data.poi as ScoutedPoi;
+  const data = await invokeFunction<{ poi: ScoutedPoi }>('submit-scouted-poi', input);
+  return data.poi;
 }
 
 // Generates a 32-char random token prefixed with the purpose code.

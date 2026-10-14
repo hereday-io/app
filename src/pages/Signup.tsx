@@ -9,10 +9,11 @@ import { useToast } from '@/hooks/use-toast';
 import { InfoCallout } from '@/components/ui/info-callout';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { MIN_PASSWORD_LENGTH, userFacingError } from '@/lib/userFacingError';
 
 // Lightweight password strength heuristic. We deliberately skip zxcvbn
 // (~400KB gzip) — the goal is a live signal that nudges users toward
-// passwords longer than our 6-char minimum, not a bank-grade estimator.
+// passwords longer than our 8-char minimum, not a bank-grade estimator.
 const scorePassword = (pw: string): { score: 0 | 1 | 2 | 3 | 4; label: string } => {
   if (!pw) return { score: 0, label: '' };
   let points = 0;
@@ -60,14 +61,14 @@ const Signup = () => {
   }, []);
 
   const strength = useMemo(() => scorePassword(password), [password]);
-  const passwordAcceptable = password.length >= 6;
+  const passwordAcceptable = password.length >= MIN_PASSWORD_LENGTH;
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const { error: signupError } = await supabase.auth.signUp({
+    const { data, error: signupError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -76,9 +77,19 @@ const Signup = () => {
       },
     });
 
-    if (signupError) {
-      setError(signupError.message);
-      toast({ title: 'Signup failed', description: signupError.message, variant: 'destructive' });
+    // With email confirmation on, Supabase hides "already registered"
+    // behind a fake success whose user has no identities.
+    const alreadyRegistered = !signupError && data.user?.identities?.length === 0;
+
+    if (signupError || alreadyRegistered) {
+      // Inline only — a toast on top of the inline message says it twice.
+      setError(
+        userFacingError(signupError ?? { code: 'user_already_exists', message: 'User already registered' }, {
+          action: 'create your account',
+          flow: 'signup',
+          email,
+        }).description,
+      );
     } else {
       logEvent('signup_form_submitted', null, { method: 'email', ...attributionProperties() });
       toast({ title: 'Account created', description: 'Check your inbox to verify your email. You can start building right away.' });
@@ -210,11 +221,11 @@ const Signup = () => {
                   id="signup-password"
                   type="password"
                   className="h-11 rounded-lg"
-                  placeholder="At least 8 characters"
+                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={MIN_PASSWORD_LENGTH}
                 />
                 {password.length > 0 ? (
                   <div className="space-y-1 pt-1">
@@ -237,7 +248,7 @@ const Signup = () => {
                       ))}
                     </div>
                     <p className="text-[11.5px] text-muted-foreground leading-[1.5]">
-                      {passwordAcceptable ? strength.label : 'At least 6 characters'}
+                      {passwordAcceptable ? strength.label : `At least ${MIN_PASSWORD_LENGTH} characters`}
                       {passwordAcceptable && strength.score < 3 && (
                         <span className="ml-1">— try mixing case, numbers, or symbols</span>
                       )}
