@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
-import RunnerView from '@/components/public/RunnerView';
-import SpectatorView from '@/components/public/SpectatorView';
+import PublicEventView from '@/components/public/PublicEventView';
 import EventEndedView from '@/components/public/EventEndedView';
 import RolePickerSheet from '@/components/public/RolePickerSheet';
 import { MapPin, Calendar, Trophy, Eye, WifiOff } from 'lucide-react';
@@ -251,28 +250,16 @@ const EventPublic = () => {
     );
   }
 
-  if (viewMode === 'runner') {
+  // One component for both roles so Run/Watch restyles the live map
+  // instead of tearing it down and loading a fresh one.
+  if (viewMode === 'runner' || viewMode === 'spectator') {
     return (
       <>
-        <RunnerView
+        <PublicEventView
           event={event}
+          mode={viewMode}
           onBack={() => navigate('/')}
-          onSwitchToSpectator={() => switchView('spectator')}
-        />
-        {!hasChosenRole && (
-          <RolePickerSheet onPick={handleRolePick} onDismiss={handleRoleDismiss} />
-        )}
-      </>
-    );
-  }
-
-  if (viewMode === 'spectator') {
-    return (
-      <>
-        <SpectatorView
-          event={event}
-          onBack={() => navigate('/')}
-          onSwitchToRunner={() => switchView('runner')}
+          onSwitchMode={switchView}
         />
         {!hasChosenRole && (
           <RolePickerSheet onPick={handleRolePick} onDismiss={handleRoleDismiss} />
