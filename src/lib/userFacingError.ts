@@ -10,9 +10,10 @@
 // Usage:
 //   toast(errorToast(err, { action: 'save your changes' }));
 //   setError(userFacingError(err, { action: 'sign in', flow: 'signin' }).description);
-//   const data = await invokeFunction<T>('resolve-status-token', { token });
+//
+// Deliberately free of the Supabase client so it can be imported (and
+// tested) anywhere; invokeFunction() lives in edgeFunctions.ts.
 
-import { supabase } from '@/integrations/supabase/client';
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js';
 
 export type ErrorKind =
@@ -108,20 +109,6 @@ export async function readFunctionError(fn: string, error: unknown): Promise<Edg
     transport: 'fetch',
     sdkMessage: error instanceof Error ? error.message : String(error),
   });
-}
-
-/**
- * `supabase.functions.invoke` that throws an EdgeFunctionError carrying the
- * HTTP status and the function's own `{ error }` message. Also treats a
- * 2xx body of `{ error }` as a failure, which several functions use.
- */
-export async function invokeFunction<T = unknown>(fn: string, body: unknown): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(fn, { body: body as Record<string, unknown> });
-  if (error) throw await readFunctionError(fn, error);
-  if (data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string') {
-    throw new EdgeFunctionError({ fn, status: 200, serverMessage: (data as { error: string }).error, transport: 'body' });
-  }
-  return data as T;
 }
 
 // ── Classification ────────────────────────────────────────────────────

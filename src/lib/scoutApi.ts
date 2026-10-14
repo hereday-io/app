@@ -4,7 +4,7 @@
 // functions. Also holds the random-token generator used by ScoutLinkDialog
 // when an organizer asks for a new scout link.
 
-import { invokeFunction } from '@/lib/userFacingError';
+import { invokeFunction } from '@/lib/edgeFunctions';
 import type { PoiType } from '@/types/mapEditor';
 
 export interface ScoutedPoi {

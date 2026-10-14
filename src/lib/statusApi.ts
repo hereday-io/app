@@ -4,7 +4,7 @@
 // supabase.functions.invoke() for the two status edge functions, plus
 // a token generator ergonomically prefixed for debugging.
 
-import { invokeFunction } from '@/lib/userFacingError';
+import { invokeFunction } from '@/lib/edgeFunctions';
 import type { PoiStatusState, RoutePoi } from '@/types/mapEditor';
 
 export interface ResolvedStatusEvent {

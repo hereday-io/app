@@ -14,7 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { logEvent } from '@/lib/analytics';
-import { invokeFunction, userFacingError } from '@/lib/userFacingError';
+import { invokeFunction } from '@/lib/edgeFunctions';
+import { userFacingError } from '@/lib/userFacingError';
 import { markdownToHtml } from '@/lib/emailTemplate';
 import type { VolunteerEntry } from '@/types/mapEditor';
 
