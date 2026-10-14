@@ -43,7 +43,7 @@ interface PageMeta {
 // No `home` entry: `/` is served straight off the filesystem as
 // dist/index.html, because Vercel resolves static files before it applies
 // `rewrites`. A `/` rewrite pointing here is silently ignored.
-const PAGE_META: Record<string, PageMeta> = {
+export const PAGE_META: Record<string, PageMeta> = {
   faq: {
     title: 'Hereday FAQ — Event Map Maker Help & Pricing Questions',
     description:
@@ -141,7 +141,7 @@ function serializeJsonLd(data: Record<string, unknown>): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');
 }
 
-function injectMetaTags(html: string, meta: PageMeta, name: string): string {
+export function injectMetaTags(html: string, meta: PageMeta, name: string): string {
   const url = `${SITE_URL}/${name}`;
   const ogImage = DEFAULT_OG_IMAGE;
 
@@ -166,7 +166,15 @@ function injectMetaTags(html: string, meta: PageMeta, name: string): string {
     ),
   ].join('\n    ');
 
-  let out = html;
+  // Every edit is confined to <head>. The body holds the page's
+  // prerendered React markup, which src/main.tsx hydrates node for node,
+  // so it must reach the browser exactly as React rendered it. The JSON-LD
+  // strip below used to run over the whole document and also deleted the
+  // <script> Faq renders through <JsonLd>, which made /faq fail to hydrate
+  // on every load (React #418 + #422) and re-render from scratch.
+  const headEnd = html.indexOf('</head>');
+  if (headEnd === -1) throw new Error('template has no </head>');
+  let out = html.slice(0, headEnd);
 
   out = out.replace(
     /<title>[^<]*<\/title>/,
@@ -188,12 +196,14 @@ function injectMetaTags(html: string, meta: PageMeta, name: string): string {
     '',
   );
 
+  // Function replacer: page copy such as "$49 per event" must not be
+  // read as a replacement pattern.
   out = out.replace(
     /(<meta name="description"[^>]*\/?>)/,
-    `$1\n    ${metaBlock}`,
+    (tag) => `${tag}\n    ${metaBlock}`,
   );
 
-  return out;
+  return out + html.slice(headEnd);
 }
 
 export default async function handler(
