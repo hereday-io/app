@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/useMapboxToken';
@@ -10,7 +11,7 @@ import { attachStatusDot, buildBrandedSponsorMarkerEl, parseAutoStartFinishId, s
 import { selectBrandedSponsorIds } from '@/lib/sponsors';
 import { usePoiStatuses } from '@/hooks/usePoiStatuses';
 import type { Coord, EventRoute, RoutePoi, PoiType } from '@/types/mapEditor';
-import { ArrowLeft, Trophy, Eye, Maximize2, Download } from 'lucide-react';
+import { Trophy, Eye, Maximize2, Download, X } from 'lucide-react';
 import EventBranding from '@/components/public/EventBranding';
 import PublicMapToolbar from '@/components/public/PublicMapToolbar';
 import MapBottomSheet from '@/components/map/MapBottomSheet';
@@ -46,7 +47,9 @@ interface PublicEventViewProps {
     tracking_end?: string | null;
   };
   mode: PublicViewMode;
-  onBack: () => void;
+  /** First visit only: a tip next to the Run/Watch toggle. */
+  showModeHint?: boolean;
+  onModeHintDismiss?: () => void;
   onSwitchMode: (mode: PublicViewMode) => void;
 }
 
@@ -94,7 +97,7 @@ function poiAccessibleName(poi: RoutePoi): string {
     : typeLabel;
 }
 
-const PublicEventView = ({ event, mode, onBack, onSwitchMode }: PublicEventViewProps) => {
+const PublicEventView = ({ event, mode, onSwitchMode, showModeHint = false, onModeHintDismiss }: PublicEventViewProps) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -447,15 +450,22 @@ const PublicEventView = ({ event, mode, onBack, onSwitchMode }: PublicEventViewP
       popup.on('open', () => {
         const root = createRoot(popupHost);
         popoverRootsRef.current.set(poi.id, root);
-        root.render(
-          <PoiReadonlyPopover
-            poi={poi}
-            eventId={event.id}
-            branded={isBrandedSponsor}
-            status={poiStatuses.get(poi.id) ?? null}
-            onClose={() => popup.remove()}
-          />
-        );
+        // Render synchronously, then re-place the popup. Mapbox picks its
+        // anchor from the popup's size on open; rendered async, that size
+        // is ~0, so a marker near the screen edge got a popup hanging off
+        // it. Setting the same LngLat makes Mapbox re-measure and flip.
+        flushSync(() => {
+          root.render(
+            <PoiReadonlyPopover
+              poi={poi}
+              eventId={event.id}
+              branded={isBrandedSponsor}
+              status={poiStatuses.get(poi.id) ?? null}
+              onClose={() => popup.remove()}
+            />
+          );
+        });
+        popup.setLngLat(popup.getLngLat());
       });
       popup.on('close', () => {
         const root = popoverRootsRef.current.get(poi.id);
@@ -618,37 +628,54 @@ const PublicEventView = ({ event, mode, onBack, onSwitchMode }: PublicEventViewP
 
       {/* ── Top controls ────────────────────────────────────────── */}
       <div className="absolute left-3 right-3 z-30 flex items-center justify-between" style={{ top: 'max(0.75rem, env(safe-area-inset-top))' }}>
-        {/* Left group: back + subscribe */}
+        {/* Left group: updates + share. No back button: visitors arrive
+            from a shared link or QR code, and "back" only ever led to
+            Hereday's marketing page. */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={onBack}
-            aria-label="Back to Hereday home"
-            className="shrink-0 w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] flex items-center justify-center text-foreground hover:bg-card/95 active:scale-95 transition-all"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
           <SubscribeButton eventId={event.id} eventName={event.name} source={source} expanded={!isRunner} />
           <PublicShareButton eventId={event.id} eventName={event.name} source={source} />
         </div>
 
-        {/* Right group: Run/Watch toggle */}
-        <div role="group" aria-label="Map view" className="flex rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] p-0.5 gap-0.5">
-          <button
-            onClick={() => { if (!isRunner) onSwitchMode('runner'); }}
-            aria-pressed={isRunner}
-            className={modeButtonClass(isRunner)}
-          >
-            <Trophy className="h-3 w-3" />
-            Run
-          </button>
-          <button
-            onClick={() => { if (isRunner) onSwitchMode('spectator'); }}
-            aria-pressed={!isRunner}
-            className={modeButtonClass(!isRunner)}
-          >
-            <Eye className="h-3 w-3" />
-            Watch
-          </button>
+        {/* Right group: Run/Watch toggle, plus the first-visit hint */}
+        <div className="relative">
+          <div role="group" aria-label="Map view" className="flex rounded-full bg-card/80 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] p-0.5 gap-0.5">
+            <button
+              onClick={() => { if (!isRunner) onSwitchMode('runner'); }}
+              aria-pressed={isRunner}
+              className={modeButtonClass(isRunner)}
+            >
+              <Trophy className="h-3 w-3" />
+              Run
+            </button>
+            <button
+              onClick={() => { if (isRunner) onSwitchMode('spectator'); }}
+              aria-pressed={!isRunner}
+              className={modeButtonClass(!isRunner)}
+            >
+              <Eye className="h-3 w-3" />
+              Watch
+            </button>
+          </div>
+          {showModeHint && (
+            <div
+              role="note"
+              className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-card/95 backdrop-blur-xl shadow-lg ring-1 ring-black/[0.06] p-3 pr-8 text-xs text-foreground"
+            >
+              {/* Arrow pointing up at the toggle */}
+              <span aria-hidden className="absolute -top-1.5 right-8 h-3 w-3 rotate-45 bg-card/95 ring-1 ring-black/[0.06] [clip-path:polygon(0_0,100%_0,0_100%)]" />
+              {isRunner
+                ? <>Here to cheer someone on? Tap <span className="font-semibold">Watch</span> for parking and a lighter course view.</>
+                : <>Running? Tap <span className="font-semibold">Run</span> for the full course, aid stations and mile markers.</>}
+              <button
+                type="button"
+                onClick={onModeHintDismiss}
+                aria-label="Dismiss tip"
+                className="absolute right-1.5 top-1.5 h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:bg-secondary"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
