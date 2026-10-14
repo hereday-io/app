@@ -50,6 +50,8 @@ interface PoiReadonlyPopoverProps {
  */
 const PoiReadonlyPopover = ({ poi, onClose, eventId, branded, status }: PoiReadonlyPopoverProps) => {
   const tone = poiTone(poi.type);
+  const title = poi.title?.trim() ?? '';
+  const hasOwnTitle = title !== '' && title.toLowerCase() !== tone.label.toLowerCase();
   const hasWebLink = WEB_LINK_TYPES.has(poi.type) && !!poi.webLink;
   const existingImage = poi.imageUrl || poi.imageDataUrl || '';
   const showDirections = tone.category === 'logistics' || tone.category === 'support';
@@ -80,7 +82,7 @@ const PoiReadonlyPopover = ({ poi, onClose, eventId, branded, status }: PoiReado
     <div
       className="w-[260px] font-body text-foreground"
       role="dialog"
-      aria-label={`${tone.label} marker: ${poi.title || tone.label}`}
+      aria-label={hasOwnTitle ? `${tone.label}: ${title}` : tone.label}
     >
       {/* Header — emoji circle + type label + title + close X */}
       <div className="flex items-center gap-2.5 mb-3">
@@ -91,11 +93,16 @@ const PoiReadonlyPopover = ({ poi, onClose, eventId, branded, status }: PoiReado
           {tone.emoji}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            {tone.label} Marker
-          </p>
+          {/* The type is the eyebrow only when the organizer gave the
+              marker its own title; otherwise it would say "Water Station"
+              twice. */}
+          {hasOwnTitle && (
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              {tone.label}
+            </p>
+          )}
           <p className="text-[15px] font-bold text-foreground truncate">
-            {poi.title || tone.label}
+            {hasOwnTitle ? title : tone.label}
           </p>
         </div>
         <button
