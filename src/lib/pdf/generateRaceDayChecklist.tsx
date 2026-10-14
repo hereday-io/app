@@ -4,6 +4,7 @@ import type { EventRoute, PoiType, RoutePoi } from '@/types/mapEditor';
 import type { EmergencyContacts } from '@/components/EditEventDialog';
 import { totalRouteMiles, mileMarkerForPoi, metersToMiles } from './routeDistance';
 import { isPro as isEventPro } from '@/lib/eventStatus';
+import { formatStartTime } from '@/lib/eventDetails';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -164,15 +165,6 @@ function formatEventDate(date?: string | null): string {
     day: 'numeric',
     year: 'numeric',
   });
-}
-
-function formatStartTime(time?: string | null): string {
-  if (!time) return '';
-  // time is "HH:mm" or "HH:mm:ss" from a TIME column
-  const [h, m] = time.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
 /* ------------------------------------------------------------------ */
