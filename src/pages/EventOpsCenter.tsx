@@ -1322,11 +1322,14 @@ function relTime(ms: number): string {
 // ────────────────────────────────────────────────────────────────────
 // Organizer override panel — set any marker's status directly
 // ────────────────────────────────────────────────────────────────────
+// No "Moved": a moved status needs the new location (poi_statuses has a
+// CHECK for it) and this panel has no map to pick one on. Same call as
+// VOLUNTEER_STATES on the volunteer page. A Moved status already on a
+// marker still reads "Currently Moved" via STATUS_LABEL.
 const OVERRIDE_STATES: Array<{ state: PoiStatusState; label: string; color: string }> = [
   { state: 'open', label: 'Open', color: STATUS_DOT_COLORS.open },
   { state: 'low', label: 'Low', color: STATUS_DOT_COLORS.low },
   { state: 'closed', label: 'Closed', color: STATUS_DOT_COLORS.closed },
-  { state: 'moved', label: 'Moved', color: STATUS_DOT_COLORS.moved },
 ];
 
 const OrganizerOverridePanel = ({
@@ -1440,12 +1443,12 @@ const OrganizerOverridePanel = ({
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {current
-                      ? `Currently ${OVERRIDE_STATES.find((s) => s.state === current.state)?.label ?? current.state}`
+                      ? `Currently ${STATUS_LABEL[current.state as PoiStatusState] ?? current.state}`
                       : 'Not yet reported'}
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5">
                 {OVERRIDE_STATES.map((s) => {
                   const isActive = current?.state === s.state;
                   return (
