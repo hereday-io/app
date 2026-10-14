@@ -8,7 +8,7 @@ import {
   poiTone,
 } from '@/lib/pois';
 import { submitScoutedPoi } from '@/lib/scoutApi';
-import { saveScoutPending, flushScoutPending } from '@/lib/scoutStorage';
+import { saveScoutPending } from '@/lib/scoutStorage';
 import { useToast } from '@/hooks/use-toast';
 import { logEvent } from '@/lib/analytics';
 import { EdgeFunctionError, errorToast } from '@/lib/userFacingError';
@@ -18,7 +18,12 @@ interface DropPinSheetProps {
   eventId: string;
   coordinates: [number, number];
   onClose: () => void;
-  onSubmitted: (coord: [number, number]) => void;
+  /**
+   * `queued` is true when the pin went into the offline queue instead of
+   * reaching the server. After a direct submit the page flushes the
+   * queue, since the network is evidently back.
+   */
+  onSubmitted: (coord: [number, number], opts: { queued: boolean }) => void;
 }
 
 /**
@@ -56,10 +61,7 @@ const DropPinSheet = ({ token, eventId, coordinates, onClose, onSubmitted }: Dro
       await submitScoutedPoi({ token, poi });
       logEvent('scout_poi_submitted', eventId, { type: selectedType });
       toast({ title: 'Marker saved for review' });
-      // Try to flush any previously-pending items now that we know the
-      // network is working.
-      void flushScoutPending(token);
-      onSubmitted(coordinates);
+      onSubmitted(coordinates, { queued: false });
     } catch (err) {
       console.error('[DropPinSheet] submit failed', err);
       // The server answered and said no (dead link, rate limit, bad
@@ -76,7 +78,7 @@ const DropPinSheet = ({ token, eventId, coordinates, onClose, onSubmitted }: Dro
           description: 'Will retry when you are back online.',
         });
         logEvent('scout_poi_queued_offline', eventId, { type: selectedType });
-        onSubmitted(coordinates);
+        onSubmitted(coordinates, { queued: true });
       } catch (storeErr) {
         console.error('[DropPinSheet] local stash failed', storeErr);
         toast(errorToast(err, { action: 'save this marker', logLabel: 'DropPinSheet submit' }));
