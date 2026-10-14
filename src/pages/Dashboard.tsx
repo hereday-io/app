@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCheckoutReturn } from '@/hooks/useCheckoutReturn';
 import { useStaffRole } from '@/hooks/useStaffRole';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -446,6 +447,11 @@ const Dashboard = () => {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  // Back from Stripe Checkout: flip the card to Pro once the webhook lands.
+  useCheckoutReturn((paidEventId, row) => {
+    setEvents((prev) => prev.map((e) => (e.id === paidEventId ? { ...e, paid_at: row.paid_at } : e)));
+  });
 
   const setPublished = async (event: Event, publish: boolean) => {
     const action = publish ? 'publish' : 'unpublish';
