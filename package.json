@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npm run build:ssr && npm run prerender",
+    "build": "vite build && npm run build:ssr && npm run prerender && node scripts/strip-sourcemaps.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
@@ -81,6 +81,7 @@
     "@electric-sql/pglite": "^0.5.9",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.57.0",
+    "@posthog/rollup-plugin": "^1.6.1",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",

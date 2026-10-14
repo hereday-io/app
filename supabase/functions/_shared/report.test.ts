@@ -43,6 +43,7 @@ describe('buildErrorEvent', () => {
         stripe_event_id: 'evt_1',
         environment: 'abcdefghij',
         $process_person_profile: false,
+        $geoip_disable: true,
       },
     });
     expect((body.properties as { stack: string }).stack).toContain('event update failed');
