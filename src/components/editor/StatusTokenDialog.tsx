@@ -156,7 +156,7 @@ const StatusTokenDialog = ({ open, onOpenChange, eventId, userId }: StatusTokenD
           </DialogTitle>
           <DialogDescription>
             Share this link with volunteers stationed at your aid stations, parking,
-            and other markers. They'll mark each one Open / Low / Closed / Moved from
+            and other markers. They'll mark each one Open / Low / Closed from
             their phone — updates reach runners and spectators in real time.
           </DialogDescription>
         </DialogHeader>
