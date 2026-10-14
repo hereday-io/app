@@ -28,6 +28,11 @@ export function initPostHog(): void {
     // consistent and cookieless. Costs us nothing: identity still
     // survives across sessions on the same browser.
     persistence: 'localStorage',
+    // Uncaught errors and unhandled promise rejections go to PostHog
+    // Error Tracking as `$exception` events. Errors React catches in an
+    // error boundary never reach window.onerror in production, so
+    // AppErrorBoundary reports those itself through reportError().
+    capture_exceptions: true,
   });
 }
 
@@ -46,4 +51,42 @@ export function resetIdentity(): void {
 export function captureEvent(eventType: string, properties: Record<string, unknown>): void {
   if (!posthogEnabled) return;
   posthog.capture(eventType, properties);
+}
+
+/**
+ * Report a handled failure that would otherwise end in a toast or a
+ * console line nobody reads: a `$exception` in PostHog Error Tracking,
+ * tagged so an alert can filter on it (`area = 'billing'` is the one
+ * that matters). Also logs to the console, so callers don't need both.
+ *
+ * Never throws, and is a no-op for PostHog without VITE_POSTHOG_KEY.
+ */
+export function reportError(
+  error: unknown,
+  context: { area: string; action: string } & Record<string, unknown>,
+): void {
+  console.error(`[${context.area}] ${context.action} failed`, error);
+  if (!posthogEnabled) return;
+  try {
+    const err = error instanceof Error ? error : new Error(errorMessage(error));
+    posthog.captureException(err, { ...context, ...errorDetails(error) });
+  } catch {
+    // Reporting must never break the flow it is reporting on.
+  }
+}
+
+function errorMessage(error: unknown): string {
+  const message = (error as { message?: unknown } | null)?.message;
+  return typeof message === 'string' ? message : String(error);
+}
+
+// Supabase errors carry the useful part outside `message`: a Postgres
+// error code on PostgrestError, the HTTP status on a FunctionsHttpError
+// (whose message is only "Edge Function returned a non-2xx status code").
+function errorDetails(error: unknown): Record<string, unknown> {
+  const e = error as { code?: unknown; context?: { status?: unknown } } | null;
+  const details: Record<string, unknown> = {};
+  if (typeof e?.code === 'string') details.error_code = e.code;
+  if (typeof e?.context?.status === 'number') details.http_status = e.context.status;
+  return details;
 }

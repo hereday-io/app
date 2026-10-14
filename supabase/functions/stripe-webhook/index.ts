@@ -54,6 +54,7 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0
 import { getStripe } from "../_shared/billing.ts";
 import { getServiceClient } from "../_shared/db.ts";
 import { publicCors } from "../_shared/http.ts";
+import { reportError } from "../_shared/report.ts";
 
 // How long an unfinished ledger claim is respected before another
 // delivery may take it over. Above the edge-function wall clock (150s
@@ -74,6 +75,10 @@ Deno.serve(async (req) => {
   const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   if (!secret) {
     console.error("[stripe-webhook] STRIPE_WEBHOOK_SECRET not configured");
+    reportError("stripe-webhook", new Error("STRIPE_WEBHOOK_SECRET not configured"), {
+      severity: "critical",
+      stage: "config",
+    });
     return new Response("Server misconfigured", { status: 500, headers: publicCors });
   }
 
@@ -92,6 +97,9 @@ Deno.serve(async (req) => {
     event = await stripe.webhooks.constructEventAsync(rawBody, signature, secret);
   } catch (err) {
     console.error("[stripe-webhook] signature verification failed", err);
+    // Usually a stray request, but a wrong or rotated secret fails every
+    // real delivery the same way, so it's reported rather than dropped.
+    reportError("stripe-webhook", err, { severity: "error", stage: "signature" });
     return new Response("Invalid signature", { status: 400, headers: publicCors });
   }
 
@@ -116,6 +124,7 @@ Deno.serve(async (req) => {
   if (replayErr) {
     if ((replayErr as { code?: string }).code !== "23505") {
       console.error("[stripe-webhook] replay-ledger insert failed", replayErr);
+      reportError("stripe-webhook", replayErr, { severity: "critical", stage: "ledger_claim", ...deliveryContext(event) });
       return new Response("Ledger error", { status: 500, headers: publicCors });
     }
 
@@ -135,6 +144,7 @@ Deno.serve(async (req) => {
       .select("event_id");
     if (reclaimErr) {
       console.error("[stripe-webhook] replay-ledger reclaim failed", reclaimErr);
+      reportError("stripe-webhook", reclaimErr, { severity: "critical", stage: "ledger_reclaim", ...deliveryContext(event) });
       return new Response("Ledger error", { status: 500, headers: publicCors });
     }
     if (!reclaimed?.length) {
@@ -151,6 +161,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (lookupErr) {
         console.error("[stripe-webhook] replay-ledger lookup failed", lookupErr);
+        reportError("stripe-webhook", lookupErr, { severity: "critical", stage: "ledger_lookup", ...deliveryContext(event) });
         return new Response("Ledger error", { status: 500, headers: publicCors });
       }
       if (!existing?.completed_at) {
@@ -192,6 +203,7 @@ Deno.serve(async (req) => {
     // Claim stays outstanding on purpose. Retries inside STALE_CLAIM_MS
     // get a 409; the first one after it reclaims and runs the handler.
     console.error(`[stripe-webhook] handler failed for ${event.type}`, err);
+    reportError("stripe-webhook", err, { severity: "critical", stage: "handler", ...deliveryContext(event) });
     return new Response("Handler failed", { status: 500, headers: publicCors });
   }
 
@@ -208,6 +220,7 @@ Deno.serve(async (req) => {
     // changed paid_at), so acknowledge anyway — a 500 here would make
     // Stripe retry work we have completed.
     console.error("[stripe-webhook] ledger completion stamp failed", completeErr);
+    reportError("stripe-webhook", completeErr, { severity: "warning", stage: "ledger_complete", ...deliveryContext(event) });
   }
 
   return new Response(JSON.stringify({ received: true }), {
@@ -224,6 +237,15 @@ async function handleCheckoutCompleted(
   const eventId = meta.hereday_event_id;
   if (!eventId) {
     console.warn("[stripe-webhook] checkout.session.completed without hereday_event_id", session.id);
+    // Acknowledged, so Stripe won't retry: if this session was paid, the
+    // money arrived with no event to unlock and only this report says so.
+    reportError("stripe-webhook", new Error("checkout session without hereday_event_id"), {
+      severity: "critical",
+      stage: "missing_event_id",
+      stripe_session_id: session.id,
+      payment_status: session.payment_status,
+      userId: meta.hereday_user_id ?? null,
+    });
     return;
   }
 
@@ -273,6 +295,15 @@ async function handleCheckoutCompleted(
     // Permanent: the event is gone. Retrying for three days won't bring
     // it back, so let the delivery complete.
     console.error("[stripe-webhook] event not found", eventId);
+    // Paid with nothing to unlock, and acknowledged: a refund or a manual
+    // grant is the only fix, so this must reach a person.
+    reportError("stripe-webhook", new Error("paid checkout for an event that no longer exists"), {
+      severity: "critical",
+      stage: "event_not_found",
+      hereday_event_id: eventId,
+      stripe_session_id: session.id,
+      userId: meta.hereday_user_id ?? null,
+    });
     return;
   }
 
@@ -352,6 +383,13 @@ async function handleCheckoutCompleted(
       // Non-fatal — the charge still exists, we just won't have a
       // pretty event name in the receipts list until backfilled.
       console.error("[stripe-webhook] charge metadata stamp failed", err);
+      reportError("stripe-webhook", err, {
+        severity: "warning",
+        stage: "charge_metadata",
+        hereday_event_id: eventId,
+        stripe_charge_id: chargeId,
+        userId: meta.hereday_user_id ?? null,
+      });
     }
   }
 }
@@ -365,6 +403,14 @@ function handleAsyncPaymentFailed(session: Stripe.Checkout.Session): void {
   console.warn(
     `[stripe-webhook] async payment failed for session ${session.id} (event ${meta.hereday_event_id ?? "unknown"})`,
   );
+  // Not our error, but a customer who thinks they paid is about to ask.
+  reportError("stripe-webhook", new Error("async payment failed"), {
+    severity: "warning",
+    stage: "async_payment_failed",
+    hereday_event_id: meta.hereday_event_id ?? null,
+    stripe_session_id: session.id,
+    userId: meta.hereday_user_id ?? null,
+  });
 }
 
 async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
@@ -519,8 +565,44 @@ async function logRevenueEvent(
       event_id: args.eventId,
       properties,
     });
-    if (error) console.error(`[stripe-webhook] ${args.eventType} log failed`, error);
+    if (error) {
+      console.error(`[stripe-webhook] ${args.eventType} log failed`, error);
+      reportRevenueLogFailure(error, args);
+    }
   } catch (err) {
     console.error(`[stripe-webhook] ${args.eventType} log threw`, err);
+    reportRevenueLogFailure(err, args);
   }
+}
+
+// Pro was granted or revoked; only the revenue row is missing, which
+// under-counts sales in product_events until someone backfills it.
+function reportRevenueLogFailure(
+  err: unknown,
+  args: { eventType: string; userId: string | null; eventId: string },
+): void {
+  reportError("stripe-webhook", err, {
+    severity: "warning",
+    stage: "revenue_log",
+    revenue_event_type: args.eventType,
+    hereday_event_id: args.eventId,
+    userId: args.userId,
+  });
+}
+
+/**
+ * What a delivery was about, for error reports. Read-only: checkout
+ * sessions and charges both carry the hereday_* metadata create-checkout
+ * and the charge stamp write.
+ */
+function deliveryContext(event: Stripe.Event) {
+  const object = event.data.object as { id?: string; metadata?: Record<string, string> | null };
+  const meta = object.metadata ?? {};
+  return {
+    stripe_event_id: event.id,
+    stripe_event_type: event.type,
+    stripe_object_id: object.id ?? null,
+    hereday_event_id: meta.hereday_event_id ?? null,
+    userId: meta.hereday_user_id ?? null,
+  };
 }

@@ -5,8 +5,9 @@
 // profile so new checkouts stop auto-applying it.
 
 import { authenticate, corsHeaders, getServiceClient, json } from "../_shared/billing.ts";
+import { handler } from "../_shared/http.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(handler("remove-promo", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
   }
@@ -33,4 +34,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ ok: true }, 200, req);
-});
+}));

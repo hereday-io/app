@@ -8,7 +8,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Edge-function helpers that are plain TS (no Deno-only imports) are
+    // tested here too; Deno itself isn't installed in CI.
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "supabase/functions/_shared/**/*.test.ts"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

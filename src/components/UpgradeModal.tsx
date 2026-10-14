@@ -6,6 +6,7 @@ import { Crown, Route, MapPin, ImageIcon, Check, LayoutDashboard, Sparkles } fro
 import { PAYWALL_LIMITS } from '@/hooks/usePaywall';
 import { supabase } from '@/integrations/supabase/client';
 import { logEvent } from '@/lib/analytics';
+import { reportError } from '@/lib/posthog';
 import ProWaitlistCapture from '@/components/ProWaitlistCapture';
 
 // Flip to true once LLC + bank + Stripe are fully configured. Exported
@@ -59,6 +60,7 @@ const TRIGGER_COPY: Record<string, { headline: string; sub: string }> = {
 const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedirect }: UpgradeModalProps) => {
   const copy = TRIGGER_COPY[trigger];
   const [loading, setLoading] = useState(false);
+  const [checkoutFailed, setCheckoutFailed] = useState(false);
   const navigate = useNavigate();
 
   return (
@@ -99,6 +101,7 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
                   return;
                 }
                 setLoading(true);
+                setCheckoutFailed(false);
                 logEvent('upgrade_clicked', eventId, { trigger });
                 try {
                   // Return to wherever the user triggered the upgrade
@@ -116,7 +119,10 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
                     },
                   });
                   if (error || !data?.url) {
-                    console.error('[UpgradeModal] Checkout failed:', error, data);
+                    reportError(error ?? new Error('create-checkout returned no url'), {
+                      area: 'billing', action: 'create_checkout', hereday_event_id: eventId, trigger,
+                    });
+                    setCheckoutFailed(true);
                     setLoading(false);
                     return;
                   }
@@ -124,7 +130,10 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
                   if (onBeforeRedirect) await onBeforeRedirect();
                   window.location.href = data.url;
                 } catch (err) {
-                  console.error('[UpgradeModal] Unexpected error:', err);
+                  reportError(err, {
+                    area: 'billing', action: 'create_checkout', hereday_event_id: eventId, trigger,
+                  });
+                  setCheckoutFailed(true);
                   setLoading(false);
                 }
               }}
@@ -132,6 +141,11 @@ const UpgradeModal = ({ open, onClose, trigger = 'routes', eventId, onBeforeRedi
               <Crown className="h-4 w-4" />
               {loading ? 'Redirecting to checkout…' : 'Unlock this event — $49'}
             </Button>
+            {checkoutFailed && (
+              <p role="alert" className="text-xs text-destructive text-center mt-2">
+                Couldn't open checkout. You haven't been charged. Try again, or email support@hereday.io.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground text-center mt-2">
               <span className="font-medium text-foreground">One-time payment.</span> No subscription, no auto-renew.
             </p>

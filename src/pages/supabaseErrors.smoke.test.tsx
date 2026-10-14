@@ -59,6 +59,8 @@ vi.mock('@/hooks/use-toast', () => {
   return { useToast: () => api, toast: api.toast };
 });
 vi.mock('@/lib/analytics', () => ({ logEvent: vi.fn(), identifyUser: vi.fn(), resetUser: vi.fn() }));
+const reportError = vi.fn();
+vi.mock('@/lib/posthog', () => ({ reportError: (...args: unknown[]) => reportError(...args) }));
 
 const draftEvent = {
   id: 'evt-1',
@@ -80,6 +82,7 @@ const eventSelects = () => ops.filter((o) => o.table === 'events' && o.action ==
 beforeEach(() => {
   ops.length = 0;
   toast.mockReset();
+  reportError.mockReset();
   respond = () => ({ data: [], error: null });
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -155,5 +158,21 @@ describe('Billing', () => {
     render(<MemoryRouter><Billing /></MemoryRouter>);
     expect(await screen.findByText("Couldn't load your events")).toBeTruthy();
     expect(screen.queryByText(/No events yet/)).toBeNull();
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'connection reset' }),
+      { area: 'billing', action: 'load_events' },
+    );
+  });
+
+  it('reports failed Stripe lookups that the page otherwise shows as empty', async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const fnError = Object.assign(new Error('Edge Function returned a non-2xx status code'), { context: { status: 500 } });
+    const invoke = vi.spyOn(supabase.functions, 'invoke').mockResolvedValue({ data: null, error: fnError } as never);
+    const { default: Billing } = await import('./Billing');
+    render(<MemoryRouter><Billing /></MemoryRouter>);
+    await waitFor(() => expect(reportError).toHaveBeenCalledTimes(2));
+    expect(reportError).toHaveBeenCalledWith(fnError, { area: 'billing', action: 'list_charges' });
+    expect(reportError).toHaveBeenCalledWith(fnError, { area: 'billing', action: 'get_payment_method' });
+    invoke.mockRestore();
   });
 });
