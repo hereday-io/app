@@ -4,6 +4,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { initPostHog } from "@/lib/posthog";
 import { captureFirstTouch } from "@/lib/attribution";
+import { shouldHydrate } from "@/lib/prerenderMount";
 
 // Before the router mounts: snapshot acquisition attribution (referrer,
 // utm params, landing page — gone after the first navigation) and start
@@ -23,10 +24,12 @@ const tree = (
 
 // Marketing routes are prerendered to static HTML at build time, so on
 // those the container already holds real markup and we hydrate it
-// instead of throwing it away. Everything else mounts from empty as
-// before. `data-prerendered` is stamped on by the prerender script.
-if (root.dataset.prerendered === "true" && root.firstElementChild) {
+// instead of throwing it away. Everything else mounts from empty — and
+// markup rendered for some *other* route is cleared first rather than
+// left on screen until React's first commit. See shouldHydrate.
+if (shouldHydrate(root, window.location.pathname)) {
   hydrateRoot(root, tree);
 } else {
+  root.replaceChildren();
   createRoot(root).render(tree);
 }

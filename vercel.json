@@ -12,6 +12,15 @@
           "value": "public, max-age=3600"
         }
       ]
+    },
+    {
+      "source": "/app-shell.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
     }
   ],
   "rewrites": [
@@ -49,7 +58,7 @@
     },
     {
       "source": "/((?!api/).*)",
-      "destination": "/index.html"
+      "destination": "/app-shell.html"
     }
   ],
   "functions": {

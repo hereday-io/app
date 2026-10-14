@@ -10,7 +10,9 @@
 //
 // Output layout:
 //   dist/index.html          prerendered homepage — served directly at /
-//   prerendered/shell.html   the ORIGINAL un-prerendered shell
+//   dist/app-shell.html      the ORIGINAL un-prerendered shell, served by
+//                            vercel.json's SPA fallback to every app route
+//   prerendered/shell.html   the same clean shell, for the api handlers
 //   prerendered/<name>.html  prerendered marketing routes
 //
 // shell.html matters more than it looks. api/page and api/event both read
@@ -18,6 +20,14 @@
 // dist/index.html once it holds the prerendered homepage, then /faq — and
 // every shared event link — would serve homepage body copy to crawlers.
 // That is worse than serving an empty shell.
+//
+// dist/app-shell.html is the same idea for the static SPA fallback.
+// Vercel can only rewrite to a file it serves, and while /login,
+// /dashboard etc. fell back to dist/index.html they loaded the homepage
+// markup, flashed it, and failed to hydrate it as the wrong page (React
+// #418/#422/#421 on every load). Unlike the files below it carries no
+// page copy, so publishing it is harmless; vercel.json marks a direct
+// hit on it noindex.
 //
 // These land in `prerendered/` at the project root rather than inside
 // dist/ on purpose: anything under dist/ is served as a static file, so
@@ -29,6 +39,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { APP_SHELL_FILE, EMPTY_ROOT, spliceRoute } from './lib/prerender-html.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -66,9 +77,9 @@ function main() {
   const shellPath = join(DIST, 'index.html');
   const shell = readFileSync(shellPath, 'utf8');
 
-  if (!shell.includes('<div id="root"></div>')) {
+  if (!shell.includes(EMPTY_ROOT)) {
     throw new Error(
-      'Could not find `<div id="root"></div>` in dist/index.html. The ' +
+      `Could not find \`${EMPTY_ROOT}\` in dist/index.html. The ` +
         'prerender splices into that exact string; if the shell markup ' +
         'changed, update this script rather than letting it no-op.',
     );
@@ -78,6 +89,7 @@ function main() {
 
   // Preserve the untouched shell BEFORE anything is written into it.
   writeFileSync(join(OUT, 'shell.html'), shell, 'utf8');
+  writeFileSync(join(DIST, APP_SHELL_FILE), shell, 'utf8');
 
   return { shell, shellPath };
 }
@@ -135,11 +147,9 @@ for (const route of ROUTES) {
     );
   }
 
-  // `data-prerendered` tells main.tsx to hydrate rather than mount fresh.
-  const out = shell.replace(
-    '<div id="root"></div>',
-    `<div id="root" data-prerendered="true">${html}</div>`,
-  );
+  // The route stamp tells main.tsx to hydrate rather than mount fresh —
+  // but only when the browser is actually on this route.
+  const out = spliceRoute(shell, route.url, html);
 
   const dest =
     route.name === 'home'
@@ -150,6 +160,7 @@ for (const route of ROUTES) {
 }
 
 console.log('[prerender] wrote prerendered/shell.html (clean shell for api handlers)');
+console.log(`[prerender] wrote dist/${APP_SHELL_FILE} (clean shell for the SPA fallback)`);
 for (const r of results) {
   console.log(`[prerender] ${r.route.padEnd(18)} ${r.chars} chars`);
 }
