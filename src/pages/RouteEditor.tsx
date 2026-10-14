@@ -2268,6 +2268,7 @@ const RouteEditor = () => {
                 : null
             }
             eventName={eventName}
+            eventLocation={city}
             viewMode="editor"
           />
 

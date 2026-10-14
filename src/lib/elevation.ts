@@ -185,3 +185,48 @@ export function elevationStats(points: ElevationPoint[]) {
     max: max === -Infinity ? 0 : Math.round(max),
   };
 }
+
+/** Below this much total climb (and descent) a course reads as "Flat" —
+ *  "+0 ft" or "+4 ft" is noise that makes the stats look broken. */
+export const FLAT_THRESHOLD_FT = 10;
+
+/**
+ * One-word climb summary for compact headers: "+120 ft", "Flat", or
+ * "−85 ft" for a net-downhill point-to-point that barely climbs (calling
+ * that "Flat" would be wrong).
+ */
+export function climbSummary(stats: { gain: number; loss: number }): string {
+  if (stats.gain >= FLAT_THRESHOLD_FT) return `+${stats.gain} ft`;
+  if (stats.loss >= FLAT_THRESHOLD_FT) return `−${stats.loss} ft`;
+  return 'Flat';
+}
+
+export function isFlat(stats: { gain: number; loss: number }): boolean {
+  return stats.gain < FLAT_THRESHOLD_FT && stats.loss < FLAT_THRESHOLD_FT;
+}
+
+/** Smallest vertical span an elevation chart may show, in feet. */
+export const MIN_CHART_SPAN_FT = 100;
+
+/**
+ * Y-axis domain for an elevation chart. Auto-scaling stretches whatever
+ * range the course has to the full chart height, so a course that varies
+ * by 6 ft draws like a cliff. Courses under MIN_CHART_SPAN_FT of relief
+ * get that span, centered on their range; hillier courses use their own
+ * min/max.
+ */
+export function elevationDomain(
+  points: { elevation: number }[],
+  minSpan = MIN_CHART_SPAN_FT,
+): [number, number] {
+  if (points.length === 0) return [0, minSpan];
+  let min = Infinity;
+  let max = -Infinity;
+  for (const p of points) {
+    if (p.elevation < min) min = p.elevation;
+    if (p.elevation > max) max = p.elevation;
+  }
+  if (max - min >= minSpan) return [Math.floor(min), Math.ceil(max)];
+  const mid = (min + max) / 2;
+  return [Math.floor(mid - minSpan / 2), Math.ceil(mid + minSpan / 2)];
+}
