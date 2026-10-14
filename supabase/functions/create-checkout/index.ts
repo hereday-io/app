@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+    return json({ error: "Method not allowed" }, 405, req);
   }
 
   const auth = await authenticate(req);
@@ -42,14 +42,14 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Invalid JSON body" }, 400);
+    return json({ error: "Invalid JSON body" }, 400, req);
   }
 
   if (typeof body.eventId !== "string" || body.eventId.length === 0) {
-    return json({ error: "eventId is required" }, 400);
+    return json({ error: "eventId is required" }, 400, req);
   }
   if (typeof body.returnUrl !== "string" || !/^https?:\/\//.test(body.returnUrl)) {
-    return json({ error: "returnUrl must be an absolute http(s) url" }, 400);
+    return json({ error: "returnUrl must be an absolute http(s) url" }, 400, req);
   }
 
   const service = getServiceClient();
@@ -58,11 +58,11 @@ Deno.serve(async (req) => {
     .select("id, user_id, name")
     .eq("id", body.eventId)
     .maybeSingle();
-  if (eventErr || !event) return json({ error: "Event not found" }, 404);
-  if (event.user_id !== auth.userId) return json({ error: "Not your event" }, 403);
+  if (eventErr || !event) return json({ error: "Event not found" }, 404, req);
+  if (event.user_id !== auth.userId) return json({ error: "Not your event" }, 403, req);
 
   if (!PRICE_ID) {
-    return json({ error: "STRIPE_PRICE_ID not configured" }, 500);
+    return json({ error: "STRIPE_PRICE_ID not configured" }, 500, req);
   }
 
   const customerId = await ensureStripeCustomer({
@@ -115,5 +115,5 @@ Deno.serve(async (req) => {
     session = await createSession(null);
   }
 
-  return json({ url: session.url, sessionId: session.id });
+  return json({ url: session.url, sessionId: session.id }, 200, req);
 });

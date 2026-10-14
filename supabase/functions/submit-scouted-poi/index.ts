@@ -11,13 +11,8 @@
 // Deployed at:
 //   https://<project-ref>.supabase.co/functions/v1/submit-scouted-poi
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { getServiceClient } from "../_shared/db.ts";
+import { publicCors, publicJson } from "../_shared/http.ts";
 
 // Must stay in sync with src/lib/pois.ts POI_TYPES.
 const VALID_POI_TYPES = new Set([
@@ -66,13 +61,6 @@ interface ScoutedPoi {
   scouted_via_token: string;
 }
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
 function validatePoi(raw: unknown): { ok: true; poi: IncomingPoi } | { ok: false; error: string } {
   if (!raw || typeof raw !== "object") return { ok: false, error: "Missing poi object" };
   const p = raw as Record<string, unknown>;
@@ -118,35 +106,29 @@ function validatePoi(raw: unknown): { ok: true; poi: IncomingPoi } | { ok: false
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: publicCors });
   }
 
   if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
-  }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) {
-    return json({ error: "Server misconfigured" }, 500);
+    return publicJson({ error: "Method not allowed" }, 405);
   }
 
   let body: { token?: string; poi?: unknown };
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Invalid JSON body" }, 400);
+    return publicJson({ error: "Invalid JSON body" }, 400);
   }
 
   const token = body?.token;
   if (typeof token !== "string" || token.length < 16 || token.length > 64) {
-    return json({ error: "Invalid token" }, 400);
+    return publicJson({ error: "Invalid token" }, 400);
   }
 
   const validation = validatePoi(body?.poi);
-  if (!validation.ok) return json({ error: validation.error }, 400);
+  if (!validation.ok) return publicJson({ error: validation.error }, 400);
 
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const supabase = getServiceClient();
 
   // 1. Validate token
   const { data: tokenRow, error: tokenErr } = await supabase
@@ -157,13 +139,13 @@ Deno.serve(async (req) => {
 
   if (tokenErr) {
     console.error("[submit-scouted-poi] token lookup failed", tokenErr);
-    return json({ error: "Token lookup failed" }, 500);
+    return publicJson({ error: "Token lookup failed" }, 500);
   }
 
   const row = tokenRow as TokenRow | null;
-  if (!row) return json({ error: "Invalid or expired link" }, 404);
-  if (row.revoked_at) return json({ error: "This scout link has been revoked" }, 403);
-  if (row.purpose !== "scout") return json({ error: "Token is not a scout token" }, 403);
+  if (!row) return publicJson({ error: "Invalid or expired link" }, 404);
+  if (row.revoked_at) return publicJson({ error: "This scout link has been revoked" }, 403);
+  if (row.purpose !== "scout") return publicJson({ error: "Token is not a scout token" }, 403);
 
   // 2. Read current scouted_pois
   const { data: eventRow, error: eventErr } = await supabase
@@ -174,7 +156,7 @@ Deno.serve(async (req) => {
 
   if (eventErr || !eventRow) {
     console.error("[submit-scouted-poi] event lookup failed", eventErr);
-    return json({ error: "Event not found" }, 404);
+    return publicJson({ error: "Event not found" }, 404);
   }
 
   const current = Array.isArray((eventRow as EventRow).scouted_pois)
@@ -202,13 +184,13 @@ Deno.serve(async (req) => {
   // any DB blip. Better to refuse the write than let a flood through.
   if (countErr) {
     console.error("[submit-scouted-poi] rate limit query failed, refusing", countErr);
-    return json(
+    return publicJson(
       { error: "Service temporarily unavailable. Please retry in a moment." },
       503,
     );
   }
   if ((recentFromThisToken ?? 0) >= RATE_LIMIT_PER_HOUR) {
-    return json(
+    return publicJson(
       { error: `Rate limit exceeded: max ${RATE_LIMIT_PER_HOUR} POIs per hour per scout link` },
       429,
     );
@@ -235,7 +217,7 @@ Deno.serve(async (req) => {
 
   if (updateErr) {
     console.error("[submit-scouted-poi] update failed", updateErr);
-    return json({ error: "Failed to save POI" }, 500);
+    return publicJson({ error: "Failed to save POI" }, 500);
   }
 
   // 6. Record the submission for rate-limit accounting, then opportunistically
@@ -257,5 +239,5 @@ Deno.serve(async (req) => {
       if (error) console.warn("[submit-scouted-poi] rate-limit purge failed", error);
     });
 
-  return json({ ok: true, poi: newPoi });
+  return publicJson({ ok: true, poi: newPoi });
 });

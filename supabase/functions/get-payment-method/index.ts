@@ -2,33 +2,34 @@
 // caller's Stripe customer record. The Billing page renders one card
 // max (brand + last4 + exp) since Hereday only stores a single default.
 
-import { authenticate, corsHeaders, getStripe, json } from "../_shared/billing.ts";
+import { authenticate, getStripe } from "../_shared/billing.ts";
+import { corsHeaders, handler, json } from "../_shared/http.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(handler("get-payment-method", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "GET" && req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+    return json({ error: "Method not allowed" }, 405, req);
   }
 
   const auth = await authenticate(req);
   if (!auth.ok) return auth.response;
 
   if (!auth.profile.stripe_customer_id) {
-    return json({ paymentMethod: null });
+    return json({ paymentMethod: null }, 200, req);
   }
 
   const stripe = getStripe();
   const customer = await stripe.customers.retrieve(auth.profile.stripe_customer_id);
-  if (customer.deleted) return json({ paymentMethod: null });
+  if (customer.deleted) return json({ paymentMethod: null }, 200, req);
 
   const defaultPmId = (customer.invoice_settings?.default_payment_method
     ?? customer.default_source) as string | null;
-  if (!defaultPmId) return json({ paymentMethod: null });
+  if (!defaultPmId) return json({ paymentMethod: null }, 200, req);
 
   const pm = await stripe.paymentMethods.retrieve(defaultPmId);
-  if (pm.type !== "card" || !pm.card) return json({ paymentMethod: null });
+  if (pm.type !== "card" || !pm.card) return json({ paymentMethod: null }, 200, req);
 
   return json({
     paymentMethod: {
@@ -38,5 +39,5 @@ Deno.serve(async (req) => {
       exp_month: pm.card.exp_month,
       exp_year: pm.card.exp_year,
     },
-  });
-});
+  }, 200, req);
+}));

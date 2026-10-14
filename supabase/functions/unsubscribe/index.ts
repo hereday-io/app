@@ -20,7 +20,8 @@
 //   - Volunteer: append emailUnsubscribedAt to the matching roster entry
 //     inside events.volunteer_roster (JSONB mutation).
 
-import { corsHeaders, getServiceClient, json } from "../_shared/billing.ts";
+import { getServiceClient } from "../_shared/db.ts";
+import { corsHeaders, json } from "../_shared/http.ts";
 import { verifyUnsubscribeToken } from "../_shared/unsubscribeToken.ts";
 
 Deno.serve(async (req) => {
@@ -48,12 +49,12 @@ Deno.serve(async (req) => {
   }
 
   if (!token || token === "unsubscribe") {
-    return json({ error: "Missing token" }, 400);
+    return json({ error: "Missing token" }, 400, req);
   }
 
   const payload = await verifyUnsubscribeToken(token);
   if (!payload) {
-    return json({ error: "Invalid or expired unsubscribe link" }, 400);
+    return json({ error: "Invalid or expired unsubscribe link" }, 400, req);
   }
 
   const service = getServiceClient();
@@ -65,14 +66,14 @@ Deno.serve(async (req) => {
     .eq("id", payload.e)
     .maybeSingle();
   if (!eventRow) {
-    return json({ error: "Event no longer exists" }, 404);
+    return json({ error: "Event no longer exists" }, 404, req);
   }
 
   if (payload.a === "s") {
     // Subscriber unsubscribe. Look up first so we can detect a missing
     // row and preserve the original timestamp if already unsubscribed.
     const subId = Number(payload.i);
-    if (!Number.isFinite(subId)) return json({ error: "Malformed token" }, 400);
+    if (!Number.isFinite(subId)) return json({ error: "Malformed token" }, 400, req);
 
     const { data: current, error: selectErr } = await service
       .from("event_subscribers")
@@ -83,11 +84,11 @@ Deno.serve(async (req) => {
 
     if (selectErr) {
       console.error("[unsubscribe] subscriber lookup failed", { subId, eventId: payload.e, selectErr });
-      return json({ error: "Unsubscribe failed" }, 500);
+      return json({ error: "Unsubscribe failed" }, 500, req);
     }
     if (!current) {
       console.warn("[unsubscribe] subscriber not found", { subId, eventId: payload.e });
-      return json({ error: "Subscriber not found" }, 404);
+      return json({ error: "Subscriber not found" }, 404, req);
     }
 
     if (!current.unsubscribed_at) {
@@ -100,18 +101,18 @@ Deno.serve(async (req) => {
 
       if (updateErr) {
         console.error("[unsubscribe] subscriber update failed", updateErr);
-        return json({ error: "Unsubscribe failed" }, 500);
+        return json({ error: "Unsubscribe failed" }, 500, req);
       }
       if (!updated || updated.length === 0) {
         console.error("[unsubscribe] subscriber update affected 0 rows", { subId, eventId: payload.e });
-        return json({ error: "Unsubscribe failed" }, 500);
+        return json({ error: "Unsubscribe failed" }, 500, req);
       }
       console.log("[unsubscribe] subscriber unsubscribed", { subId, eventId: payload.e });
     } else {
       console.log("[unsubscribe] subscriber already unsubscribed", { subId, eventId: payload.e });
     }
 
-    return json({ status: "unsubscribed", audience: "subscriber", eventName: eventRow.name });
+    return json({ status: "unsubscribed", audience: "subscriber", eventName: eventRow.name }, 200, req);
   }
 
   if (payload.a === "v") {
@@ -140,10 +141,10 @@ Deno.serve(async (req) => {
       .eq("id", payload.e);
     if (updateErr) {
       console.error("[unsubscribe] volunteer update failed", updateErr);
-      return json({ error: "Unsubscribe failed" }, 500);
+      return json({ error: "Unsubscribe failed" }, 500, req);
     }
-    return json({ status: "unsubscribed", audience: "volunteer", eventName: eventRow.name });
+    return json({ status: "unsubscribed", audience: "volunteer", eventName: eventRow.name }, 200, req);
   }
 
-  return json({ error: "Unknown audience" }, 400);
+  return json({ error: "Unknown audience" }, 400, req);
 });

@@ -7,13 +7,8 @@
 //
 // Only tokens with purpose='status' are accepted. Revoked tokens 403.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { getServiceClient } from "../_shared/db.ts";
+import { publicCors, publicJson } from "../_shared/http.ts";
 
 interface TokenRow {
   token: string;
@@ -42,40 +37,27 @@ interface PoiStatusRow {
   updated_at: string;
 }
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: publicCors });
   }
   if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
-  }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) {
-    return json({ error: "Server misconfigured" }, 500);
+    return publicJson({ error: "Method not allowed" }, 405);
   }
 
   let body: { token?: string };
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Invalid JSON body" }, 400);
+    return publicJson({ error: "Invalid JSON body" }, 400);
   }
 
   const token = body?.token;
   if (typeof token !== "string" || token.length < 16 || token.length > 64) {
-    return json({ error: "Invalid token" }, 400);
+    return publicJson({ error: "Invalid token" }, 400);
   }
 
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const supabase = getServiceClient();
 
   const { data: tokenRow, error: tokenErr } = await supabase
     .from("poi_volunteer_tokens")
@@ -84,12 +66,12 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (tokenErr) {
     console.error("[resolve-status-token] token lookup failed", tokenErr);
-    return json({ error: "Token lookup failed" }, 500);
+    return publicJson({ error: "Token lookup failed" }, 500);
   }
   const row = tokenRow as TokenRow | null;
-  if (!row) return json({ error: "Invalid or expired link" }, 404);
-  if (row.revoked_at) return json({ error: "This link has been revoked" }, 403);
-  if (row.purpose !== "status") return json({ error: "Token is not a status token" }, 403);
+  if (!row) return publicJson({ error: "Invalid or expired link" }, 404);
+  if (row.revoked_at) return publicJson({ error: "This link has been revoked" }, 403);
+  if (row.purpose !== "status") return publicJson({ error: "Token is not a status token" }, 403);
 
   const { data: eventRow, error: eventErr } = await supabase
     .from("events")
@@ -98,7 +80,7 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (eventErr || !eventRow) {
     console.error("[resolve-status-token] event lookup failed", eventErr);
-    return json({ error: "Event not found" }, 404);
+    return publicJson({ error: "Event not found" }, 404);
   }
   const event = eventRow as EventRow;
 
@@ -118,7 +100,7 @@ Deno.serve(async (req) => {
     {},
   );
 
-  return json({
+  return publicJson({
     eventId: event.id,
     name: event.name,
     city: event.city,

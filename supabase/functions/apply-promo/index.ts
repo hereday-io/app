@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+    return json({ error: "Method not allowed" }, 405, req);
   }
 
   const auth = await authenticate(req);
@@ -34,12 +34,12 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return json({ valid: false, error: "Invalid JSON body" }, 400);
+    return json({ valid: false, error: "Invalid JSON body" }, 400, req);
   }
 
   const codeInput = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
   if (!codeInput) {
-    return json({ valid: false, error: "Code is required" }, 400);
+    return json({ valid: false, error: "Code is required" }, 400, req);
   }
 
   const stripe = getStripe();
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
   }
 
   if (!couponId || !pc) {
-    return json({ valid: false, error: "That code isn't valid or has expired." });
+    return json({ valid: false, error: "That code isn't valid or has expired." }, 200, req);
   }
 
   // First-time-only codes: Stripe only enforces this when checkout opens,
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       return json({
         valid: false,
         error: "That code is for your first Pro event, and this account has already paid for one.",
-      });
+      }, 200, req);
     }
   }
 
@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     .eq("user_id", auth.userId);
   if (updateErr) {
     console.error("[apply-promo] persist failed", updateErr);
-    return json({ valid: false, error: "Could not save code. Try again." }, 500);
+    return json({ valid: false, error: "Could not save code. Try again." }, 500, req);
   }
 
   return json({
@@ -110,5 +110,5 @@ Deno.serve(async (req) => {
     code: pc.code,
     percent_off: percentOff,
     expires_at: expiresAt,
-  });
+  }, 200, req);
 });

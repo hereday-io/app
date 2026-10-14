@@ -38,10 +38,10 @@ interface VolunteerEntry {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405, req);
 
   if (!RESEND_API_KEY) {
-    return json({ error: "RESEND_API_KEY not configured" }, 500);
+    return json({ error: "RESEND_API_KEY not configured" }, 500, req);
   }
 
   const auth = await authenticate(req);
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Invalid JSON body" }, 400);
+    return json({ error: "Invalid JSON body" }, 400, req);
   }
 
   const eventId = body.eventId;
@@ -66,11 +66,11 @@ Deno.serve(async (req) => {
     (a): a is "subscribers" | "volunteers" => a === "subscribers" || a === "volunteers",
   );
 
-  if (!eventId || typeof eventId !== "string") return json({ error: "eventId is required" }, 400);
-  if (!subject) return json({ error: "subject is required" }, 400);
-  if (subject.length > 200) return json({ error: "subject must be 200 characters or fewer" }, 400);
-  if (!markdown) return json({ error: "body is required" }, 400);
-  if (audiences.length === 0) return json({ error: "pick at least one audience" }, 400);
+  if (!eventId || typeof eventId !== "string") return json({ error: "eventId is required" }, 400, req);
+  if (!subject) return json({ error: "subject is required" }, 400, req);
+  if (subject.length > 200) return json({ error: "subject must be 200 characters or fewer" }, 400, req);
+  if (!markdown) return json({ error: "body is required" }, 400, req);
+  if (audiences.length === 0) return json({ error: "pick at least one audience" }, 400, req);
 
   const service = getServiceClient();
 
@@ -80,9 +80,9 @@ Deno.serve(async (req) => {
     .select("id, user_id, name, paid_at, volunteer_roster")
     .eq("id", eventId)
     .maybeSingle();
-  if (eventErr || !event) return json({ error: "Event not found" }, 404);
-  if (event.user_id !== auth.userId) return json({ error: "Not your event" }, 403);
-  if (!event.paid_at) return json({ error: "Event must be Pro to send updates" }, 403);
+  if (eventErr || !event) return json({ error: "Event not found" }, 404, req);
+  if (event.user_id !== auth.userId) return json({ error: "Not your event" }, 403, req);
+  if (!event.paid_at) return json({ error: "Event must be Pro to send updates" }, 403, req);
 
   // 24h rate limit — count prior sends on this event within the window
   const windowStart = new Date(Date.now() - RATE_LIMIT_HOURS * 3600 * 1000).toISOString();
@@ -94,13 +94,13 @@ Deno.serve(async (req) => {
     .limit(1);
   if (rateErr) {
     console.error("[send-event-update] rate-limit lookup failed", rateErr);
-    return json({ error: "Rate-limit check failed" }, 500);
+    return json({ error: "Rate-limit check failed" }, 500, req);
   }
   if (priorSends && priorSends.length > 0) {
     return json({
       error: `You've already sent an update for this event in the last ${RATE_LIMIT_HOURS} hours.`,
       code: "rate_limited",
-    }, 429);
+    }, 429, req);
   }
 
   // Build recipient list from selected audiences
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
       .is("unsubscribed_at", null);
     if (subsErr) {
       console.error("[send-event-update] subscriber fetch failed", subsErr);
-      return json({ error: "Failed to load subscribers" }, 500);
+      return json({ error: "Failed to load subscribers" }, 500, req);
     }
     for (const s of subs ?? []) {
       recipients.push({ email: s.email, audience: "s", id: String(s.id) });
@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
   });
 
   if (deduped.length === 0) {
-    return json({ error: "No recipients after filtering unsubscribes" }, 400);
+    return json({ error: "No recipients after filtering unsubscribes" }, 400, req);
   }
 
   // Organizer display name + reply-to email
@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
       const errText = await resp.text();
       console.error("[send-event-update] Resend batch failed", resp.status, errText);
       if (successful === 0) {
-        return json({ error: "Email provider rejected the send", detail: errText }, 502);
+        return json({ error: "Email provider rejected the send", detail: errText }, 502, req);
       }
       // Partial success — record what we sent and return a warning.
       break;
@@ -249,5 +249,5 @@ Deno.serve(async (req) => {
     volunteers: deduped.slice(0, successful).filter((r) => r.audience === "v").length,
   };
 
-  return json({ sent, totalRecipients: successful });
+  return json({ sent, totalRecipients: successful }, 200, req);
 });
