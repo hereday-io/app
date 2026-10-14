@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -6,7 +6,7 @@ import { ArrowLeft, CloudOff, LocateFixed, Plus, Loader2, Compass } from 'lucide
 import { useMapboxToken } from '@/hooks/useMapboxToken';
 import { useToast } from '@/hooks/use-toast';
 import { resolveScoutToken, type ResolvedScoutEvent } from '@/lib/scoutApi';
-import { countScoutPending, flushScoutPending } from '@/lib/scoutStorage';
+import { countScoutPending, flushResultToast, flushScoutPending } from '@/lib/scoutStorage';
 import type { EventRoute, RoutePoi } from '@/types/mapEditor';
 import { poiTone } from '@/lib/pois';
 import DropPinSheet from '@/components/scout/DropPinSheet';
@@ -85,56 +85,59 @@ const ScoutPage = () => {
   // effect drains that queue whenever we either (a) mount or (b) get
   // `online` event. We also refresh `pendingCount` after each flush so
   // the banner updates without a reload. Successful flushes toast so
-  // the scout sees resolution — silent success reads as broken.
+  // the scout sees resolution — silent success reads as broken. Pins the
+  // server refuses for good (dead link, invalid pin) leave the queue so
+  // they can't block the rest, and the toast names each one.
+  //
+  // `activeTokenRef` stands in for a per-effect `cancelled` flag, since
+  // DropPinSheet's onSubmitted also triggers a flush from outside the
+  // effect.
+  const activeTokenRef = useRef<string | null>(null);
+  const eventIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    eventIdRef.current = event?.eventId ?? null;
+  }, [event]);
+
+  const refreshPendingCount = useCallback(async (t: string) => {
+    const n = await countScoutPending(t);
+    if (activeTokenRef.current === t) setPendingCount(n);
+  }, []);
+
+  const flushAndToast = useCallback(async (t: string) => {
+    const before = await countScoutPending(t);
+    if (before === 0) {
+      if (activeTokenRef.current === t) setPendingCount(0);
+      return;
+    }
+    const result = await flushScoutPending(t);
+    for (const r of result.rejected) {
+      logEvent('scout_poi_queue_rejected', eventIdRef.current, { status: r.status, kind: r.error.kind });
+    }
+    const after = await countScoutPending(t);
+    if (activeTokenRef.current !== t) return;
+    setPendingCount(after);
+    const message = flushResultToast(result, after);
+    if (message) toast(message);
+  }, [toast]);
+
   useEffect(() => {
     if (!token) return;
-    let cancelled = false;
-
-    const refreshCount = async () => {
-      const n = await countScoutPending(token);
-      if (!cancelled) setPendingCount(n);
-    };
-
-    const flushAndToast = async () => {
-      const before = await countScoutPending(token);
-      if (before === 0) {
-        if (!cancelled) setPendingCount(0);
-        return;
-      }
-      const flushed = await flushScoutPending(token);
-      if (cancelled) return;
-      const after = await countScoutPending(token);
-      setPendingCount(after);
-      if (flushed > 0) {
-        toast({
-          title: flushed === 1 ? 'Uploaded 1 offline pin' : `Uploaded ${flushed} offline pins`,
-          description: after > 0 ? `${after} still waiting for a better signal.` : undefined,
-        });
-      }
-    };
+    activeTokenRef.current = token;
 
     // Initial read on mount (fast, no network) + attempt flush.
-    void refreshCount();
-    void flushAndToast();
+    void refreshPendingCount(token);
+    void flushAndToast(token);
 
-    const onOnline = () => { setIsOnline(true); void flushAndToast(); };
+    const onOnline = () => { setIsOnline(true); void flushAndToast(token); };
     const onOffline = () => { setIsOnline(false); };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     return () => {
-      cancelled = true;
+      activeTokenRef.current = null;
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
-  }, [token, toast]);
-
-  // Re-read pending count after every submit — DropPinSheet may have
-  // added to or drained from the queue.
-  const refreshPendingCount = async () => {
-    if (!token) return;
-    const n = await countScoutPending(token);
-    setPendingCount(n);
-  };
+  }, [token, refreshPendingCount, flushAndToast]);
 
   // ── 3. Initialize map once we have both the event and the mapbox token ──
   useEffect(() => {
@@ -448,13 +451,12 @@ const ScoutPage = () => {
           eventId={event.eventId}
           coordinates={initialSheetCoord}
           onClose={() => setDropSheetOpen(false)}
-          onSubmitted={(coord) => {
+          onSubmitted={(coord, { queued }) => {
             handleSubmitted(coord);
             setDropSheetOpen(false);
-            // Refresh the banner — submit may have hit the network
-            // directly (count stays 0) or queued offline (count +1) or
-            // piggy-backed a flush (count -N).
-            void refreshPendingCount();
+            // Queued offline: just bump the banner. Reached the server:
+            // the network is back, so drain anything queued earlier.
+            void (queued ? refreshPendingCount(token) : flushAndToast(token));
           }}
         />
       )}
