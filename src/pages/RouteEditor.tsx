@@ -34,6 +34,8 @@ import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverl
 import PoiEditPopover from '@/components/editor/PoiEditPopover';
 import UpgradeModal, { type UpgradeTrigger } from '@/components/UpgradeModal';
 import EventLiveModal from '@/components/editor/EventLiveModal';
+import type { PublishResult } from '@/components/editor/PublishConfirmPopover';
+import { isUniqueViolation } from '@/lib/slug';
 import { PAYWALL_LIMITS, usePaywall } from '@/hooks/usePaywall';
 import { useCheckoutReturn } from '@/hooks/useCheckoutReturn';
 import { errorToast } from '@/lib/userFacingError';
@@ -1580,8 +1582,11 @@ const RouteEditor = () => {
     [routes],
   );
 
-  const handlePublish = useCallback(async () => {
-    if (!eventId) return;
+  // newSlug comes from the publish step (PublishConfirmPopover) when a
+  // draft goes live; unpublishing passes nothing. The result tells the
+  // popover whether to close or say "that link is taken".
+  const handlePublish = useCallback(async (newSlug?: string): Promise<PublishResult> => {
+    if (!eventId) return 'failed';
     // Block publishing for unverified email users
     if (eventStatus !== 'published' && user && !user.email_confirmed_at) {
       toast({
@@ -1589,7 +1594,7 @@ const RouteEditor = () => {
         description: 'Check your inbox for the confirmation link, then try again.',
         variant: 'destructive',
       });
-      return;
+      return 'failed';
     }
     // Going live? Enforce validation. Unpublishing always allowed.
     if (eventStatus !== 'published' && !canPublish) {
@@ -1598,11 +1603,13 @@ const RouteEditor = () => {
         description: 'Your event needs at least one route with 2+ points before it can go live.',
         variant: 'destructive',
       });
-      return;
+      return 'failed';
     }
     setIsPublishing(true);
     // Save first, then publish
     const newStatus = eventStatus === 'published' ? 'draft' : 'published';
+    // Only a draft going live can change its link (see PublishConfirmPopover).
+    const slugChanged = newStatus === 'published' && !!newSlug && newSlug !== eventSlug;
     const cleanPois = await materializePoiImages(pois);
     const { data: publishedRows, error } = await supabase.from('events')
       .update({
@@ -1619,11 +1626,16 @@ const RouteEditor = () => {
         branding_style: brandingStyle,
         tracking_start: trackingStart,
         tracking_end: trackingEnd,
+        ...(slugChanged ? { slug: newSlug } : {}),
       })
       .eq('id', eventId)
       .select('id, slug');
 
-    if (error) {
+    let result: PublishResult = 'failed';
+    if (error && slugChanged && isUniqueViolation(error)) {
+      // Nothing was written; the publish step says the link is taken.
+      result = 'slug-taken';
+    } else if (error) {
       toast(errorToast(error, {
         action: newStatus === 'published' ? 'publish' : 'unpublish',
         logLabel: 'RouteEditor publish',
@@ -1637,6 +1649,7 @@ const RouteEditor = () => {
         variant: 'destructive',
       });
     } else {
+      result = 'ok';
       setEventStatus(newStatus);
       // The update returns the slug, so a first publish can show the
       // share link without a second round trip that could fail on its own.
@@ -1658,6 +1671,7 @@ const RouteEditor = () => {
       }
     }
     setIsPublishing(false);
+    return result;
   }, [eventId, eventName, city, eventDate, routes, pois, scoutedPois, eventStatus, eventSlug, toast, logoUrl, brandingStyle, trackingStart, trackingEnd, materializePoiImages]);
 
   const handleResumeRoute = useCallback((id: string) => {
@@ -2133,6 +2147,7 @@ const RouteEditor = () => {
         pendingScoutedCount={scoutedPois.length}
         onReviewScouts={() => navigate(`/dashboard/events/${eventId}`)}
         publicUrl={eventSlug ? `${window.location.origin}/event/${eventSlug}` : undefined}
+        eventSlug={eventSlug}
         eventId={eventId}
         canFinishRoute={!!activeRoute && activeRoute.waypoints.length >= 3 && !finishedRouteIds.has(activeRouteId)}
         onFinishRoute={() => {

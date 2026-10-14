@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Undo2, Trash2, Save, Loader2, HelpCircle, Globe, Check, Copy, ExternalLink, EyeOff, PanelLeft, PanelLeftClose, Share2, Cloud, CloudOff, Pencil, Compass, Radio, Crown } from 'lucide-react';
 import LocationSearch from '@/components/editor/LocationSearch';
 import ShareQrCode from '@/components/editor/ShareQrCode';
+import PublishConfirmPopover, { type PublishResult } from '@/components/editor/PublishConfirmPopover';
 import { logEvent } from '@/lib/analytics';
 
 interface EditorTopBarProps {
@@ -30,6 +31,8 @@ interface EditorTopBarProps {
    *  — parent should navigate to `/dashboard/events/:id` (Ops Center). */
   onReviewScouts?: () => void;
   publicUrl?: string;
+  /** Current slug, editable in the publish step while a draft. */
+  eventSlug?: string | null;
   eventId?: string | null;
   mapboxToken: string;
   onSave: () => void;
@@ -39,7 +42,9 @@ interface EditorTopBarProps {
   onLocationSelect: (center: [number, number], name: string) => void;
   onHelp?: () => void;
   onScoutLink?: () => void;
-  onPublish?: () => void;
+  /** Publish a draft (with the slug confirmed in the publish step) or
+   *  unpublish a live event (no slug). */
+  onPublish?: (slug?: string) => Promise<PublishResult | void> | void;
   /** Set for Free events only; renders the "Unlock Pro" button. */
   onUnlockPro?: () => void;
   onFinishRoute?: () => void;
@@ -67,6 +72,7 @@ const EditorTopBar = ({
   pendingScoutedCount = 0,
   onReviewScouts,
   publicUrl,
+  eventSlug,
   eventId,
   mapboxToken,
   onSave,
@@ -445,16 +451,12 @@ const EditorTopBar = ({
               </div>
             </div>
           ) : (
-            <Button
-              size="sm"
-              onClick={onPublish}
-              disabled={isPublishing || !canPublish}
-              title={!canPublish ? 'Draw a route first — you need at least 2 points to publish' : undefined}
-              className="h-8 gap-1.5"
-            >
-              <Globe className="h-4 w-4" />
-              {isPublishing ? 'Publishing…' : 'Publish'}
-            </Button>
+            <PublishConfirmPopover
+              slug={eventSlug ?? null}
+              canPublish={canPublish}
+              isPublishing={!!isPublishing}
+              onConfirm={async (slug) => (await onPublish(slug)) ?? 'ok'}
+            />
           )
         )}
       </div>
