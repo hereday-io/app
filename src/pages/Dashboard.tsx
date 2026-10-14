@@ -898,8 +898,17 @@ const Dashboard = () => {
               >
                 <Plus className="h-4 w-4" /> Create event
               </button>
-              {/* The "explore a sample event" link pointed at an event that
-                  doesn't exist; bring it back once a real demo is published. */}
+              {/* Hereday's own sample map, owned by kevin@hereday.io. It has
+                  no date on purpose: public_events only marks dated events
+                  as ended, so the sample never expires. Keep it published. */}
+              <a
+                href="/event/hereday-sample-5k-10k"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Or explore a sample event →
+              </a>
             </div>
           </section>
         )}
