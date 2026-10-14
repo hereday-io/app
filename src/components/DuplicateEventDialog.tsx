@@ -117,7 +117,7 @@ const DuplicateEventDialog = ({ open, onOpenChange, event, userId, onCreated }: 
             Duplicate Event
           </DialogTitle>
           <DialogDescription>
-            Creates a new draft with the same route and POIs as <strong>{event.name}</strong>.
+            Creates a new draft with the same route and markers as <strong>{event.name}</strong>.
           </DialogDescription>
         </DialogHeader>
 
@@ -158,7 +158,7 @@ const DuplicateEventDialog = ({ open, onOpenChange, event, userId, onCreated }: 
           </div>
 
           <p className="text-xs text-muted-foreground bg-secondary/60 rounded-lg px-3 py-2">
-            The city, route, and all points of interest will be copied. You can make changes in the editor.
+            The city, route, and all markers will be copied. You can make changes in the editor.
           </p>
 
           <div className="flex justify-end gap-2 pt-1">

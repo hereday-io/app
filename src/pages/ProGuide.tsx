@@ -72,7 +72,7 @@ const ProGuide = () => {
             </p>
           </Feature>
 
-          <Feature title="Unlimited routes and points of interest">
+          <Feature title="Unlimited routes and markers">
             <p>
               Free events get {PAYWALL_LIMITS.routes} routes and {PAYWALL_LIMITS.pois} points of
               interest. Pro removes both limits, which matters when you run a 5K, 10K, half and a

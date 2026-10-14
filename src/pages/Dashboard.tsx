@@ -189,9 +189,9 @@ const EventRow = ({ event, views, subs, isPast, actions }: EventRowProps) => {
           </span>
           <span className="opacity-50 hidden sm:inline">·</span>
           <span>
-            <b className="text-[hsl(215_20%_35%)] font-medium">{event.route_count} routes</b>
+            <b className="text-[hsl(215_20%_35%)] font-medium">{event.route_count} {event.route_count === 1 ? 'route' : 'routes'}</b>
             {' · '}
-            <b className="text-[hsl(215_20%_35%)] font-medium">{event.poi_count} markers</b>
+            <b className="text-[hsl(215_20%_35%)] font-medium">{event.poi_count} {event.poi_count === 1 ? 'marker' : 'markers'}</b>
           </span>
           {showLimitWarning && (
             <>
@@ -578,8 +578,19 @@ const Dashboard = () => {
     });
   }, [events, normalizedQuery, statusFilter, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const upcoming = useMemo(() => filtered.filter((e) => !isPastEvent(e)), [filtered, today]); // eslint-disable-line react-hooks/exhaustive-deps
-  const past = useMemo(() => filtered.filter(isPastEvent), [filtered, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Upcoming: soonest race first, undated drafts after (most recently
+  // edited first, the order they're fetched in). Past: most recent first.
+  const upcoming = useMemo(() => filtered
+    .filter((e) => !isPastEvent(e))
+    .sort((a, b) => {
+      if (a.event_date && b.event_date) return a.event_date.localeCompare(b.event_date);
+      if (a.event_date) return -1;
+      if (b.event_date) return 1;
+      return 0;
+    }), [filtered, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  const past = useMemo(() => filtered
+    .filter(isPastEvent)
+    .sort((a, b) => (b.event_date ?? '').localeCompare(a.event_date ?? '')), [filtered, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stats — computed off the unfiltered list so the row counts don't shift when the user searches.
   const liveEvents = useMemo(() => events.filter(isLiveEvent), [events, today]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -753,7 +764,8 @@ const Dashboard = () => {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-7">
           <div>
             <h1 className="font-display font-bold text-[32px] leading-none tracking-[-0.02em] mb-[6px]">
-              {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
+              {/* "back" only once they have something to come back to */}
+              {`Welcome${events.length > 0 ? ' back' : ''}${firstName ? `, ${firstName}` : ''}`}
             </h1>
             <p className="text-[14.5px] text-muted-foreground max-w-[62ch] leading-[1.6]">
               You have{' '}
@@ -886,14 +898,8 @@ const Dashboard = () => {
               >
                 <Plus className="h-4 w-4" /> Create event
               </button>
-              <a
-                href="/event/crystal-lake-5k-demo"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Or explore a sample event →
-              </a>
+              {/* The "explore a sample event" link pointed at an event that
+                  doesn't exist; bring it back once a real demo is published. */}
             </div>
           </section>
         )}

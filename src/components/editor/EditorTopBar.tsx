@@ -269,7 +269,7 @@ const EditorTopBar = ({
             variant="outline"
             size="sm"
             onClick={onReviewScouts}
-            title="Review scouted markers in the ops center"
+            title="Review scouted markers in the Ops Center"
             className="h-8 gap-1.5 px-2 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
           >
             <Compass className="h-4 w-4" />
@@ -441,7 +441,7 @@ const EditorTopBar = ({
                           className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-foreground transition-colors"
                         >
                           <Radio className="h-4 w-4 text-primary" />
-                          <span className="flex-1">Open ops center</span>
+                          <span className="flex-1">Open Ops Center</span>
                           <span className="text-[11px] text-muted-foreground">race day →</span>
                         </a>
                       )}

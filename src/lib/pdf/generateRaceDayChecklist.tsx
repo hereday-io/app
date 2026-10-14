@@ -329,9 +329,9 @@ function RaceDayChecklistDocument(props: DocProps) {
 
         {/* POIs */}
         <View style={styles.summaryBlock}>
-          <Text style={styles.sectionTitle}>Points of Interest</Text>
+          <Text style={styles.sectionTitle}>Markers</Text>
           {groupedPois.length === 0 ? (
-            <Text style={[styles.summaryLine, { color: MUTED }]}>No POIs added yet.</Text>
+            <Text style={[styles.summaryLine, { color: MUTED }]}>No markers added yet.</Text>
           ) : (
             <View style={styles.poiColumns}>
               <View style={styles.poiColumn}>{leftCol.map((g) => renderPoiGroup(g, poiMileMarkers))}</View>

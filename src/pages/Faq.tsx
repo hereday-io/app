@@ -20,7 +20,7 @@ const generalFaqs: FaqItem[] = [
   {
     q: 'What is Hereday?',
     aText:
-      'Hereday is an event-mapping tool for race organizers. You draw your course, drop points of interest (aid stations, parking, medical, etc.), and publish a shareable public page that participants and spectators can view on any device. No app install required.',
+      'Hereday is an event-mapping tool for race organizers. You draw your course, drop markers (aid stations, parking, medical, etc.), and publish a shareable public page that participants and spectators can view on any device. No app install required.',
     a: (
       <p>
         Hereday is an event-mapping tool for race organizers. You draw your course, drop points
@@ -67,13 +67,13 @@ const generalFaqs: FaqItem[] = [
 const planFaqs: FaqItem[] = [
   {
     q: "What's included in the free plan?",
-    aText: `Everything you need to publish a race map: up to ${PAYWALL_LIMITS.routes} routes per event, up to ${PAYWALL_LIMITS.pois} points of interest per event, a public event page with runner and spectator views, QR code for race-day signage, email subscriber collection, race-day prep checklist PDF (with Hereday footer), and course elevation profile. Free events display a small "Made with Hereday" footer on the public page.`,
+    aText: `Everything you need to publish a race map: up to ${PAYWALL_LIMITS.routes} routes per event, up to ${PAYWALL_LIMITS.pois} markers per event, a public event page with runner and spectator views, QR code for race-day signage, email subscriber collection, race-day prep checklist PDF (with Hereday footer), and course elevation profile. Free events display a small "Made with Hereday" footer on the public page.`,
     a: (
       <>
         <p>Everything you need to publish a race map:</p>
         <ul className="list-disc pl-5 space-y-1 mt-2">
           <li>Up to {PAYWALL_LIMITS.routes} routes per event</li>
-          <li>Up to {PAYWALL_LIMITS.pois} points of interest per event</li>
+          <li>Up to {PAYWALL_LIMITS.pois} markers per event</li>
           <li>Public event page with runner and spectator views</li>
           <li>QR code for race-day signage</li>
           <li>Email subscriber collection</li>
@@ -89,13 +89,13 @@ const planFaqs: FaqItem[] = [
   {
     q: 'What does Pro unlock?',
     aText:
-      'Pro is a one-time $49 upgrade per event. It adds unlimited routes (perfect for marathon weekends with 5K/10K/half/full), unlimited points of interest, custom branding (your logo and banner on the public page), live volunteer status reporting (water station Open/Low/Closed updates), the Event Ops Center for race-day, all branded sponsors visible publicly, no Hereday footer, a clean checklist PDF, and priority support.',
+      'Pro is a one-time $49 upgrade per event. It adds unlimited routes (perfect for marathon weekends with 5K/10K/half/full), unlimited markers, custom branding (your logo and banner on the public page), live volunteer status reporting (water station Open/Low/Closed updates), the Event Ops Center for race-day, all branded sponsors visible publicly, no Hereday footer, a clean checklist PDF, and priority support.',
     a: (
       <>
         <p>Pro is a <strong>one-time $49 upgrade per event</strong>. It adds:</p>
         <ul className="list-disc pl-5 space-y-1 mt-2">
           <li><strong>Unlimited routes</strong> — perfect for marathon weekends (5K/10K/half/full)</li>
-          <li><strong>Unlimited points of interest</strong></li>
+          <li><strong>Unlimited markers</strong></li>
           <li><strong>Custom branding</strong> — your logo and banner on the public page</li>
           <li><strong>Live volunteer status reporting</strong> — water station Open/Low/Closed updates show as colored dots on the public map</li>
           <li><strong>Event Ops Center</strong> — live volunteer activity, scout review, and analytics dashboard for race day</li>

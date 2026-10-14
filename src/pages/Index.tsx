@@ -42,7 +42,7 @@ const features = [
   },
   {
     icon: MapPinned,
-    title: 'Points of interest',
+    title: 'Markers',
     description:
       'Drop water stations, parking, aid, and start/finish in a click. They cluster when zoomed out so your map stays clean.',
   },
@@ -62,7 +62,7 @@ const features = [
     icon: Globe,
     title: 'Instant public pages',
     description:
-      "One click publishes a polished, shareable map page. Drop in your logo — it looks like yours, not ours.",
+      'One click publishes a polished map page that works on any phone, with no app to install.',
   },
   {
     icon: Palette,
@@ -91,7 +91,7 @@ const plans = [
     features: [
       'Unlimited events',
       `Up to ${PAYWALL_LIMITS.routes} routes per event`,
-      `Up to ${PAYWALL_LIMITS.pois} points of interest`,
+      `Up to ${PAYWALL_LIMITS.pois} markers`,
       'Runner & spectator views',
       'Elevation profiles & weather',
       'Public share links',
@@ -106,12 +106,12 @@ const plans = [
     highlight: true,
     features: [
       'Everything in Free',
-      'Unlimited routes & points of interest',
+      'Unlimited routes & markers',
       'Custom logo & banner branding',
       'Live volunteer status reporting',
       'Event Ops Center for race-day ops',
       'All branded sponsors on the map',
-      'Remove Hereday watermark',
+      'No "Made with Hereday" footer',
     ],
   },
 ];
@@ -131,13 +131,13 @@ const steps = [
     number: '01',
     title: 'Name it',
     description:
-      "Type an event name and hit Enter. You're in the editor in under 10 seconds.",
+      "Name your event and you're straight into the editor. No templates, no setup.",
   },
   {
     number: '02',
     title: 'Draw the course',
     description:
-      'Click to place waypoints — they snap to roads automatically. Drop water stations and markers along the way.',
+      'Click to place points along the course. They snap to roads automatically. Drop water stations, parking and other markers along the way.',
   },
   {
     number: '03',
@@ -218,7 +218,7 @@ const Index = () => {
           <div className="flex items-center gap-2">
             <Link
               to="/login"
-              className="hidden sm:inline-flex text-sm font-semibold px-3.5 py-2.5 rounded-[4px] transition-colors"
+              className="inline-flex text-sm font-semibold px-2.5 sm:px-3.5 py-2.5 rounded-[4px] transition-colors"
               style={{ color: 'var(--ed-muted)' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = 'var(--ed-ink)';
@@ -429,7 +429,7 @@ const Index = () => {
                   }}
                 >
                   <Lock className="h-3 w-3 shrink-0" style={{ color: 'var(--ed-success)' }} />
-                  hereday.io/crystal-lake-5k
+                  hereday.io/event/crystal-lake-5k
                 </div>
               </div>
               {/* Hero map */}
