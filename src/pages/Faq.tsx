@@ -137,27 +137,27 @@ const planFaqs: FaqItem[] = [
   {
     q: 'What if my event is cancelled?',
     aText:
-      "Full refund within 7 days if you haven't published yet. If your event has to be cancelled after publishing — weather, venue loss, force majeure — email hello@hereday.io and we'll review it case by case. Pro is per-event, so a cancellation never affects your other events on the platform.",
+      "If it's rescheduled, just change the date: Pro stays with the event. Not running it again this year? Email hello@hereday.io within 30 days of paying and we'll move your Pro to another event, or refund you if that doesn't work for you. Haven't published yet? Full refund within 7 days of paying.",
     a: (
       <p>
-        Full refund within 7 days if you haven't published yet. If your event has to be cancelled
-        after publishing — weather, venue loss, force majeure — email{' '}
+        If it's rescheduled, just change the date: Pro stays with the event. Not running it again
+        this year? Email{' '}
         <a href="mailto:hello@hereday.io" className="text-primary hover:underline">
           hello@hereday.io
         </a>{' '}
-        and we'll review it case by case. Pro is per-event, so a cancellation never affects
-        your other events on the platform.
+        within 30 days of paying and we'll move your Pro to another event, or refund you if that
+        doesn't work for you. Haven't published yet? Full refund within 7 days of paying.
       </p>
     ),
   },
   {
     q: 'I run multiple races a year. Do I pay $49 every time?',
     aText:
-      'Yes — Pro is one-time per event. Three races a year is three separate $49 upgrades when you publish each one. We deliberately picked per-event pricing over a subscription so you never pay during your off-season. Annual / team plans are on the roadmap once we see organizations regularly running multiple events per season.',
+      'Yes — Pro is one-time per event. Three races a year is three separate $49 upgrades, one for each event that needs Pro. We deliberately picked per-event pricing over a subscription so you never pay during your off-season. Annual / team plans are on the roadmap once we see organizations regularly running multiple events per season.',
     a: (
       <p>
-        Yes — Pro is one-time per event. Three races a year is three separate $49 upgrades when
-        you publish each one. We deliberately picked per-event pricing over a subscription so
+        Yes — Pro is one-time per event. Three races a year is three separate $49 upgrades, one
+        for each event that needs Pro. We deliberately picked per-event pricing over a subscription so
         you never pay during your off-season. Annual / team plans are on the roadmap once we
         see organizations regularly running multiple events per season.
       </p>
@@ -195,12 +195,14 @@ const billingFaqs: FaqItem[] = [
   {
     q: 'How do refunds work?',
     aText:
-      "Full refund within 7 days if the event hasn't been published. No refunds after publishing, since Pro features have been delivered to your participants. Cancelled events due to weather or venue loss are reviewed case by case. See our Refund Policy for details.",
+      "Full refund within 7 days of paying if the event hasn't been published. After publishing, Pro has been delivered to your participants, so we don't refund it. If your event is cancelled by weather, venue loss or anything outside your control, change the date and Pro stays with it, or email us within 30 days of paying and we'll move it to another event or refund you. See our Refund Policy for details.",
     a: (
       <p>
-        Full refund within 7 days if the event hasn't been published. No refunds after
-        publishing, since Pro features have been delivered to your participants. Cancelled
-        events due to weather or venue loss are reviewed case by case. See our{' '}
+        Full refund within 7 days of paying if the event hasn't been published. After publishing,
+        Pro has been delivered to your participants, so we don't refund it. If your event is
+        cancelled by weather, venue loss or anything outside your control, change the date and
+        Pro stays with it, or email us within 30 days of paying and we'll move it to another
+        event or refund you. See our{' '}
         <Link to="/refund" className="text-primary hover:underline">Refund Policy</Link>{' '}
         for details.
       </p>

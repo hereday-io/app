@@ -302,7 +302,7 @@ const Billing = () => {
       reportError(err, { area: 'billing', action: 'get_receipt', charge_id: chargeId });
       toast({
         title: 'Receipt not available',
-        description: "We couldn't fetch this receipt. Email legal@hereday.io if you need it.",
+        description: "We couldn't fetch this receipt. Email hello@hereday.io if you need it.",
         variant: 'destructive',
       });
     }
@@ -678,15 +678,15 @@ const Billing = () => {
             <SidePanel>
               <SidePanelHeading>Need help?</SidePanelHeading>
               <p className="text-[12.5px] leading-[1.55] mb-3 mt-0" style={{ color: 'hsl(215 20% 35%)' }}>
-                Refunds available within 7 days for unpublished events, or for cancelled races within
-                30 days.
+                Rescheduled? Change the date and Pro stays with the event. Refunds within 7 days for
+                unpublished events; cancelled races can move Pro to another event within 30 days.
               </p>
               <a
-                href="mailto:legal@hereday.io"
+                href="mailto:hello@hereday.io"
                 className="inline-flex items-center gap-1.5 text-[13px] font-medium no-underline"
                 style={{ color: 'hsl(217 91% 45%)' }}
               >
-                legal@hereday.io
+                hello@hereday.io
                 <ArrowUpRight className="h-[11px] w-[11px]" />
               </a>
             </SidePanel>
