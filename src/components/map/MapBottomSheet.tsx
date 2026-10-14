@@ -327,7 +327,7 @@ const MapBottomSheet = ({
                         ) : (
                           <>
                             <span className="text-green-600 dark:text-green-400">↑ {stats?.gain} ft gain</span>
-                            <span className="text-destructive">↓ {stats?.loss} ft loss</span>
+                            <span className="text-red-600 dark:text-red-400">↓ {stats?.loss} ft loss</span>
                           </>
                         )}
                         <span className="text-muted-foreground">Min {stats?.min} ft</span>
