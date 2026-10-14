@@ -25,6 +25,7 @@ describe('trafficQueries', () => {
   });
 
   it('reads two windows for totals and one for everything else', () => {
+    expect(q.totals).toContain('min(timestamp) AS first_seen');
     expect(q.totals).toContain('INTERVAL 60 DAY');
     expect(q.totals).toContain('INTERVAL 30 DAY AS current');
     for (const sql of [q.by_day, q.top_pages, q.top_referrers]) {
@@ -86,6 +87,7 @@ describe('shapeTraffic', () => {
     expect(out.totals).toEqual({ pageviews: 0, visitors: 0, sessions: 0 });
     expect(out.prev_totals).toEqual({ pageviews: 0, visitors: 0, sessions: 0 });
     expect(out.by_day).toEqual([]);
+    expect(out.first_seen).toBeNull();
   });
 
   it('splits the current window from the previous one whatever the boolean encoding', () => {
@@ -94,6 +96,21 @@ describe('shapeTraffic', () => {
       expect(out.totals).toEqual({ pageviews: 120, visitors: 30, sessions: 35 });
       expect(out.prev_totals).toEqual({ pageviews: 40, visitors: 10, sessions: 12 });
     }
+  });
+
+  it('takes the earliest first_seen across both windows', () => {
+    const out = shapeTraffic({
+      ...empty,
+      totals: [
+        [true, 9, 3, 3, '2026-10-14T19:52:42.812000Z'],
+        [false, 4, 2, 2, '2026-09-20T08:00:00Z'],
+      ],
+    });
+    expect(out.first_seen).toBe('2026-09-20T08:00:00.000Z');
+  });
+
+  it('ignores an unparseable first_seen', () => {
+    expect(shapeTraffic({ ...empty, totals: [[true, 1, 1, 1, 'nope']] }).first_seen).toBeNull();
   });
 
   it('leaves the previous window at zero when only this one has traffic', () => {

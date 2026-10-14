@@ -22,7 +22,7 @@ describe('TrafficPanel', () => {
 
   it('shows setup steps when the function has no PostHog secrets', () => {
     setHook({ configured: false, error: 'PostHog query access not configured' });
-    render(<TrafficPanel days={30} signups={4} />);
+    render(<TrafficPanel days={30} signups={4} signupsByDay={[]} />);
     expect(screen.getByText(/Not connected yet/)).toBeInTheDocument();
     expect(screen.getByText('POSTHOG_PERSONAL_API_KEY')).toBeInTheDocument();
   });
@@ -32,7 +32,7 @@ describe('TrafficPanel', () => {
       { configured: true, error: 'Invalid personal API key', hint: 'needs the Query Read scope' },
       'Invalid personal API key',
     );
-    render(<TrafficPanel days={30} signups={4} />);
+    render(<TrafficPanel days={30} signups={4} signupsByDay={[]} />);
     expect(screen.getByText('Invalid personal API key')).toBeInTheDocument();
     expect(screen.getByText('needs the Query Read scope')).toBeInTheDocument();
   });
@@ -46,7 +46,7 @@ describe('TrafficPanel', () => {
       top_pages: [],
       top_referrers: [],
     });
-    render(<TrafficPanel days={30} signups={0} />);
+    render(<TrafficPanel days={30} signups={0} signupsByDay={[]} />);
     expect(screen.getByText(/the site may not be\s+sending/)).toBeInTheDocument();
     expect(screen.getByText(/admins and sales reps left out/)).toBeInTheDocument();
   });
@@ -64,7 +64,7 @@ describe('TrafficPanel', () => {
         { domain: 'www.google.com', sessions: 40, visitors: 35 },
       ],
     });
-    render(<TrafficPanel days={30} signups={5} />);
+    render(<TrafficPanel days={30} signups={5} signupsByDay={[]} />);
     expect(screen.getByText('200')).toBeInTheDocument();
     expect(screen.getByText('2.5%')).toBeInTheDocument();
     expect(screen.getByText('3.0 pages per session')).toBeInTheDocument();
@@ -75,5 +75,34 @@ describe('TrafficPanel', () => {
       'href',
       'https://us.posthog.com/project/1/web',
     );
+  });
+});
+
+describe('TrafficPanel when PostHog started mid-window', () => {
+  it('divides only signups since tracking began, and holds off on deltas', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    setHook({
+      configured: true,
+      first_seen: new Date(Date.now() - 60_000).toISOString(),
+      totals: { pageviews: 3, visitors: 1, sessions: 1 },
+      prev_totals: zero,
+      by_day: [{ day: today, pageviews: 3, visitors: 1 }],
+      top_pages: [],
+      top_referrers: [],
+    });
+    render(
+      <TrafficPanel
+        days={30}
+        signups={2}
+        signupsByDay={[
+          { day: '2020-01-01', count: 2 },
+          { day: today, count: 0 },
+        ]}
+      />,
+    );
+    expect(screen.queryByText('200.0%')).not.toBeInTheDocument();
+    expect(screen.getByText('0.0%')).toBeInTheDocument();
+    expect(screen.getAllByText('no full prior period yet')).toHaveLength(2);
+    expect(screen.getByText(/PostHog data starts .*covers 1 day and/)).toBeInTheDocument();
   });
 });
