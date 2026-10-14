@@ -34,6 +34,7 @@ import KeyboardShortcutsOverlay from '@/components/editor/KeyboardShortcutsOverl
 import PoiEditPopover from '@/components/editor/PoiEditPopover';
 import UpgradeModal from '@/components/UpgradeModal';
 import { PAYWALL_LIMITS, usePaywall } from '@/hooks/usePaywall';
+import { useCheckoutReturn } from '@/hooks/useCheckoutReturn';
 import { errorToast } from '@/lib/userFacingError';
 
 // Mapbox token fetched from backend at runtime
@@ -261,22 +262,10 @@ const RouteEditor = () => {
     });
   }, [mapboxToken]);
 
-  // Check for upgrade success redirect on mount only. Clean the URL
-  // param immediately so the map-init effect (which reads searchParams
-  // for lng/lat) doesn't re-fire when the URL changes.
-  const upgradeHandledRef = useRef(false);
-  useEffect(() => {
-    if (upgradeHandledRef.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('upgraded') === 'true') {
-      upgradeHandledRef.current = true;
-      setEventIsPro(true);
-      toast({ title: 'Upgrade complete!', description: 'This event is now on the Pro plan.' });
-      params.delete('upgraded');
-      const clean = `${window.location.pathname}?${params.toString()}`;
-      window.history.replaceState({}, '', clean);
-    }
-  }, [toast]);
+  // Back from Stripe Checkout: confirm Pro once the webhook lands.
+  useCheckoutReturn((paidEventId) => {
+    if (paidEventId === eventId) setEventIsPro(true);
+  });
 
   useEffect(() => {
     if (!activeRouteId && routes.length > 0) setActiveRouteId(routes[0].id);

@@ -31,6 +31,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { useAuth } from '@/hooks/useAuth';
+import { useCheckoutReturn } from '@/hooks/useCheckoutReturn';
 import { useToast } from '@/hooks/use-toast';
 import { useEventAnalytics } from '@/hooks/useEventAnalytics';
 import { usePoiStatuses } from '@/hooks/usePoiStatuses';
@@ -170,6 +171,12 @@ const EventOpsCenter = () => {
   useEffect(() => {
     fetchEvent();
   }, [fetchEvent]);
+
+  // Back from Stripe Checkout: patch paid_at in place rather than
+  // refetching, which would flash the loading screen.
+  useCheckoutReturn((paidEventId, row) => {
+    setEvent((prev) => (prev && prev.id === paidEventId ? { ...prev, paid_at: row.paid_at } : prev));
+  });
 
   useEffect(() => {
     if (!user) return;
