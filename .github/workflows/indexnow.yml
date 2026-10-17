@@ -1,0 +1,30 @@
+name: IndexNow
+
+# After Vercel finishes a production deploy, tell Bing (and the other
+# IndexNow engines) to recrawl the sitemap. Bing's index feeds ChatGPT
+# search and Copilot. See scripts/lib/indexnow.mjs.
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run indexnow

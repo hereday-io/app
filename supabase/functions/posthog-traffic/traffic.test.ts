@@ -1,6 +1,15 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { clampDays, errorHint, internalUsersFilter, shapeTraffic, trafficQueries } from './traffic';
+import {
+  AI_ASSISTANTS,
+  aiSourceExpr,
+  clampDays,
+  errorHint,
+  internalUsersFilter,
+  shapeTraffic,
+  trafficQueries,
+} from './traffic';
+import { AI_ASSISTANTS as APP_AI_ASSISTANTS } from '../../../src/lib/aiReferrals';
 
 describe('clampDays', () => {
   it('defaults junk to 30 and caps at a year', () => {
@@ -28,7 +37,7 @@ describe('trafficQueries', () => {
     expect(q.totals).toContain('min(timestamp) AS first_seen');
     expect(q.totals).toContain('INTERVAL 60 DAY');
     expect(q.totals).toContain('INTERVAL 30 DAY AS current');
-    for (const sql of [q.by_day, q.top_pages, q.top_referrers]) {
+    for (const sql of [q.by_day, q.top_pages, q.top_referrers, q.ai_referrals]) {
       expect(sql).toContain('timestamp >= now() - INTERVAL 30 DAY');
       expect(sql).not.toContain('INTERVAL 60 DAY');
     }
@@ -80,7 +89,7 @@ describe('internalUsersFilter', () => {
 });
 
 describe('shapeTraffic', () => {
-  const empty = { totals: [], by_day: [], top_pages: [], top_referrers: [] };
+  const empty = { totals: [], by_day: [], top_pages: [], top_referrers: [], ai_referrals: [] };
 
   it('zeros everything when PostHog has no rows', () => {
     const out = shapeTraffic(empty);
@@ -132,6 +141,49 @@ describe('shapeTraffic', () => {
     ]);
     expect(out.top_pages[1]).toEqual({ path: '/', pageviews: 4, visitors: 4 });
     expect(out.top_referrers[1]).toEqual({ domain: '$direct', sessions: 2, visitors: 2 });
+  });
+
+  it('groups AI referrals by assistant, busiest first, landings busiest first', () => {
+    const out = shapeTraffic({
+      ...empty,
+      ai_referrals: [
+        ['Perplexity', '/', 2],
+        ['ChatGPT', '/faq', 3],
+        ['ChatGPT', '', '4'],
+        ['', '/pro', 9],
+      ],
+    });
+    expect(out.ai_referrals).toEqual([
+      {
+        source: 'ChatGPT',
+        sessions: 7,
+        landings: [
+          { path: '/', sessions: 4 },
+          { path: '/faq', sessions: 3 },
+        ],
+      },
+      { source: 'Perplexity', sessions: 2, landings: [{ path: '/', sessions: 2 }] },
+    ]);
+  });
+});
+
+describe('AI assistants', () => {
+  it('matches the app copy in src/lib/aiReferrals.ts', () => {
+    expect(AI_ASSISTANTS).toEqual(APP_AI_ASSISTANTS);
+  });
+
+  it('checks both the referrer and utm_source, and returns blank otherwise', () => {
+    const expr = aiSourceExpr();
+    expect(expr).toMatch(/^multiIf\(/);
+    expect(expr).toMatch(/, ''\)$/);
+    expect(expr).toContain("endsWith(lower(coalesce(properties.$referring_domain, '')), '.chatgpt.com')");
+    expect(expr).toContain("lower(coalesce(properties.utm_source, '')) = 'chatgpt.com'");
+  });
+
+  it("reads the source off each session's first pageview", () => {
+    const q = trafficQueries(30);
+    expect(q.ai_referrals).toContain('argMin(multiIf(');
+    expect(q.ai_referrals).toContain("WHERE source != ''");
   });
 });
 

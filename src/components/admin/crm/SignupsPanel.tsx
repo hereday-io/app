@@ -5,6 +5,7 @@ import { EmptyRow, SectionCard } from '@/components/admin/AdminStats';
 import { useSignups } from '@/hooks/crm/useCrm';
 import type { Signup, SignupEvent, SignupScope } from '@/lib/crm/types';
 import { fmtShort } from '@/lib/crm/format';
+import { aiAssistantFor } from '@/lib/aiReferrals';
 import { cn } from '@/lib/utils';
 import TriageDialog from './TriageDialog';
 
@@ -23,6 +24,14 @@ const SCOPES: Array<{ value: SignupScope; label: string; hint: string }> = [
     hint: "Maps built in staff accounts with no deal. Usually a hereday_link nobody pasted, or a test to dismiss.",
   },
 ];
+
+function sourceLabel(s: Signup): string {
+  const ai = aiAssistantFor(s.first_referrer, s.utm_source);
+  if (ai) return ` · via ${ai}`;
+  if (s.utm_source) return ` · via ${s.utm_source}`;
+  if (s.first_referrer) return ` · from ${s.first_referrer.replace(/^https?:\/\//, '').split('/')[0]}`;
+  return '';
+}
 
 const EventLine = ({ ev, onTriage }: { ev: SignupEvent; onTriage?: () => void }) => (
   <li className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
@@ -105,7 +114,7 @@ const SignupsPanel = ({ onOpenDeal }: { onOpenDeal: (slug: string) => void }) =>
                 </p>
                 <span className="text-[11.5px] text-muted-foreground">
                   joined {fmtShort(s.signed_up_at)}
-                  {s.utm_source ? ` · via ${s.utm_source}` : s.first_referrer ? ` · from ${s.first_referrer.replace(/^https?:\/\//, '').split('/')[0]}` : ''}
+                  {sourceLabel(s)}
                 </span>
               </div>
               {s.suggestions.length > 0 && scope !== 'staff_maps' && (

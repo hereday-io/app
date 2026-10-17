@@ -45,7 +45,43 @@ export function internalUsersFilter(userIds: readonly string[]): string {
   return `person_id NOT IN (SELECT person_id FROM person_distinct_ids WHERE distinct_id IN (${list}))`;
 }
 
-export type TrafficQueryName = "totals" | "by_day" | "top_pages" | "top_referrers";
+/**
+ * AI assistants that cite hereday.io. An identical copy of
+ * src/lib/aiReferrals.ts (this function can't import from src/);
+ * traffic.test.ts fails if the two drift. See that file for why both the
+ * referrer and utm_source are checked.
+ */
+export const AI_ASSISTANTS: Array<{ label: string; domains: string[]; utmSources: string[] }> = [
+  { label: "ChatGPT", domains: ["chatgpt.com", "chat.openai.com"], utmSources: ["chatgpt", "openai"] },
+  { label: "Claude", domains: ["claude.ai"], utmSources: ["claude", "anthropic"] },
+  { label: "Perplexity", domains: ["perplexity.ai"], utmSources: ["perplexity"] },
+  { label: "Gemini", domains: ["gemini.google.com", "bard.google.com"], utmSources: ["gemini"] },
+  { label: "Copilot", domains: ["copilot.microsoft.com", "copilot.com"], utmSources: ["copilot"] },
+  { label: "Grok", domains: ["grok.com", "x.ai"], utmSources: ["grok"] },
+  { label: "Meta AI", domains: ["meta.ai"], utmSources: ["meta.ai", "metaai"] },
+  { label: "DeepSeek", domains: ["chat.deepseek.com"], utmSources: ["deepseek"] },
+  { label: "Mistral", domains: ["chat.mistral.ai"], utmSources: ["mistral", "lechat"] },
+  { label: "You.com", domains: ["you.com"], utmSources: [] },
+];
+
+/**
+ * HogQL for "which assistant, if any, sent this event": the label, or ''.
+ * Every value spliced in is a constant from the list above.
+ */
+export function aiSourceExpr(): string {
+  const host = `lower(coalesce(properties.$referring_domain, ''))`;
+  const utm = `lower(coalesce(properties.utm_source, ''))`;
+  const branches = AI_ASSISTANTS.flatMap((a) => {
+    const conds = [
+      ...a.domains.map((d) => `${host} = '${d}' OR endsWith(${host}, '.${d}')`),
+      ...[...a.domains, ...a.utmSources].map((u) => `${utm} = '${u}'`),
+    ];
+    return [`(${conds.join(" OR ")})`, `'${a.label}'`];
+  });
+  return `multiIf(${branches.join(", ")}, '')`;
+}
+
+export type TrafficQueryName = "totals" | "by_day" | "top_pages" | "top_referrers" | "ai_referrals";
 
 /**
  * The window is rolling (now minus N days), the same as
@@ -106,6 +142,22 @@ export function trafficQueries(
        GROUP BY domain
        ORDER BY sessions DESC
        LIMIT 10`,
+    // Sessions that arrived from an AI assistant, by assistant and the
+    // page they landed on: the landing page is the closest we get to
+    // what the user asked. The source is read off the session's first
+    // pageview, because only the landing URL carries utm_source.
+    ai_referrals: `
+      SELECT source, landing, count() AS sessions
+        FROM (SELECT $session_id AS sid,
+                     argMin(${aiSourceExpr()}, timestamp) AS source,
+                     argMin(coalesce(properties.$pathname, '/'), timestamp) AS landing
+                FROM events
+               WHERE ${BASE_FILTER} AND ${since}
+               GROUP BY sid)
+       WHERE source != ''
+       GROUP BY source, landing
+       ORDER BY sessions DESC
+       LIMIT 100`,
   };
 }
 
@@ -123,9 +175,33 @@ export interface TrafficData {
   by_day: Array<{ day: string; pageviews: number; visitors: number }>;
   top_pages: Array<{ path: string; pageviews: number; visitors: number }>;
   top_referrers: Array<{ domain: string; sessions: number; visitors: number }>;
+  /** Busiest assistant first; each one's landing pages busiest first. */
+  ai_referrals: Array<{
+    source: string;
+    sessions: number;
+    landings: Array<{ path: string; sessions: number }>;
+  }>;
 }
 
 type Row = unknown[];
+
+function shapeAiReferrals(rows: Row[]): TrafficData["ai_referrals"] {
+  const bySource = new Map<string, TrafficData["ai_referrals"][number]>();
+  for (const [source, landing, sessions] of rows) {
+    const label = String(source ?? "");
+    if (!label) continue;
+    const entry = bySource.get(label) ?? { source: label, sessions: 0, landings: [] };
+    entry.sessions += num(sessions);
+    entry.landings.push({
+      path: landing == null || landing === "" ? "/" : String(landing),
+      sessions: num(sessions),
+    });
+    bySource.set(label, entry);
+  }
+  const out = [...bySource.values()];
+  for (const e of out) e.landings.sort((a, b) => b.sessions - a.sessions);
+  return out.sort((a, b) => b.sessions - a.sessions);
+}
 
 function num(value: unknown): number {
   const n = Number(value);
@@ -170,6 +246,7 @@ export function shapeTraffic(results: Record<TrafficQueryName, Row[]>): TrafficD
       sessions: num(sessions),
       visitors: num(visitors),
     })),
+    ai_referrals: shapeAiReferrals(results.ai_referrals ?? []),
   };
 }
 

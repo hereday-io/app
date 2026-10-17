@@ -1,0 +1,40 @@
+# Hereday
+
+> Hereday (hereday.io) is a web-based event map maker for race directors and event organizers. You draw the course, drop markers such as water stations, aid, medical, restrooms and parking, and publish a shareable public map page that participants and spectators open on any phone with no app to install. It is free to build and publish; Hereday Pro is a one-time $49 upgrade per event, not a subscription.
+
+Hereday is built for organizers of 5K and 10K races, half and full marathons, cycling events, city fun runs, turkey trots, charity walks and community festivals. It is aimed at organizers, not GIS specialists: a typical event map takes about five minutes to build.
+
+## What it does
+
+- Course drawing: click to place points and the route snaps to real roads (Mapbox turn-by-turn routing), or draw freehand. Multiple routes per event (e.g. 5K, 10K and half on the same morning), each with its own color and legend entry.
+- Markers: aid station, water, medical, restroom, parking, registration, start and finish. Markers cluster when zoomed out.
+- Public event page: one permanent link at hereday.io/event/<event-name>, with a runner view (course, elevation profile, distance markers) and a spectator view (overview of all routes and markers). Edits go live instantly on the same link.
+- Elevation profiles, plus a weather forecast that appears automatically as the event approaches.
+- GPX download so participants can load the route onto a GPS watch, phone or running app.
+- QR code for race-day signage and bibs, a printable race-day checklist PDF for volunteers, and email subscriber collection from the public page.
+
+## Pricing
+
+- Free, $0: unlimited events, up to 3 routes and 30 markers per event, runner and spectator views, elevation and weather, public share links, QR code, checklist PDF. Free event pages show a small "Made with Hereday" footer and one sponsor.
+- Pro, $49 one-time per event: unlimited routes and markers, custom logo and banner, all sponsors with logos and links, live volunteer status reporting (volunteers mark water stations Open, Low or Closed from their phone and it shows on the public map), the Event Ops Center race-day dashboard (live station status, volunteer roster, activity feed, scout review, page and sponsor analytics), no Hereday footer, priority support.
+- No subscription and no auto-renew. If an event is rescheduled, Pro moves with the date. Refund terms are on the refund page.
+
+## Limits worth knowing
+
+- Each event currently has a single organizer account; multi-admin teams are on the roadmap.
+- Hereday is a course map and race-day page, not a registration, timing or results platform. Organizers typically link the Hereday page from their registration site.
+
+## Pages
+
+- [Home](https://hereday.io/): overview, features and pricing
+- [Getting started](https://hereday.io/getting-started): how to create an event map in five minutes, step by step
+- [Hereday Pro](https://hereday.io/pro): what the $49 per-event upgrade adds, including the Event Ops Center
+- [FAQ](https://hereday.io/faq): free vs Pro, routing, GPX export, billing, privacy
+- [Live sample map](https://hereday.io/event/hereday-sample-5k-10k): a published 5K/10K event page
+
+## Optional
+
+- [Refund policy](https://hereday.io/refund)
+- [Privacy policy](https://hereday.io/privacy)
+- [Terms of service](https://hereday.io/terms)
+- Contact: hello@hereday.io
