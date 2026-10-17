@@ -11,7 +11,7 @@ const ProGuide = () => {
   useSeoMeta({
     title: 'Hereday Pro for Race Directors — Event Ops Center, Branding & More',
     description:
-      'What Hereday Pro adds to your race map: the Event Ops Center for race day, live volunteer status, unlimited routes, your own branding and sponsors. $49 per event, one time.',
+      'Hereday Pro adds the Event Ops Center, live volunteer status, unlimited routes, and your branding and sponsors to your race map. $49 per event, one time.',
     canonicalPath: '/pro',
   });
 
