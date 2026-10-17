@@ -35,6 +35,7 @@ import SearchConsolePanel from '@/components/admin/SearchConsolePanel';
 import TrafficPanel from '@/components/admin/TrafficPanel';
 import { Delta, EmptyRow, SectionCard, StatCard } from '@/components/admin/AdminStats';
 import { buildSeries, nf } from '@/lib/metrics';
+import { aiAssistantFor } from '@/lib/aiReferrals';
 import { useAdminOverview } from '@/hooks/useAdminOverview';
 
 // Stripe holds the real amounts (promos, refunds), so anything derived
@@ -80,6 +81,21 @@ const AdminOverviewInner = () => {
       { label: 'Hit the paywall', value: f.hit_paywall },
       { label: 'Paid', value: f.paid },
     ];
+  }, [data]);
+
+  // The RPC groups on the raw utm_source / referrer URL, so one assistant
+  // arrives as several rows (`chatgpt.com`, `https://chatgpt.com/`, …).
+  // Fold those into one row per assistant.
+  const signupSources = useMemo(() => {
+    if (!data) return [];
+    const merged = new Map<string, number>();
+    for (const s of data.sources) {
+      const key = aiAssistantFor(s.source, s.source) ?? s.source;
+      merged.set(key, (merged.get(key) ?? 0) + s.signups);
+    }
+    return [...merged]
+      .map(([source, signups]) => ({ source, signups }))
+      .sort((a, b) => b.signups - a.signups);
   }, [data]);
 
   const funnelTop = funnelSteps.length ? Math.max(...funnelSteps.map((s) => s.value), 1) : 1;
@@ -461,11 +477,11 @@ const AdminOverviewInner = () => {
                 title="Where signups come from"
                 hint="First-touch attribution. Signups from before June 2026 have no attribution and show as direct / unknown."
               >
-                {data.sources.length === 0 ? (
+                {signupSources.length === 0 ? (
                   <EmptyRow>No signups in this window.</EmptyRow>
                 ) : (
                   <ul className="space-y-1.5">
-                    {data.sources.map((s) => (
+                    {signupSources.map((s) => (
                       <li
                         key={s.source}
                         className="flex items-center justify-between gap-3 text-[13px]"

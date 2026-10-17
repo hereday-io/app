@@ -1,6 +1,14 @@
 import { useMemo } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from 'recharts';
-import { Eye, ExternalLink, MousePointerClick, Repeat, UserCheck, Users } from 'lucide-react';
+import {
+  Eye,
+  ExternalLink,
+  MousePointerClick,
+  Repeat,
+  Sparkles,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
@@ -144,6 +152,8 @@ const TrafficPanel = ({ days, signups, signupsByDay }: TrafficPanelProps) => {
   }
 
   const signupRate = totals.visitors > 0 ? (trackedSignups / totals.visitors) * 100 : null;
+  const aiSessions = (data.ai_referrals ?? []).reduce((n, a) => n + a.sessions, 0);
+  const aiShare = totals.sessions > 0 ? (aiSessions / totals.sessions) * 100 : null;
   const since = coverage.startDay ? formatDay(coverage.startDay) : null;
 
   // A prior window PostHog only partly saw would turn the first weeks
@@ -292,6 +302,50 @@ const TrafficPanel = ({ days, signups, signupsByDay }: TrafficPanelProps) => {
             </table>
           )}
         </div>
+      </div>
+
+      <div className="mt-6">
+        <h3 className="text-[12.5px] font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3" />
+          From AI assistants
+        </h3>
+        {data.ai_referrals_error ? (
+          <p className="text-[12.5px] text-destructive">
+            PostHog refused the AI-referral query: {data.ai_referrals_error}
+          </p>
+        ) : !data.ai_referrals?.length ? (
+          <EmptyRow>
+            No visits from ChatGPT, Claude, Perplexity or other assistants in this window.
+          </EmptyRow>
+        ) : (
+          <>
+            <ul className="divide-y divide-border/50 text-[13px]">
+              {data.ai_referrals.map((a) => (
+                <li key={a.source} className="py-1.5 flex items-baseline justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="text-foreground">{a.source}</span>
+                    <span className="text-muted-foreground text-[12px]">
+                      {' '}
+                      · landed on{' '}
+                      {a.landings
+                        .slice(0, 3)
+                        .map((l) => `${l.path} (${nf.format(l.sessions)})`)
+                        .join(', ')}
+                      {a.landings.length > 3 ? ` +${a.landings.length - 3} more` : ''}
+                    </span>
+                  </span>
+                  <span className="tabular-nums font-semibold text-foreground shrink-0">
+                    {nf.format(a.sessions)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11.5px] text-muted-foreground mt-2">
+              {aiShare !== null && `${aiShare.toFixed(1)}% of all sessions. `}
+              Matched on referrer or utm_source; Google's AI Overviews still count as google.com.
+            </p>
+          </>
+        )}
       </div>
     </SectionCard>
   );

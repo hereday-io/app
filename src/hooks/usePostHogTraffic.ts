@@ -30,6 +30,14 @@ export interface PostHogTrafficData {
   by_day?: Array<{ day: string; pageviews: number; visitors: number }>;
   top_pages?: Array<{ path: string; pageviews: number; visitors: number }>;
   top_referrers?: Array<{ domain: string; sessions: number; visitors: number }>;
+  /** Sessions sent by AI assistants, by assistant, with their landing pages. */
+  ai_referrals?: Array<{
+    source: string;
+    sessions: number;
+    landings: Array<{ path: string; sessions: number }>;
+  }>;
+  /** Set when only the AI-referral query failed; the rest of the data is good. */
+  ai_referrals_error?: string | null;
 }
 
 export function usePostHogTraffic(days: number) {

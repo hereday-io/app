@@ -118,10 +118,21 @@ Deno.serve(async (req) => {
   const queries = trafficQueries(days, (staff ?? []).map((p) => String(p.user_id)));
   const names = Object.keys(queries) as TrafficQueryName[];
 
+  // The AI-referral breakdown is an extra; if PostHog rejects it, the
+  // panel still gets everything else and says why that section is empty.
+  let aiError: string | null = null;
+  const run = (name: TrafficQueryName) => {
+    const rows = hogql(host, projectId, key, name, queries[name]);
+    if (name !== "ai_referrals") return rows;
+    return rows.catch((err) => {
+      aiError = err instanceof Error ? err.message : String(err);
+      console.error("[posthog-traffic] ai_referrals query failed:", aiError);
+      return [] as unknown[][];
+    });
+  };
+
   try {
-    const rows = await Promise.all(
-      names.map((name) => hogql(host, projectId, key, name, queries[name])),
-    );
+    const rows = await Promise.all(names.map(run));
     const results = Object.fromEntries(names.map((name, i) => [name, rows[i]])) as Record<
       TrafficQueryName,
       unknown[][]
@@ -133,6 +144,7 @@ Deno.serve(async (req) => {
         days,
         app_url: `${host}/project/${projectId}/web`,
         ...shapeTraffic(results),
+        ai_referrals_error: aiError,
       },
       200,
       req,
