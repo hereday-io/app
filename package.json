@@ -17,7 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
-    "test:db": "node supabase/tests/crm.check.mjs && node supabase/tests/profiles.check.mjs && node supabase/tests/stripe_ledger.check.mjs && node supabase/tests/stripe_revenue_backfill.check.mjs && node supabase/tests/event_registration.check.mjs && node supabase/tests/events_anon_select.check.mjs && node supabase/tests/billing_reconcile.check.mjs && node supabase/tests/anon_least_privilege.check.mjs && node supabase/tests/poi_status_moved.check.mjs && node supabase/tests/events_clean_slugs.check.mjs",
+    "test:db": "node supabase/tests/crm.check.mjs && node supabase/tests/profiles.check.mjs && node supabase/tests/stripe_ledger.check.mjs && node supabase/tests/stripe_revenue_backfill.check.mjs && node supabase/tests/event_registration.check.mjs && node supabase/tests/events_anon_select.check.mjs && node supabase/tests/billing_reconcile.check.mjs && node supabase/tests/anon_least_privilege.check.mjs && node supabase/tests/poi_status_moved.check.mjs && node supabase/tests/events_clean_slugs.check.mjs && node supabase/tests/events_billing_columns.check.mjs",
     "build:ssr": "vite build --ssr src/entry-prerender.tsx --outDir dist-ssr",
     "prerender": "node scripts/prerender.mjs",
     "indexnow": "node scripts/indexnow.mjs"
