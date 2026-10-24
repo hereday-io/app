@@ -4,7 +4,8 @@
 // Why: there is no staging database. Local dev points at prod and every
 // migration lands on live data, so this is the only place a migration
 // can be run end to end before it ships. It stubs what Supabase provides
-// (auth schema, roles, default grants) and patches columns prod has that
+// (auth schema, roles, default grants, and the 2026-10-30 switch that
+// ended those grants for new tables) and patches columns prod has that
 // the migration files never created.
 //
 //   node supabase/tests/pglite.mjs   → lists each migration; exits 1 if
@@ -101,6 +102,20 @@ export const PRE_PATCHES = {
   '20260411120000': DROP_PUBLIC_EVENTS, // event_billing_columns
 };
 
+// On 2026-10-30 Supabase stopped default-granting the Data API roles on
+// new tables and sequences in public (changelog 45329). Objects created
+// before then keep the grants the prelude gives them. From this version
+// on, a migration's new table is reachable by anon, authenticated and
+// service_role only through its own GRANTs, as in prod. These are
+// Supabase's own statements. See supabase/README.md for the convention.
+export const DATA_API_GRANT_CUTOFF = '20261030000000';
+export const DATA_API_DEFAULTS_OFF = `
+alter default privileges for role postgres in schema public
+  revoke select, insert, update, delete on tables from anon, authenticated, service_role;
+alter default privileges for role postgres in schema public
+  revoke usage, select on sequences from anon, authenticated, service_role;
+`;
+
 // Migrations allowed to FAIL on a clean replay, by version prefix, each
 // with a comment saying why. Anything else that fails makes createDb
 // throw, so no check runs on a half-built schema. Keep this empty: fix
@@ -113,9 +128,14 @@ export async function createDb(repoRoot = REPO_ROOT, { stopBefore } = {}) {
   const dir = join(repoRoot, 'supabase', 'migrations');
   const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
   const results = [];
+  let defaultsOff = false;
   for (const f of files) {
     if (stopBefore && f >= stopBefore) break;
     const version = f.split('_')[0];
+    if (!defaultsOff && version >= DATA_API_GRANT_CUTOFF) {
+      await db.exec(DATA_API_DEFAULTS_OFF);
+      defaultsOff = true;
+    }
     if (version === '20260406120000') await db.exec(DRIFT_PATCH);
     if (PRE_PATCHES[version]) await db.exec(PRE_PATCHES[version]);
     const sql = readFileSync(join(dir, f), 'utf8');
